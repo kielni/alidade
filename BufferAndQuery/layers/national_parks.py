@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from helpers import filter_national_parks
-from models import Layer, ProcessingStep, PythonAction
+from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
 
 national_parks = Layer(
     id="national_parks",
@@ -12,6 +12,17 @@ national_parks = Layer(
     crs="EPSG:3857",
     visible=True,
     geometry_type="Polygon",
+    renderer=SingleSymbol(
+        symbol=Symbol(
+            type="fill",
+            layers=[
+                SimpleFill(
+                    color="120,200,100,128",
+                    outline_color="0,100,0,255",
+                )
+            ],
+        )
+    ),
     processing_step=ProcessingStep(
         description=(
             "Filter USAParks to FCC='D83' (National Park Service units:"

@@ -57,3 +57,22 @@ Why D83 and not D84/D85: the exercise target is NPS-administered lands
 **Files created:**
 - `layers/national_parks.py`
 - `helpers.py` — `filter_national_parks(inputs, output)` using `ogr2ogr -where "FCC='D83'"`
+
+---
+
+## Step 3 — Style national parks layer
+
+**Prompt:** update national parks layer styling: dark green outline, lighter green fill with 50% opacity
+
+**What this does:**
+
+Added a `SingleSymbol` renderer to `national_parks` with a `SimpleFill`:
+
+- Fill: `120,200,100` at 50% opacity (alpha 128) — medium-light green
+- Outline: `0,100,0` at full opacity — dark green
+
+The fill alpha is set in the color string rather than on the `Symbol`, so the
+outline stays fully opaque while only the fill is transparent.
+
+**Files changed:**
+- `layers/national_parks.py` — added `renderer=SingleSymbol(...)`
