@@ -76,3 +76,23 @@ outline stays fully opaque while only the fill is transparent.
 
 **Files changed:**
 - `layers/national_parks.py` — added `renderer=SingleSymbol(...)`
+
+---
+
+## Step 4 — Replace OpenStreetMap basemap with CartoDB Positron
+
+**Prompt:** replace openstreetmap layer with a cartodb light basemap
+
+**What this does:**
+
+Swapped the basemap from OpenStreetMap (GDAL WMS/TMS) to CartoDB Positron
+(WMS XYZ tile service). Positron is a neutral light-gray basemap that keeps
+focus on the data layers rather than road/label detail.
+
+Source URL: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
+(percent-encoded in the QGIS WMS connection string).
+
+**Files created/changed:**
+- `layers/cartodb_positron.py` — new layer file (same source as sample project)
+- `styles/cartodb_positron.xml` — copied from `sample/styles/`
+- `project.py` — replaced `openstreetmap` import and layer reference
