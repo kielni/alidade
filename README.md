@@ -69,7 +69,7 @@ This tool could be for for you if:
 
 **This is not a finished framework.** The scripts are a working base to fork
 and modify. Expect to read the code and adapt it to your workflow. The
-`sample/` project and `DESIGN.md` give you enough to orient, but you are
+`projects/sample/` project and `DESIGN.md` give you enough to orient, but you are
 starting a fork, not installing a package.
 
 ## Getting started
@@ -114,7 +114,7 @@ alidade/
     render.py          — render project.py → output/project.qgs
     build.py           — entry point with incremental rebuild
   
-  sample/              — one directory per project
+  projects/            — one directory per project
     project.py         — source of truth (edit this)
     data/              — data files
     styles/            — per-layer XML extracted from the .qgz
@@ -153,5 +153,5 @@ For derived rasters, run `make prepare DIR=my_project` when source data or a
 processing command changes. This re-runs stale transforms in dependency order,
 then triggers a build.
 
-See `DESIGN.md` for architecture decisions and `sample/workflow.md` for an
+See `DESIGN.md` for architecture decisions and `projects/sample/workflow.md` for an
 example of the LLM prompt log.

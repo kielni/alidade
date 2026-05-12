@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, ProcessingStep
+from models import Layer, ProcessingStep, ShellAction
 
 elevation_10n = Layer(
     id="elevation_10n",
@@ -13,7 +13,9 @@ elevation_10n = Layer(
     style_xml=Path("styles/elevation_10n.xml"),
     processing_step=ProcessingStep(
         description="Reproject elevation from NAD83 geographic to UTM zone 10N.",
-        algorithm="gdalwarp -t_srs EPSG:26910 -r bilinear {input} {output}",
+        action=ShellAction(
+            command="gdalwarp -t_srs EPSG:26910 -r bilinear {input} {output}"
+        ),
         depends_on=["elevation"],
         output=Path("output/elevation_10n.tif"),
     ),

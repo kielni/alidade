@@ -18,16 +18,36 @@ def _resolve_source_path(source: str, project_dir: Path) -> Path:
     return (HERE / path_part).resolve()
 
 
+def _topo_sort(spec) -> list:
+    """Return layers-with-processing-steps in dependency order."""
+    steps = {layer.id: layer for layer in spec.layers if layer.processing_step}
+    ordered: list = []
+    visited: set[str] = set()
+
+    def visit(layer_id: str) -> None:
+        if layer_id in visited:
+            return
+        visited.add(layer_id)
+        layer = steps.get(layer_id)
+        if layer is not None:
+            for dep in layer.processing_step.depends_on:
+                visit(dep)
+            ordered.append(layer)
+
+    for layer in spec.layers:
+        if layer.processing_step is not None:
+            visit(layer.id)
+    return ordered
+
+
 def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
-    """Run any processing_step on layers whose output doesn't yet exist."""
+    """Run processing steps in dependency order for outputs that don't exist."""
     sources = {
         layer.id: _resolve_source_path(layer.source, project_dir)
         for layer in spec.layers
     }
-    for layer in spec.layers:
+    for layer in _topo_sort(spec):
         step = layer.processing_step
-        if step is None:
-            continue
         output = (project_dir / step.output).resolve()
         if not force and output.exists():
             print(f"  [skip] {layer.name!r} output exists")

@@ -39,25 +39,26 @@ Generalize after friction, not before.
 ## Architecture
 
 ```
-qgis_map/
-  models.py               # Pydantic: Project, Layer, ProcessingStep, renderers, symbols
-  dump.py                 # .qgz → layers/*.py + styles/*.xml
-  render.py               # project.py → output/project.qgs
-  prepare.py              # execute layer transforms (data prep, separate from build)
-  build.py                # entry point
+alidade/
+  alidade/
+    models.py             # Pydantic: Project, Layer, ProcessingStep, renderers, symbols
+    dump.py               # .qgz → layers/*.py + styles/*.xml
+    render.py             # project.py → output/project.qgs
+    build.py              # entry point
   Makefile
   local.env               # machine-local config (gitignored)
   local.env.example       # template
 
-  <project_dir>/          # one directory per project
-    project.py            # assembles Project from layers — edit this
-    layers/               # one .py file per layer, named by layer ID
-      slope.py
-      elevation_10n.py
-      park_polygon.py
-      ...
-    styles/               # per-layer XML extracted from .qgz, committed
-    output/               # gitignored; derived rasters and project.qgs land here
+  projects/               # one subdirectory per project
+    <project_dir>/
+      project.py          # assembles Project from layers — edit this
+      layers/             # one .py file per layer, named by layer ID
+        slope.py
+        elevation_10n.py
+        park_polygon.py
+        ...
+      styles/             # per-layer XML extracted from .qgz, committed
+      output/             # gitignored; derived rasters and project.qgs land here
 ```
 
 ### Key choices
