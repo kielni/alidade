@@ -1,0 +1,1193 @@
+<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis projectname="Buffer and Query Practice" version="3.4.11-Madeira">
+  <homePath path=""/>
+  <title>Buffer and Query Practice</title>
+  <autotransaction active="0"/>
+  <evaluateDefaultValues active="0"/>
+  <trust active="0"/>
+  <projectCrs>
+    <spatialrefsys>
+      <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+      <srsid>3857</srsid>
+      <srid>3857</srid>
+      <authid>EPSG:3857</authid>
+      <description>WGS 84 / Pseudo-Mercator</description>
+      <projectionacronym>merc</projectionacronym>
+      <ellipsoidacronym>WGS84</ellipsoidacronym>
+      <geographicflag>false</geographicflag>
+    </spatialrefsys>
+  </projectCrs>
+  <layer-tree-group>
+    <customproperties/>
+    <layer-tree-layer checked="Qt::Checked" name="State Capitol Buildings" expanded="1" providerKey="ogr" id="state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f" source="./data/state_Capitol_bldgs.shp">
+      <customproperties/>
+    </layer-tree-layer>
+    <layer-tree-layer checked="Qt::Checked" name="Parks" expanded="1" providerKey="ogr" id="USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a" source="./data/USAParks.shp">
+      <customproperties/>
+    </layer-tree-layer>
+    <layer-tree-layer checked="Qt::Checked" name="OpenStreetMap" expanded="1" providerKey="gdal" id="OpenStreetMap20180827125536351" source="&lt;GDAL_WMS>&#xa;  &lt;Service name=&quot;TMS&quot;>&#xa;    &lt;ServerUrl>http://tile.openstreetmap.org/${z}/${x}/${y}.png&lt;/ServerUrl>&#xa;  &lt;/Service>&#xa;  &lt;DataWindow>&#xa;    &lt;UpperLeftX>-20037508.34&lt;/UpperLeftX>&#xa;    &lt;UpperLeftY>20037508.34&lt;/UpperLeftY>&#xa;    &lt;LowerRightX>20037508.34&lt;/LowerRightX>&#xa;    &lt;LowerRightY>-20037508.34&lt;/LowerRightY>&#xa;    &lt;TileLevel>19&lt;/TileLevel>&#xa;    &lt;TileCountX>1&lt;/TileCountX>&#xa;    &lt;TileCountY>1&lt;/TileCountY>&#xa;    &lt;YOrigin>top&lt;/YOrigin>&#xa;  &lt;/DataWindow>&#xa;  &lt;Projection>EPSG:3857&lt;/Projection>&#xa;  &lt;BlockSizeX>256&lt;/BlockSizeX>&#xa;  &lt;BlockSizeY>256&lt;/BlockSizeY>&#xa;  &lt;BandsCount>3&lt;/BandsCount>&#xa;  &lt;Cache />&#xa;&lt;/GDAL_WMS>&#xa;">
+      <customproperties/>
+    </layer-tree-layer>
+    <custom-order enabled="0">
+      <item>OpenStreetMap20180827125536351</item>
+      <item>state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f</item>
+      <item>USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a</item>
+    </custom-order>
+  </layer-tree-group>
+  <snapping-settings type="1" intersection-snapping="0" unit="2" enabled="0" tolerance="0" mode="1">
+    <individual-layer-settings>
+      <layer-setting type="1" units="1" id="state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f" enabled="0" tolerance="12"/>
+      <layer-setting type="1" units="1" id="USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a" enabled="0" tolerance="12"/>
+    </individual-layer-settings>
+  </snapping-settings>
+  <relations/>
+  <mapcanvas annotationsVisible="1" name="theMapCanvas">
+    <units>meters</units>
+    <extent>
+      <xmin>-13543601.31726745143532753</xmin>
+      <ymin>2332818.51855469681322575</ymin>
+      <xmax>-7926694.38256428018212318</xmax>
+      <ymax>6604519.16389915533363819</ymax>
+    </extent>
+    <rotation>0</rotation>
+    <destinationsrs>
+      <spatialrefsys>
+        <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+        <srsid>3857</srsid>
+        <srid>3857</srid>
+        <authid>EPSG:3857</authid>
+        <description>WGS 84 / Pseudo-Mercator</description>
+        <projectionacronym>merc</projectionacronym>
+        <ellipsoidacronym>WGS84</ellipsoidacronym>
+        <geographicflag>false</geographicflag>
+      </spatialrefsys>
+    </destinationsrs>
+    <rendermaptile>0</rendermaptile>
+  </mapcanvas>
+  <projectModels/>
+  <legend updateDrawingOrder="true">
+    <legendlayer showFeatureCount="0" open="true" checked="Qt::Checked" name="State Capitol Buildings" drawingOrder="-1">
+      <filegroup open="true" hidden="false">
+        <legendlayerfile visible="1" isInOverview="0" layerid="state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f"/>
+      </filegroup>
+    </legendlayer>
+    <legendlayer showFeatureCount="0" open="true" checked="Qt::Checked" name="Parks" drawingOrder="-1">
+      <filegroup open="true" hidden="false">
+        <legendlayerfile visible="1" isInOverview="0" layerid="USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a"/>
+      </filegroup>
+    </legendlayer>
+    <legendlayer showFeatureCount="0" open="true" checked="Qt::Checked" name="OpenStreetMap" drawingOrder="-1">
+      <filegroup open="true" hidden="false">
+        <legendlayerfile visible="1" isInOverview="0" layerid="OpenStreetMap20180827125536351"/>
+      </filegroup>
+    </legendlayer>
+  </legend>
+  <mapViewDocks/>
+  <mapViewDocks3D/>
+  <mapcanvas annotationsVisible="1" name="mAreaCanvas">
+    <units>degrees</units>
+    <extent>
+      <xmin>0</xmin>
+      <ymin>0</ymin>
+      <xmax>0</xmax>
+      <ymax>0</ymax>
+    </extent>
+    <rotation>0</rotation>
+    <destinationsrs>
+      <spatialrefsys>
+        <proj4>+proj=longlat +datum=WGS84 +no_defs</proj4>
+        <srsid>3452</srsid>
+        <srid>4326</srid>
+        <authid>EPSG:4326</authid>
+        <description>WGS 84</description>
+        <projectionacronym>longlat</projectionacronym>
+        <ellipsoidacronym>WGS84</ellipsoidacronym>
+        <geographicflag>true</geographicflag>
+      </spatialrefsys>
+    </destinationsrs>
+    <rendermaptile>0</rendermaptile>
+  </mapcanvas>
+  <mapcanvas annotationsVisible="1" name="mAreaCanvas">
+    <units>degrees</units>
+    <extent>
+      <xmin>0</xmin>
+      <ymin>0</ymin>
+      <xmax>0</xmax>
+      <ymax>0</ymax>
+    </extent>
+    <rotation>0</rotation>
+    <destinationsrs>
+      <spatialrefsys>
+        <proj4>+proj=longlat +datum=WGS84 +no_defs</proj4>
+        <srsid>3452</srsid>
+        <srid>4326</srid>
+        <authid>EPSG:4326</authid>
+        <description>WGS 84</description>
+        <projectionacronym>longlat</projectionacronym>
+        <ellipsoidacronym>WGS84</ellipsoidacronym>
+        <geographicflag>true</geographicflag>
+      </spatialrefsys>
+    </destinationsrs>
+    <rendermaptile>0</rendermaptile>
+  </mapcanvas>
+  <mapcanvas annotationsVisible="1" name="mAreaCanvas">
+    <units>degrees</units>
+    <extent>
+      <xmin>0</xmin>
+      <ymin>0</ymin>
+      <xmax>0</xmax>
+      <ymax>0</ymax>
+    </extent>
+    <rotation>0</rotation>
+    <destinationsrs>
+      <spatialrefsys>
+        <proj4>+proj=longlat +datum=WGS84 +no_defs</proj4>
+        <srsid>3452</srsid>
+        <srid>4326</srid>
+        <authid>EPSG:4326</authid>
+        <description>WGS 84</description>
+        <projectionacronym>longlat</projectionacronym>
+        <ellipsoidacronym>WGS84</ellipsoidacronym>
+        <geographicflag>true</geographicflag>
+      </spatialrefsys>
+    </destinationsrs>
+    <rendermaptile>0</rendermaptile>
+  </mapcanvas>
+  <projectlayers>
+    <maplayer type="raster" minScale="1e+08" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" maxScale="0" autoRefreshTime="0" autoRefreshEnabled="0" refreshOnNotifyEnabled="0" refreshOnNotifyMessage="">
+      <extent>
+        <xmin>-20037508.33999999985098839</xmin>
+        <ymin>-20037508.33999999985098839</ymin>
+        <xmax>20037508.33999999985098839</xmax>
+        <ymax>20037508.33999999985098839</ymax>
+      </extent>
+      <id>OpenStreetMap20180827125536351</id>
+      <datasource>&lt;GDAL_WMS>
+  &lt;Service name="TMS">
+    &lt;ServerUrl>http://tile.openstreetmap.org/${z}/${x}/${y}.png&lt;/ServerUrl>
+  &lt;/Service>
+  &lt;DataWindow>
+    &lt;UpperLeftX>-20037508.34&lt;/UpperLeftX>
+    &lt;UpperLeftY>20037508.34&lt;/UpperLeftY>
+    &lt;LowerRightX>20037508.34&lt;/LowerRightX>
+    &lt;LowerRightY>-20037508.34&lt;/LowerRightY>
+    &lt;TileLevel>19&lt;/TileLevel>
+    &lt;TileCountX>1&lt;/TileCountX>
+    &lt;TileCountY>1&lt;/TileCountY>
+    &lt;YOrigin>top&lt;/YOrigin>
+  &lt;/DataWindow>
+  &lt;Projection>EPSG:3857&lt;/Projection>
+  &lt;BlockSizeX>256&lt;/BlockSizeX>
+  &lt;BlockSizeY>256&lt;/BlockSizeY>
+  &lt;BandsCount>3&lt;/BandsCount>
+  &lt;Cache />
+&lt;/GDAL_WMS>
+</datasource>
+      <keywordList>
+        <value></value>
+      </keywordList>
+      <layername>OpenStreetMap</layername>
+      <srs>
+        <spatialrefsys>
+          <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+          <srsid>3857</srsid>
+          <srid>3857</srid>
+          <authid>EPSG:3857</authid>
+          <description>WGS 84 / Pseudo-Mercator</description>
+          <projectionacronym>merc</projectionacronym>
+          <ellipsoidacronym>WGS84</ellipsoidacronym>
+          <geographicflag>false</geographicflag>
+        </spatialrefsys>
+      </srs>
+      <resourceMetadata>
+        <identifier></identifier>
+        <parentidentifier></parentidentifier>
+        <language></language>
+        <type></type>
+        <title></title>
+        <abstract></abstract>
+        <links/>
+        <fees></fees>
+        <encoding></encoding>
+        <crs>
+          <spatialrefsys>
+            <proj4></proj4>
+            <srsid>0</srsid>
+            <srid>0</srid>
+            <authid></authid>
+            <description></description>
+            <projectionacronym></projectionacronym>
+            <ellipsoidacronym></ellipsoidacronym>
+            <geographicflag>true</geographicflag>
+          </spatialrefsys>
+        </crs>
+        <extent/>
+      </resourceMetadata>
+      <provider>gdal</provider>
+      <noData>
+        <noDataList useSrcNoData="0" bandNo="1"/>
+        <noDataList useSrcNoData="0" bandNo="2"/>
+        <noDataList useSrcNoData="0" bandNo="3"/>
+      </noData>
+      <map-layer-style-manager current="default">
+        <map-layer-style name="default"/>
+      </map-layer-style-manager>
+      <flags>
+        <Identifiable>1</Identifiable>
+        <Removable>1</Removable>
+        <Searchable>1</Searchable>
+      </flags>
+      <customproperties>
+        <property value="Value" key="identify/format"/>
+        <property value="OpenStreetMap" key="ol_layer_type"/>
+      </customproperties>
+      <pipe>
+        <rasterrenderer type="multibandcolor" blueBand="3" greenBand="2" opacity="1" alphaBand="-1" redBand="1">
+          <rasterTransparency/>
+          <minMaxOrigin>
+            <limits>None</limits>
+            <extent>WholeRaster</extent>
+            <statAccuracy>Estimated</statAccuracy>
+            <cumulativeCutLower>0.02</cumulativeCutLower>
+            <cumulativeCutUpper>0.98</cumulativeCutUpper>
+            <stdDevFactor>2</stdDevFactor>
+          </minMaxOrigin>
+        </rasterrenderer>
+        <brightnesscontrast contrast="0" brightness="0"/>
+        <huesaturation colorizeOn="0" colorizeBlue="128" saturation="0" colorizeGreen="128" colorizeStrength="100" grayscaleMode="0" colorizeRed="255"/>
+        <rasterresampler maxOversampling="2"/>
+      </pipe>
+      <blendMode>0</blendMode>
+    </maplayer>
+    <maplayer type="vector" simplifyLocal="1" geometry="Polygon" simplifyDrawingTol="1" simplifyMaxScale="1" minScale="1e+08" labelsEnabled="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" maxScale="0" autoRefreshTime="0" autoRefreshEnabled="0" simplifyAlgorithm="0" refreshOnNotifyEnabled="0" refreshOnNotifyMessage="" simplifyDrawingHints="1" readOnly="0">
+      <extent>
+        <xmin>-18650016.14262960106134415</xmin>
+        <ymin>2144442.22410734742879868</ymin>
+        <xmax>-7473061.92900844849646091</xmax>
+        <ymax>10644601.31207950413227081</ymax>
+      </extent>
+      <id>USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a</id>
+      <datasource>./data/USAParks.shp</datasource>
+      <keywordList>
+        <value></value>
+      </keywordList>
+      <layername>Parks</layername>
+      <srs>
+        <spatialrefsys>
+          <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+          <srsid>3857</srsid>
+          <srid>3857</srid>
+          <authid>EPSG:3857</authid>
+          <description>WGS 84 / Pseudo-Mercator</description>
+          <projectionacronym>merc</projectionacronym>
+          <ellipsoidacronym>WGS84</ellipsoidacronym>
+          <geographicflag>false</geographicflag>
+        </spatialrefsys>
+      </srs>
+      <resourceMetadata>
+        <identifier></identifier>
+        <parentidentifier></parentidentifier>
+        <language></language>
+        <type></type>
+        <title></title>
+        <abstract></abstract>
+        <contact>
+          <name></name>
+          <organization></organization>
+          <position></position>
+          <voice></voice>
+          <fax></fax>
+          <email></email>
+          <role></role>
+        </contact>
+        <links/>
+        <fees></fees>
+        <encoding></encoding>
+        <crs>
+          <spatialrefsys>
+            <proj4></proj4>
+            <srsid>0</srsid>
+            <srid>0</srid>
+            <authid></authid>
+            <description></description>
+            <projectionacronym></projectionacronym>
+            <ellipsoidacronym></ellipsoidacronym>
+            <geographicflag>false</geographicflag>
+          </spatialrefsys>
+        </crs>
+        <extent>
+          <spatial maxx="0" maxy="0" minz="0" minx="0" miny="0" crs="" maxz="0" dimensions="2"/>
+          <temporal>
+            <period>
+              <start></start>
+              <end></end>
+            </period>
+          </temporal>
+        </extent>
+      </resourceMetadata>
+      <provider encoding="UTF-8">ogr</provider>
+      <vectorjoins/>
+      <layerDependencies/>
+      <dataDependencies/>
+      <legend type="default-vector"/>
+      <expressionfields/>
+      <map-layer-style-manager current="default">
+        <map-layer-style name="default"/>
+      </map-layer-style-manager>
+      <auxiliaryLayer/>
+      <flags>
+        <Identifiable>1</Identifiable>
+        <Removable>1</Removable>
+        <Searchable>1</Searchable>
+      </flags>
+      <renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0">
+        <symbols>
+          <symbol type="fill" name="0" clip_to_extent="1" force_rhr="0" alpha="1">
+            <layer pass="0" enabled="1" locked="0" class="SimpleFill">
+              <prop v="3x:0,0,0,0,0,0" k="border_width_map_unit_scale"/>
+              <prop v="157,216,62,178" k="color"/>
+              <prop v="bevel" k="joinstyle"/>
+              <prop v="0,0" k="offset"/>
+              <prop v="3x:0,0,0,0,0,0" k="offset_map_unit_scale"/>
+              <prop v="MM" k="offset_unit"/>
+              <prop v="139,134,134,255" k="outline_color"/>
+              <prop v="solid" k="outline_style"/>
+              <prop v="0" k="outline_width"/>
+              <prop v="MM" k="outline_width_unit"/>
+              <prop v="solid" k="style"/>
+              <data_defined_properties>
+                <Option type="Map">
+                  <Option type="QString" name="name" value=""/>
+                  <Option name="properties"/>
+                  <Option type="QString" name="type" value="collection"/>
+                </Option>
+              </data_defined_properties>
+            </layer>
+          </symbol>
+        </symbols>
+        <rotation/>
+        <sizescale/>
+      </renderer-v2>
+      <customproperties>
+        <property value="0" key="embeddedWidgets/count"/>
+        <property key="variableNames"/>
+        <property key="variableValues"/>
+      </customproperties>
+      <blendMode>0</blendMode>
+      <featureBlendMode>0</featureBlendMode>
+      <layerOpacity>1</layerOpacity>
+      <SingleCategoryDiagramRenderer diagramType="Histogram" attributeLegend="1">
+        <DiagramCategory scaleBasedVisibility="0" backgroundColor="#ffffff" minScaleDenominator="0" labelPlacementMethod="XHeight" sizeType="MM" diagramOrientation="Up" penColor="#000000" barWidth="5" enabled="0" penWidth="0" rotationOffset="270" maxScaleDenominator="1e+08" backgroundAlpha="255" height="15" width="15" lineSizeScale="3x:0,0,0,0,0,0" minimumSize="0" scaleDependency="Area" lineSizeType="MM" penAlpha="255" sizeScale="3x:0,0,0,0,0,0" opacity="1">
+          <fontProperties style="" description="MS Shell Dlg 2,7.85455,-1,5,50,0,0,0,0,0"/>
+        </DiagramCategory>
+      </SingleCategoryDiagramRenderer>
+      <DiagramLayerSettings dist="0" zIndex="0" showAll="1" priority="0" placement="1" linePlacementFlags="18" obstacle="0">
+        <properties>
+          <Option type="Map">
+            <Option type="QString" name="name" value=""/>
+            <Option name="properties"/>
+            <Option type="QString" name="type" value="collection"/>
+          </Option>
+        </properties>
+      </DiagramLayerSettings>
+      <geometryOptions removeDuplicateNodes="0" geometryPrecision="0">
+        <activeChecks/>
+        <checkConfiguration/>
+      </geometryOptions>
+      <fieldConfiguration>
+        <field name="FID_">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="FCC">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="SQMI">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+      </fieldConfiguration>
+      <aliases>
+        <alias index="0" name="" field="FID_"/>
+        <alias index="1" name="" field="NAME"/>
+        <alias index="2" name="" field="FCC"/>
+        <alias index="3" name="" field="SQMI"/>
+      </aliases>
+      <excludeAttributesWMS/>
+      <excludeAttributesWFS/>
+      <defaults>
+        <default expression="" applyOnUpdate="0" field="FID_"/>
+        <default expression="" applyOnUpdate="0" field="NAME"/>
+        <default expression="" applyOnUpdate="0" field="FCC"/>
+        <default expression="" applyOnUpdate="0" field="SQMI"/>
+      </defaults>
+      <constraints>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FID_"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="NAME"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FCC"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="SQMI"/>
+      </constraints>
+      <constraintExpressions>
+        <constraint exp="" field="FID_" desc=""/>
+        <constraint exp="" field="NAME" desc=""/>
+        <constraint exp="" field="FCC" desc=""/>
+        <constraint exp="" field="SQMI" desc=""/>
+      </constraintExpressions>
+      <expressionfields/>
+      <attributeactions>
+        <defaultAction value="{00000000-0000-0000-0000-000000000000}" key="Canvas"/>
+      </attributeactions>
+      <attributetableconfig actionWidgetStyle="dropDown" sortExpression="" sortOrder="0">
+        <columns>
+          <column type="field" hidden="0" width="-1" name="FID_"/>
+          <column type="field" hidden="0" width="-1" name="NAME"/>
+          <column type="field" hidden="0" width="-1" name="FCC"/>
+          <column type="field" hidden="0" width="-1" name="SQMI"/>
+          <column type="actions" hidden="1" width="-1"/>
+        </columns>
+      </attributetableconfig>
+      <conditionalstyles>
+        <rowstyles/>
+        <fieldstyles/>
+      </conditionalstyles>
+      <editform tolerant="1"></editform>
+      <editforminit/>
+      <editforminitcodesource>0</editforminitcodesource>
+      <editforminitfilepath></editforminitfilepath>
+      <editforminitcode><![CDATA[# -*- coding: utf-8 -*-
+"""
+QGIS forms can have a Python function that is called when the form is
+opened.
+
+Use this function to add extra logic to your forms.
+
+Enter the name of the function in the "Python Init function"
+field.
+An example follows:
+"""
+from qgis.PyQt.QtWidgets import QWidget
+
+def my_form_open(dialog, layer, feature):
+	geom = feature.geometry()
+	control = dialog.findChild(QWidget, "MyLineEdit")
+]]></editforminitcode>
+      <featformsuppress>0</featformsuppress>
+      <editorlayout>generatedlayout</editorlayout>
+      <editable>
+        <field editable="1" name="FCC"/>
+        <field editable="1" name="FID_"/>
+        <field editable="1" name="NAME"/>
+        <field editable="1" name="SQMI"/>
+      </editable>
+      <labelOnTop>
+        <field name="FCC" labelOnTop="0"/>
+        <field name="FID_" labelOnTop="0"/>
+        <field name="NAME" labelOnTop="0"/>
+        <field name="SQMI" labelOnTop="0"/>
+      </labelOnTop>
+      <widgets/>
+      <previewExpression>FID_</previewExpression>
+      <mapTip></mapTip>
+    </maplayer>
+    <maplayer type="vector" simplifyLocal="1" geometry="Point" simplifyDrawingTol="1" simplifyMaxScale="1" minScale="1e+08" labelsEnabled="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" maxScale="0" autoRefreshTime="0" autoRefreshEnabled="0" simplifyAlgorithm="0" refreshOnNotifyEnabled="0" refreshOnNotifyMessage="" simplifyDrawingHints="0" readOnly="0">
+      <extent>
+        <xmin>-19001012.55999999493360519</xmin>
+        <ymin>-1606153.16469999775290489</ymin>
+        <xmax>16225343.61210000514984131</xmax>
+        <ymax>8031052.23840000480413437</ymax>
+      </extent>
+      <id>state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f</id>
+      <datasource>./data/state_Capitol_bldgs.shp</datasource>
+      <keywordList>
+        <value></value>
+      </keywordList>
+      <layername>State Capitol Buildings</layername>
+      <srs>
+        <spatialrefsys>
+          <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+          <srsid>3857</srsid>
+          <srid>3857</srid>
+          <authid>EPSG:3857</authid>
+          <description>WGS 84 / Pseudo-Mercator</description>
+          <projectionacronym>merc</projectionacronym>
+          <ellipsoidacronym>WGS84</ellipsoidacronym>
+          <geographicflag>false</geographicflag>
+        </spatialrefsys>
+      </srs>
+      <resourceMetadata>
+        <identifier></identifier>
+        <parentidentifier></parentidentifier>
+        <language></language>
+        <type></type>
+        <title></title>
+        <abstract></abstract>
+        <contact>
+          <name></name>
+          <organization></organization>
+          <position></position>
+          <voice></voice>
+          <fax></fax>
+          <email></email>
+          <role></role>
+        </contact>
+        <links/>
+        <fees></fees>
+        <encoding></encoding>
+        <crs>
+          <spatialrefsys>
+            <proj4></proj4>
+            <srsid>0</srsid>
+            <srid>0</srid>
+            <authid></authid>
+            <description></description>
+            <projectionacronym></projectionacronym>
+            <ellipsoidacronym></ellipsoidacronym>
+            <geographicflag>false</geographicflag>
+          </spatialrefsys>
+        </crs>
+        <extent>
+          <spatial maxx="0" maxy="0" minz="0" minx="0" miny="0" crs="" maxz="0" dimensions="2"/>
+          <temporal>
+            <period>
+              <start></start>
+              <end></end>
+            </period>
+          </temporal>
+        </extent>
+      </resourceMetadata>
+      <provider encoding="UTF-8">ogr</provider>
+      <vectorjoins/>
+      <layerDependencies/>
+      <dataDependencies/>
+      <legend type="default-vector"/>
+      <expressionfields/>
+      <map-layer-style-manager current="default">
+        <map-layer-style name="default"/>
+      </map-layer-style-manager>
+      <auxiliaryLayer/>
+      <flags>
+        <Identifiable>1</Identifiable>
+        <Removable>1</Removable>
+        <Searchable>1</Searchable>
+      </flags>
+      <renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0">
+        <symbols>
+          <symbol type="marker" name="0" clip_to_extent="1" force_rhr="0" alpha="1">
+            <layer pass="0" enabled="1" locked="0" class="SimpleMarker">
+              <prop v="0" k="angle"/>
+              <prop v="76,127,208,255" k="color"/>
+              <prop v="1" k="horizontal_anchor_point"/>
+              <prop v="bevel" k="joinstyle"/>
+              <prop v="star" k="name"/>
+              <prop v="0,0" k="offset"/>
+              <prop v="3x:0,0,0,0,0,0" k="offset_map_unit_scale"/>
+              <prop v="MM" k="offset_unit"/>
+              <prop v="35,35,35,255" k="outline_color"/>
+              <prop v="solid" k="outline_style"/>
+              <prop v="0" k="outline_width"/>
+              <prop v="3x:0,0,0,0,0,0" k="outline_width_map_unit_scale"/>
+              <prop v="MM" k="outline_width_unit"/>
+              <prop v="diameter" k="scale_method"/>
+              <prop v="4" k="size"/>
+              <prop v="3x:0,0,0,0,0,0" k="size_map_unit_scale"/>
+              <prop v="MM" k="size_unit"/>
+              <prop v="1" k="vertical_anchor_point"/>
+              <data_defined_properties>
+                <Option type="Map">
+                  <Option type="QString" name="name" value=""/>
+                  <Option name="properties"/>
+                  <Option type="QString" name="type" value="collection"/>
+                </Option>
+              </data_defined_properties>
+            </layer>
+          </symbol>
+        </symbols>
+        <rotation/>
+        <sizescale/>
+      </renderer-v2>
+      <customproperties>
+        <property value="0" key="embeddedWidgets/count"/>
+        <property key="variableNames"/>
+        <property key="variableValues"/>
+      </customproperties>
+      <blendMode>0</blendMode>
+      <featureBlendMode>0</featureBlendMode>
+      <layerOpacity>1</layerOpacity>
+      <SingleCategoryDiagramRenderer diagramType="Histogram" attributeLegend="1">
+        <DiagramCategory scaleBasedVisibility="0" backgroundColor="#ffffff" minScaleDenominator="0" labelPlacementMethod="XHeight" sizeType="MM" diagramOrientation="Up" penColor="#000000" barWidth="5" enabled="0" penWidth="0" rotationOffset="270" maxScaleDenominator="1e+08" backgroundAlpha="255" height="15" width="15" lineSizeScale="3x:0,0,0,0,0,0" minimumSize="0" scaleDependency="Area" lineSizeType="MM" penAlpha="255" sizeScale="3x:0,0,0,0,0,0" opacity="1">
+          <fontProperties style="" description="MS Shell Dlg 2,7.85455,-1,5,50,0,0,0,0,0"/>
+        </DiagramCategory>
+      </SingleCategoryDiagramRenderer>
+      <DiagramLayerSettings dist="0" zIndex="0" showAll="1" priority="0" placement="0" linePlacementFlags="18" obstacle="0">
+        <properties>
+          <Option type="Map">
+            <Option type="QString" name="name" value=""/>
+            <Option name="properties"/>
+            <Option type="QString" name="type" value="collection"/>
+          </Option>
+        </properties>
+      </DiagramLayerSettings>
+      <geometryOptions removeDuplicateNodes="0" geometryPrecision="0">
+        <activeChecks/>
+        <checkConfiguration/>
+      </geometryOptions>
+      <fieldConfiguration>
+        <field name="FID_">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="SECTOR">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="SUBSECTOR">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="PRIMARY_TY">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="SEC_CLASS">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="DATE_CREAT">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="DATE_MODIF">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="COMP_AFFIL">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME1">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME2">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME3">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="ADDRESS1">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="ADDRESS2">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="PO_BOX">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="PO_ZIP">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="CITY">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="STATE">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="ZIP">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="ZIP_4">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="COUNTY">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="HSIP_AOI">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="FEMA_REGIO">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="LATITUDE">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="LONGITUDE">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="RELIABILIT">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+        <field name="COORSOURCE">
+          <editWidget type="TextEdit">
+            <config>
+              <Option/>
+            </config>
+          </editWidget>
+        </field>
+      </fieldConfiguration>
+      <aliases>
+        <alias index="0" name="" field="FID_"/>
+        <alias index="1" name="" field="SECTOR"/>
+        <alias index="2" name="" field="SUBSECTOR"/>
+        <alias index="3" name="" field="PRIMARY_TY"/>
+        <alias index="4" name="" field="SEC_CLASS"/>
+        <alias index="5" name="" field="DATE_CREAT"/>
+        <alias index="6" name="" field="DATE_MODIF"/>
+        <alias index="7" name="" field="COMP_AFFIL"/>
+        <alias index="8" name="" field="NAME1"/>
+        <alias index="9" name="" field="NAME2"/>
+        <alias index="10" name="" field="NAME3"/>
+        <alias index="11" name="" field="ADDRESS1"/>
+        <alias index="12" name="" field="ADDRESS2"/>
+        <alias index="13" name="" field="PO_BOX"/>
+        <alias index="14" name="" field="PO_ZIP"/>
+        <alias index="15" name="" field="CITY"/>
+        <alias index="16" name="" field="STATE"/>
+        <alias index="17" name="" field="ZIP"/>
+        <alias index="18" name="" field="ZIP_4"/>
+        <alias index="19" name="" field="COUNTY"/>
+        <alias index="20" name="" field="HSIP_AOI"/>
+        <alias index="21" name="" field="FEMA_REGIO"/>
+        <alias index="22" name="" field="LATITUDE"/>
+        <alias index="23" name="" field="LONGITUDE"/>
+        <alias index="24" name="" field="RELIABILIT"/>
+        <alias index="25" name="" field="COORSOURCE"/>
+      </aliases>
+      <excludeAttributesWMS/>
+      <excludeAttributesWFS/>
+      <defaults>
+        <default expression="" applyOnUpdate="0" field="FID_"/>
+        <default expression="" applyOnUpdate="0" field="SECTOR"/>
+        <default expression="" applyOnUpdate="0" field="SUBSECTOR"/>
+        <default expression="" applyOnUpdate="0" field="PRIMARY_TY"/>
+        <default expression="" applyOnUpdate="0" field="SEC_CLASS"/>
+        <default expression="" applyOnUpdate="0" field="DATE_CREAT"/>
+        <default expression="" applyOnUpdate="0" field="DATE_MODIF"/>
+        <default expression="" applyOnUpdate="0" field="COMP_AFFIL"/>
+        <default expression="" applyOnUpdate="0" field="NAME1"/>
+        <default expression="" applyOnUpdate="0" field="NAME2"/>
+        <default expression="" applyOnUpdate="0" field="NAME3"/>
+        <default expression="" applyOnUpdate="0" field="ADDRESS1"/>
+        <default expression="" applyOnUpdate="0" field="ADDRESS2"/>
+        <default expression="" applyOnUpdate="0" field="PO_BOX"/>
+        <default expression="" applyOnUpdate="0" field="PO_ZIP"/>
+        <default expression="" applyOnUpdate="0" field="CITY"/>
+        <default expression="" applyOnUpdate="0" field="STATE"/>
+        <default expression="" applyOnUpdate="0" field="ZIP"/>
+        <default expression="" applyOnUpdate="0" field="ZIP_4"/>
+        <default expression="" applyOnUpdate="0" field="COUNTY"/>
+        <default expression="" applyOnUpdate="0" field="HSIP_AOI"/>
+        <default expression="" applyOnUpdate="0" field="FEMA_REGIO"/>
+        <default expression="" applyOnUpdate="0" field="LATITUDE"/>
+        <default expression="" applyOnUpdate="0" field="LONGITUDE"/>
+        <default expression="" applyOnUpdate="0" field="RELIABILIT"/>
+        <default expression="" applyOnUpdate="0" field="COORSOURCE"/>
+      </defaults>
+      <constraints>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FID_"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="SECTOR"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="SUBSECTOR"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="PRIMARY_TY"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="SEC_CLASS"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="DATE_CREAT"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="DATE_MODIF"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="COMP_AFFIL"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="NAME1"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="NAME2"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="NAME3"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="ADDRESS1"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="ADDRESS2"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="PO_BOX"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="PO_ZIP"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="CITY"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="STATE"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="ZIP"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="ZIP_4"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="COUNTY"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="HSIP_AOI"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FEMA_REGIO"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="LATITUDE"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="LONGITUDE"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="RELIABILIT"/>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="COORSOURCE"/>
+      </constraints>
+      <constraintExpressions>
+        <constraint exp="" field="FID_" desc=""/>
+        <constraint exp="" field="SECTOR" desc=""/>
+        <constraint exp="" field="SUBSECTOR" desc=""/>
+        <constraint exp="" field="PRIMARY_TY" desc=""/>
+        <constraint exp="" field="SEC_CLASS" desc=""/>
+        <constraint exp="" field="DATE_CREAT" desc=""/>
+        <constraint exp="" field="DATE_MODIF" desc=""/>
+        <constraint exp="" field="COMP_AFFIL" desc=""/>
+        <constraint exp="" field="NAME1" desc=""/>
+        <constraint exp="" field="NAME2" desc=""/>
+        <constraint exp="" field="NAME3" desc=""/>
+        <constraint exp="" field="ADDRESS1" desc=""/>
+        <constraint exp="" field="ADDRESS2" desc=""/>
+        <constraint exp="" field="PO_BOX" desc=""/>
+        <constraint exp="" field="PO_ZIP" desc=""/>
+        <constraint exp="" field="CITY" desc=""/>
+        <constraint exp="" field="STATE" desc=""/>
+        <constraint exp="" field="ZIP" desc=""/>
+        <constraint exp="" field="ZIP_4" desc=""/>
+        <constraint exp="" field="COUNTY" desc=""/>
+        <constraint exp="" field="HSIP_AOI" desc=""/>
+        <constraint exp="" field="FEMA_REGIO" desc=""/>
+        <constraint exp="" field="LATITUDE" desc=""/>
+        <constraint exp="" field="LONGITUDE" desc=""/>
+        <constraint exp="" field="RELIABILIT" desc=""/>
+        <constraint exp="" field="COORSOURCE" desc=""/>
+      </constraintExpressions>
+      <expressionfields/>
+      <attributeactions>
+        <defaultAction value="{00000000-0000-0000-0000-000000000000}" key="Canvas"/>
+      </attributeactions>
+      <attributetableconfig actionWidgetStyle="dropDown" sortExpression="" sortOrder="0">
+        <columns>
+          <column type="field" hidden="0" width="-1" name="FID_"/>
+          <column type="field" hidden="0" width="-1" name="SECTOR"/>
+          <column type="field" hidden="0" width="-1" name="SUBSECTOR"/>
+          <column type="field" hidden="0" width="-1" name="PRIMARY_TY"/>
+          <column type="field" hidden="0" width="-1" name="SEC_CLASS"/>
+          <column type="field" hidden="0" width="-1" name="DATE_CREAT"/>
+          <column type="field" hidden="0" width="-1" name="DATE_MODIF"/>
+          <column type="field" hidden="0" width="-1" name="COMP_AFFIL"/>
+          <column type="field" hidden="0" width="-1" name="NAME1"/>
+          <column type="field" hidden="0" width="-1" name="NAME2"/>
+          <column type="field" hidden="0" width="-1" name="NAME3"/>
+          <column type="field" hidden="0" width="-1" name="ADDRESS1"/>
+          <column type="field" hidden="0" width="-1" name="ADDRESS2"/>
+          <column type="field" hidden="0" width="-1" name="PO_BOX"/>
+          <column type="field" hidden="0" width="-1" name="PO_ZIP"/>
+          <column type="field" hidden="0" width="-1" name="CITY"/>
+          <column type="field" hidden="0" width="-1" name="STATE"/>
+          <column type="field" hidden="0" width="-1" name="ZIP"/>
+          <column type="field" hidden="0" width="-1" name="ZIP_4"/>
+          <column type="field" hidden="0" width="-1" name="COUNTY"/>
+          <column type="field" hidden="0" width="-1" name="HSIP_AOI"/>
+          <column type="field" hidden="0" width="-1" name="FEMA_REGIO"/>
+          <column type="field" hidden="0" width="-1" name="LATITUDE"/>
+          <column type="field" hidden="0" width="-1" name="LONGITUDE"/>
+          <column type="field" hidden="0" width="-1" name="RELIABILIT"/>
+          <column type="field" hidden="0" width="-1" name="COORSOURCE"/>
+          <column type="actions" hidden="1" width="-1"/>
+        </columns>
+      </attributetableconfig>
+      <conditionalstyles>
+        <rowstyles/>
+        <fieldstyles/>
+      </conditionalstyles>
+      <editform tolerant="1"></editform>
+      <editforminit/>
+      <editforminitcodesource>0</editforminitcodesource>
+      <editforminitfilepath></editforminitfilepath>
+      <editforminitcode><![CDATA[# -*- coding: utf-8 -*-
+"""
+QGIS forms can have a Python function that is called when the form is
+opened.
+
+Use this function to add extra logic to your forms.
+
+Enter the name of the function in the "Python Init function"
+field.
+An example follows:
+"""
+from qgis.PyQt.QtWidgets import QWidget
+
+def my_form_open(dialog, layer, feature):
+	geom = feature.geometry()
+	control = dialog.findChild(QWidget, "MyLineEdit")
+]]></editforminitcode>
+      <featformsuppress>0</featformsuppress>
+      <editorlayout>generatedlayout</editorlayout>
+      <editable>
+        <field editable="1" name="ADDRESS1"/>
+        <field editable="1" name="ADDRESS2"/>
+        <field editable="1" name="CITY"/>
+        <field editable="1" name="COMP_AFFIL"/>
+        <field editable="1" name="COORSOURCE"/>
+        <field editable="1" name="COUNTY"/>
+        <field editable="1" name="DATE_CREAT"/>
+        <field editable="1" name="DATE_MODIF"/>
+        <field editable="1" name="FEMA_REGIO"/>
+        <field editable="1" name="FID_"/>
+        <field editable="1" name="HSIP_AOI"/>
+        <field editable="1" name="LATITUDE"/>
+        <field editable="1" name="LONGITUDE"/>
+        <field editable="1" name="NAME1"/>
+        <field editable="1" name="NAME2"/>
+        <field editable="1" name="NAME3"/>
+        <field editable="1" name="PO_BOX"/>
+        <field editable="1" name="PO_ZIP"/>
+        <field editable="1" name="PRIMARY_TY"/>
+        <field editable="1" name="RELIABILIT"/>
+        <field editable="1" name="SECTOR"/>
+        <field editable="1" name="SEC_CLASS"/>
+        <field editable="1" name="STATE"/>
+        <field editable="1" name="SUBSECTOR"/>
+        <field editable="1" name="ZIP"/>
+        <field editable="1" name="ZIP_4"/>
+      </editable>
+      <labelOnTop>
+        <field name="ADDRESS1" labelOnTop="0"/>
+        <field name="ADDRESS2" labelOnTop="0"/>
+        <field name="CITY" labelOnTop="0"/>
+        <field name="COMP_AFFIL" labelOnTop="0"/>
+        <field name="COORSOURCE" labelOnTop="0"/>
+        <field name="COUNTY" labelOnTop="0"/>
+        <field name="DATE_CREAT" labelOnTop="0"/>
+        <field name="DATE_MODIF" labelOnTop="0"/>
+        <field name="FEMA_REGIO" labelOnTop="0"/>
+        <field name="FID_" labelOnTop="0"/>
+        <field name="HSIP_AOI" labelOnTop="0"/>
+        <field name="LATITUDE" labelOnTop="0"/>
+        <field name="LONGITUDE" labelOnTop="0"/>
+        <field name="NAME1" labelOnTop="0"/>
+        <field name="NAME2" labelOnTop="0"/>
+        <field name="NAME3" labelOnTop="0"/>
+        <field name="PO_BOX" labelOnTop="0"/>
+        <field name="PO_ZIP" labelOnTop="0"/>
+        <field name="PRIMARY_TY" labelOnTop="0"/>
+        <field name="RELIABILIT" labelOnTop="0"/>
+        <field name="SECTOR" labelOnTop="0"/>
+        <field name="SEC_CLASS" labelOnTop="0"/>
+        <field name="STATE" labelOnTop="0"/>
+        <field name="SUBSECTOR" labelOnTop="0"/>
+        <field name="ZIP" labelOnTop="0"/>
+        <field name="ZIP_4" labelOnTop="0"/>
+      </labelOnTop>
+      <widgets/>
+      <previewExpression>FID_</previewExpression>
+      <mapTip></mapTip>
+    </maplayer>
+  </projectlayers>
+  <layerorder>
+    <layer id="OpenStreetMap20180827125536351"/>
+    <layer id="state_Capitol_bldgs_7affd463_b50d_49f1_a172_52c72382951f"/>
+    <layer id="USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a"/>
+  </layerorder>
+  <properties>
+    <WMSSegmentizeFeatureInfoGeometry type="bool">false</WMSSegmentizeFeatureInfoGeometry>
+    <WMSFees type="QString">conditions unknown</WMSFees>
+    <WMSUrl type="QString"></WMSUrl>
+    <WMSPrecision type="QString">8</WMSPrecision>
+    <WMSContactPosition type="QString"></WMSContactPosition>
+    <WMSServiceTitle type="QString"></WMSServiceTitle>
+    <Measure>
+      <Ellipsoid type="QString">NONE</Ellipsoid>
+    </Measure>
+    <SpatialRefSys>
+      <ProjectCrs type="QString">EPSG:3857</ProjectCrs>
+      <ProjectCRSProj4String type="QString">+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</ProjectCRSProj4String>
+      <ProjectionsEnabled type="int">1</ProjectionsEnabled>
+      <ProjectCRSID type="int">3857</ProjectCRSID>
+    </SpatialRefSys>
+    <WMSAccessConstraints type="QString">None</WMSAccessConstraints>
+    <WMSKeywordList type="QStringList">
+      <value></value>
+    </WMSKeywordList>
+    <WMSServiceCapabilities type="bool">false</WMSServiceCapabilities>
+    <Paths>
+      <Absolute type="bool">false</Absolute>
+    </Paths>
+    <Variables>
+      <variableValues type="QStringList"/>
+      <variableNames type="QStringList"/>
+    </Variables>
+    <WMSImageQuality type="int">90</WMSImageQuality>
+    <WMSServiceAbstract type="QString"></WMSServiceAbstract>
+    <WMSRestrictedComposers type="QStringList"/>
+    <Identify>
+      <disabledLayers type="QStringList"/>
+    </Identify>
+    <WFSTLayers>
+      <Update type="QStringList"/>
+      <Insert type="QStringList"/>
+      <Delete type="QStringList"/>
+    </WFSTLayers>
+    <WMSContactMail type="QString"></WMSContactMail>
+    <WCSUrl type="QString"></WCSUrl>
+    <WFSLayers type="QStringList"/>
+    <WMSAddWktGeometry type="bool">false</WMSAddWktGeometry>
+    <Macros>
+      <pythonCode type="QString"></pythonCode>
+    </Macros>
+    <PositionPrecision>
+      <Automatic type="bool">true</Automatic>
+      <DecimalPlaces type="int">2</DecimalPlaces>
+      <DegreeFormat type="QString">MU</DegreeFormat>
+    </PositionPrecision>
+    <WMSContactPerson type="QString"></WMSContactPerson>
+    <Measurement>
+      <DistanceUnits type="QString">meters</DistanceUnits>
+      <AreaUnits type="QString">m2</AreaUnits>
+    </Measurement>
+    <WMSContactOrganization type="QString"></WMSContactOrganization>
+    <WMSOnlineResource type="QString"></WMSOnlineResource>
+    <WMSContactPhone type="QString"></WMSContactPhone>
+    <WFSUrl type="QString"></WFSUrl>
+    <WCSLayers type="QStringList"/>
+    <DefaultStyles>
+      <RandomColors type="bool">true</RandomColors>
+      <Line type="QString"></Line>
+      <Fill type="QString"></Fill>
+      <ColorRamp type="QString"></ColorRamp>
+      <Marker type="QString"></Marker>
+      <AlphaInt type="int">255</AlphaInt>
+    </DefaultStyles>
+    <Digitizing>
+      <DefaultSnapType type="QString">off</DefaultSnapType>
+      <DefaultSnapToleranceUnit type="int">2</DefaultSnapToleranceUnit>
+      <SnappingMode type="QString">current_layer</SnappingMode>
+      <DefaultSnapTolerance type="double">0</DefaultSnapTolerance>
+    </Digitizing>
+    <PAL>
+      <ShowingPartialsLabels type="bool">true</ShowingPartialsLabels>
+      <CandidatesPoint type="int">16</CandidatesPoint>
+      <CandidatesPolygon type="int">30</CandidatesPolygon>
+      <TextFormat type="int">0</TextFormat>
+      <CandidatesLine type="int">50</CandidatesLine>
+      <ShowingCandidates type="bool">false</ShowingCandidates>
+      <ShowingAllLabels type="bool">false</ShowingAllLabels>
+      <DrawRectOnly type="bool">false</DrawRectOnly>
+      <SearchMethod type="int">0</SearchMethod>
+    </PAL>
+    <WMSUseLayerIDs type="bool">false</WMSUseLayerIDs>
+    <Legend>
+      <filterByMap type="bool">false</filterByMap>
+    </Legend>
+    <Gui>
+      <SelectionColorRedPart type="int">255</SelectionColorRedPart>
+      <SelectionColorAlphaPart type="int">255</SelectionColorAlphaPart>
+      <SelectionColorBluePart type="int">0</SelectionColorBluePart>
+      <SelectionColorGreenPart type="int">255</SelectionColorGreenPart>
+      <CanvasColorGreenPart type="int">255</CanvasColorGreenPart>
+      <CanvasColorRedPart type="int">255</CanvasColorRedPart>
+      <CanvasColorBluePart type="int">255</CanvasColorBluePart>
+    </Gui>
+    <WMSRestrictedLayers type="QStringList"/>
+  </properties>
+  <visibility-presets/>
+  <transformContext/>
+  <projectMetadata>
+    <identifier></identifier>
+    <parentidentifier></parentidentifier>
+    <language></language>
+    <type></type>
+    <title>Buffer and Query Practice</title>
+    <abstract></abstract>
+    <links/>
+    <author></author>
+    <creation></creation>
+  </projectMetadata>
+  <Annotations/>
+  <Layouts/>
+</qgis>

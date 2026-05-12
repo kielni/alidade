@@ -1,0 +1,248 @@
+<maplayer type="vector" simplifyLocal="1" geometry="Polygon" simplifyDrawingTol="1" simplifyMaxScale="1" minScale="1e+08" labelsEnabled="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" maxScale="0" autoRefreshTime="0" autoRefreshEnabled="0" simplifyAlgorithm="0" refreshOnNotifyEnabled="0" refreshOnNotifyMessage="" simplifyDrawingHints="1" readOnly="0">
+      <extent>
+        <xmin>-18650016.14262960106134415</xmin>
+        <ymin>2144442.22410734742879868</ymin>
+        <xmax>-7473061.92900844849646091</xmax>
+        <ymax>10644601.31207950413227081</ymax>
+      </extent>
+      <id>USAParks_c19ff771_06c5_4e0a_b523_ae7d5f52de6a</id>
+      <datasource>./data/USAParks.shp</datasource>
+      <keywordList>
+        <value />
+      </keywordList>
+      <layername>Parks</layername>
+      <srs>
+        <spatialrefsys>
+          <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+          <srsid>3857</srsid>
+          <srid>3857</srid>
+          <authid>EPSG:3857</authid>
+          <description>WGS 84 / Pseudo-Mercator</description>
+          <projectionacronym>merc</projectionacronym>
+          <ellipsoidacronym>WGS84</ellipsoidacronym>
+          <geographicflag>false</geographicflag>
+        </spatialrefsys>
+      </srs>
+      <resourceMetadata>
+        <identifier />
+        <parentidentifier />
+        <language />
+        <type />
+        <title />
+        <abstract />
+        <contact>
+          <name />
+          <organization />
+          <position />
+          <voice />
+          <fax />
+          <email />
+          <role />
+        </contact>
+        <links />
+        <fees />
+        <encoding />
+        <crs>
+          <spatialrefsys>
+            <proj4 />
+            <srsid>0</srsid>
+            <srid>0</srid>
+            <authid />
+            <description />
+            <projectionacronym />
+            <ellipsoidacronym />
+            <geographicflag>false</geographicflag>
+          </spatialrefsys>
+        </crs>
+        <extent>
+          <spatial maxx="0" maxy="0" minz="0" minx="0" miny="0" crs="" maxz="0" dimensions="2" />
+          <temporal>
+            <period>
+              <start />
+              <end />
+            </period>
+          </temporal>
+        </extent>
+      </resourceMetadata>
+      <provider encoding="UTF-8">ogr</provider>
+      <vectorjoins />
+      <layerDependencies />
+      <dataDependencies />
+      <legend type="default-vector" />
+      <expressionfields />
+      <map-layer-style-manager current="default">
+        <map-layer-style name="default" />
+      </map-layer-style-manager>
+      <auxiliaryLayer />
+      <flags>
+        <Identifiable>1</Identifiable>
+        <Removable>1</Removable>
+        <Searchable>1</Searchable>
+      </flags>
+      <renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0">
+        <symbols>
+          <symbol type="fill" name="0" clip_to_extent="1" force_rhr="0" alpha="1">
+            <layer pass="0" enabled="1" locked="0" class="SimpleFill">
+              <prop v="3x:0,0,0,0,0,0" k="border_width_map_unit_scale" />
+              <prop v="157,216,62,178" k="color" />
+              <prop v="bevel" k="joinstyle" />
+              <prop v="0,0" k="offset" />
+              <prop v="3x:0,0,0,0,0,0" k="offset_map_unit_scale" />
+              <prop v="MM" k="offset_unit" />
+              <prop v="139,134,134,255" k="outline_color" />
+              <prop v="solid" k="outline_style" />
+              <prop v="0" k="outline_width" />
+              <prop v="MM" k="outline_width_unit" />
+              <prop v="solid" k="style" />
+              <data_defined_properties>
+                <Option type="Map">
+                  <Option type="QString" name="name" value="" />
+                  <Option name="properties" />
+                  <Option type="QString" name="type" value="collection" />
+                </Option>
+              </data_defined_properties>
+            </layer>
+          </symbol>
+        </symbols>
+        <rotation />
+        <sizescale />
+      </renderer-v2>
+      <customproperties>
+        <property value="0" key="embeddedWidgets/count" />
+        <property key="variableNames" />
+        <property key="variableValues" />
+      </customproperties>
+      <blendMode>0</blendMode>
+      <featureBlendMode>0</featureBlendMode>
+      <layerOpacity>1</layerOpacity>
+      <SingleCategoryDiagramRenderer diagramType="Histogram" attributeLegend="1">
+        <DiagramCategory scaleBasedVisibility="0" backgroundColor="#ffffff" minScaleDenominator="0" labelPlacementMethod="XHeight" sizeType="MM" diagramOrientation="Up" penColor="#000000" barWidth="5" enabled="0" penWidth="0" rotationOffset="270" maxScaleDenominator="1e+08" backgroundAlpha="255" height="15" width="15" lineSizeScale="3x:0,0,0,0,0,0" minimumSize="0" scaleDependency="Area" lineSizeType="MM" penAlpha="255" sizeScale="3x:0,0,0,0,0,0" opacity="1">
+          <fontProperties style="" description="MS Shell Dlg 2,7.85455,-1,5,50,0,0,0,0,0" />
+        </DiagramCategory>
+      </SingleCategoryDiagramRenderer>
+      <DiagramLayerSettings dist="0" zIndex="0" showAll="1" priority="0" placement="1" linePlacementFlags="18" obstacle="0">
+        <properties>
+          <Option type="Map">
+            <Option type="QString" name="name" value="" />
+            <Option name="properties" />
+            <Option type="QString" name="type" value="collection" />
+          </Option>
+        </properties>
+      </DiagramLayerSettings>
+      <geometryOptions removeDuplicateNodes="0" geometryPrecision="0">
+        <activeChecks />
+        <checkConfiguration />
+      </geometryOptions>
+      <fieldConfiguration>
+        <field name="FID_">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="FCC">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="SQMI">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+      </fieldConfiguration>
+      <aliases>
+        <alias index="0" name="" field="FID_" />
+        <alias index="1" name="" field="NAME" />
+        <alias index="2" name="" field="FCC" />
+        <alias index="3" name="" field="SQMI" />
+      </aliases>
+      <excludeAttributesWMS />
+      <excludeAttributesWFS />
+      <defaults>
+        <default expression="" applyOnUpdate="0" field="FID_" />
+        <default expression="" applyOnUpdate="0" field="NAME" />
+        <default expression="" applyOnUpdate="0" field="FCC" />
+        <default expression="" applyOnUpdate="0" field="SQMI" />
+      </defaults>
+      <constraints>
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FID_" />
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="NAME" />
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="FCC" />
+        <constraint unique_strength="0" notnull_strength="0" constraints="0" exp_strength="0" field="SQMI" />
+      </constraints>
+      <constraintExpressions>
+        <constraint exp="" field="FID_" desc="" />
+        <constraint exp="" field="NAME" desc="" />
+        <constraint exp="" field="FCC" desc="" />
+        <constraint exp="" field="SQMI" desc="" />
+      </constraintExpressions>
+      <expressionfields />
+      <attributeactions>
+        <defaultAction value="{00000000-0000-0000-0000-000000000000}" key="Canvas" />
+      </attributeactions>
+      <attributetableconfig actionWidgetStyle="dropDown" sortExpression="" sortOrder="0">
+        <columns>
+          <column type="field" hidden="0" width="-1" name="FID_" />
+          <column type="field" hidden="0" width="-1" name="NAME" />
+          <column type="field" hidden="0" width="-1" name="FCC" />
+          <column type="field" hidden="0" width="-1" name="SQMI" />
+          <column type="actions" hidden="1" width="-1" />
+        </columns>
+      </attributetableconfig>
+      <conditionalstyles>
+        <rowstyles />
+        <fieldstyles />
+      </conditionalstyles>
+      <editform tolerant="1" />
+      <editforminit />
+      <editforminitcodesource>0</editforminitcodesource>
+      <editforminitfilepath />
+      <editforminitcode># -*- coding: utf-8 -*-
+"""
+QGIS forms can have a Python function that is called when the form is
+opened.
+
+Use this function to add extra logic to your forms.
+
+Enter the name of the function in the "Python Init function"
+field.
+An example follows:
+"""
+from qgis.PyQt.QtWidgets import QWidget
+
+def my_form_open(dialog, layer, feature):
+	geom = feature.geometry()
+	control = dialog.findChild(QWidget, "MyLineEdit")
+</editforminitcode>
+      <featformsuppress>0</featformsuppress>
+      <editorlayout>generatedlayout</editorlayout>
+      <editable>
+        <field editable="1" name="FCC" />
+        <field editable="1" name="FID_" />
+        <field editable="1" name="NAME" />
+        <field editable="1" name="SQMI" />
+      </editable>
+      <labelOnTop>
+        <field name="FCC" labelOnTop="0" />
+        <field name="FID_" labelOnTop="0" />
+        <field name="NAME" labelOnTop="0" />
+        <field name="SQMI" labelOnTop="0" />
+      </labelOnTop>
+      <widgets />
+      <previewExpression>FID_</previewExpression>
+      <mapTip />
+    </maplayer>
+    
