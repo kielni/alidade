@@ -103,7 +103,7 @@ def main() -> None:
     from render import _load_spec, render
 
     spec = _load_spec(project_dir)
-    _run_processing_steps(spec, project_dir, force)
+    _run_processing_steps(spec, project_dir, force=False)
     render(spec, project_dir)
 
     output_dir = project_dir / "output"
