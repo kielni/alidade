@@ -1,0 +1,11 @@
+bin
+output
+config.js
+config_aws.js
+.DS_Store
+.idea
+local.env
+config_aws.js
+.venv/
+__pycache__/
+qgis_map/build/
