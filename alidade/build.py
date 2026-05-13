@@ -120,11 +120,13 @@ def main() -> None:
     if str(HERE) not in sys.path:
         sys.path.insert(0, str(HERE))
 
+    from readme import update_readme
     from render import _load_spec, render
 
     spec = _load_spec(project_dir)
     _run_processing_steps(spec, project_dir, force=False)
     render(spec, project_dir)
+    update_readme(spec, project_dir)
 
     output_dir = project_dir / "output"
     output_dir.mkdir(exist_ok=True)
