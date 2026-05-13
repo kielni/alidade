@@ -156,6 +156,43 @@ For derived rasters, run `make prepare DIR=my_project` when source data or a
 processing command changes. This re-runs stale transforms in dependency order,
 then triggers a build.
 
+
+### Build
+
+`make build DIR=my_project` runs black on the project source, loads
+`project.py`, runs any stale processing steps in dependency order, and renders
+the spec into the `output/` directory. Steps whose output already exists are
+skipped; `make build-all` forces a full rebuild.
+
+**Artifacts:**
+
+- `output/project.qgs` — the QGIS project file. Open this in QGIS; reload
+  after each rebuild with Ctrl-R.
+- `output/<derived files>` — shapefiles, rasters, or other outputs produced by
+  processing steps (filtering, reprojection, reclassification, etc.).
+- `output/print.qpt` — QGIS print template, produced when `project.py` has a
+  `print_layout` field. US Letter landscape with a full-page map frame, title
+  strip, north arrow, scale bar, legend, and credits label. Page dimensions,
+  item positions, and scale bar units are all configurable fields — see
+  `alidade/models.py` for defaults and a layout diagram.
+- `README.md` — the Layers and Data flow sections are regenerated from the
+  current project spec.
+
+**Using the print template in QGIS:** open *Project → Layout Manager → From
+template* and select `output/print.qpt`. From there you can adjust items
+interactively and export via the normal print menu.
+
+**Exporting the print layout to PDF from the console:** open the Python console
+in QGIS (**Plugins → Python Console**) and run:
+
+```python
+exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
+```
+
+The script loads `output/print.qpt` into the Layout Manager if it is not
+already there, then writes `output/print.pdf`.
+
+
 #### Building your toolbox
 
 This project does not try to cover every use case. The models, renderers, and
@@ -174,32 +211,64 @@ Iterate to build and customize your own toolbox:
    render function. Document what each field controls and what can be left at
    its default. Add it to the toolbox so the next project starts further along.
 
-### Print layout
+## Example
 
-Add a `print_layout` field to `project.py`:
+Create and describe a new layer `national_parks` by running the `filter_national_parks`
+on the `usaparks` layer.
 
-```python
-spec = Project(
-    ...
-    print_layout=PrintLayout(
-        title_text="My Map Title",
-        credits_text="© OpenStreetMap contributors\nData: My Source",
+```
+from pathlib import Path
+
+from helpers import filter_national_parks
+from models import Layer, ProcessingStep, PythonAction
+
+national_parks = Layer(
+    id="national_parks",
+    name="National Parks",
+    type="vector",
+    source="./output/national_parks.shp",
+    provider="ogr",
+    crs="EPSG:3857",
+    visible=True,
+    geometry_type="Polygon",
+    processing_step=ProcessingStep(
+        description=(
+            "Filter USAParks to FCC='D83' (National Park Service units:"
+            " national parks, monuments, historic parks, seashores, etc.)."
+        ),
+        action=PythonAction(fn=filter_national_parks),
+        depends_on=["usaparks"],
+        output=Path("output/national_parks.shp"),
     ),
 )
 ```
 
-`make build` writes `output/print.qpt` alongside `output/project.qgs`. Page size,
-positions, scale bar units, and north arrow SVG are all overrideable fields on the
-sub-models (`PrintPage`, `PrintScaleBar`, etc.).
+along with a human-readable log
 
-To export a PDF, open the Python console in QGIS (**Plugins → Python Console**) and run:
+**Prompt:** create a new layer from Parks: find all polygons with the TIGER FCC
+codes for National Parks; log to project workflow
 
-```python
-exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
-```
+**What this does:**
 
-The script loads the QPT template automatically if it is not already in the Layout
-Manager, then writes `output/print.pdf`.
+Inspected `data/USAParks.dbf` to identify TIGER FCC codes:
+
+| FCC | Count | Description |
+|-----|------:|-------------|
+| D83 |   423 | National Park Service units (NP, NHP, NMEM, seashores, etc.) |
+| D84 |   155 | National Forests (USFS) |
+| D85 | 5,792 | State and local parks |
+
+Created `national_parks` as a derived layer that filters `usaparks` to
+`FCC='D83'` using `ogr2ogr`. The filter runs as a processing step at
+`make build` time and writes `output/national_parks.shp`.
+
+Why D83 and not D84/D85: the exercise target is NPS-administered lands
+(national parks, monuments, historic parks, seashores). National Forests
+(D84) and state/local parks (D85) are separate jurisdictions.
+
+**Files created:**
+- `layers/national_parks.py`
+- `helpers.py` — `filter_national_parks(inputs, output)` using `ogr2ogr -where "FCC='D83'"`
 
 See `DESIGN.md` for architecture decisions and `projects/sample/workflow.md` for an
 example of the LLM prompt log.
