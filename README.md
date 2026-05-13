@@ -109,16 +109,19 @@ Plugins* — it watches data files and auto-reloads affected layers on change.
 ```
 alidade/
   alidade/
-    models.py          — Pydantic types for layers, renderers, symbols
+    models.py          — Pydantic types for layers, renderers, symbols, print layouts
     dump.py            — import a .qgz into a project directory
-    render.py          — render project.py → output/project.qgs
+    render.py          — render project.py → output/project.qgs and output/print.qpt
     build.py           — entry point with incremental rebuild
+    util/
+      qgis_startup.py  — QGIS startup script (Ctrl-R reload shortcut)
+      export_pdf.py    — QGIS console script to export the print layout to PDF
   
   projects/            — one directory per project
     project.py         — source of truth (edit this)
     data/              — data files
     styles/            — per-layer XML extracted from the .qgz
-    output/            — generated .qgs and derived rasters (gitignored)
+    output/            — generated .qgs, print.qpt, and derived rasters (gitignored)
 ```
 
 ### Import an existing QGIS project
@@ -152,6 +155,51 @@ make build DIR=my_project
 For derived rasters, run `make prepare DIR=my_project` when source data or a
 processing command changes. This re-runs stale transforms in dependency order,
 then triggers a build.
+
+#### Building your toolbox
+
+This project does not try to cover every use case. The models, renderers, and
+utilities here are a starting point, not a complete framework. The layout may not
+fit your mental model or workflow style.
+
+Iterate to build and customize your own toolbox:
+
+1. **Craft the artifact the tedious way.** Do it manually in QGIS — click
+   through the dialogs, export the QPT, write the console script by hand. Get
+   the thing working before you think about abstraction.
+2. **Study it.** Read the file it produced. Understand which parts are fixed
+   structure and which parts are project-specific variables. Note what you had
+   to look up.
+3. **Generalize it.** Extract the variables into a Pydantic model. Write the
+   render function. Document what each field controls and what can be left at
+   its default. Add it to the toolbox so the next project starts further along.
+
+### Print layout
+
+Add a `print_layout` field to `project.py`:
+
+```python
+spec = Project(
+    ...
+    print_layout=PrintLayout(
+        title_text="My Map Title",
+        credits_text="© OpenStreetMap contributors\nData: My Source",
+    ),
+)
+```
+
+`make build` writes `output/print.qpt` alongside `output/project.qgs`. Page size,
+positions, scale bar units, and north arrow SVG are all overrideable fields on the
+sub-models (`PrintPage`, `PrintScaleBar`, etc.).
+
+To export a PDF, open the Python console in QGIS (**Plugins → Python Console**) and run:
+
+```python
+exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
+```
+
+The script loads the QPT template automatically if it is not already in the Layout
+Manager, then writes `output/print.pdf`.
 
 See `DESIGN.md` for architecture decisions and `projects/sample/workflow.md` for an
 example of the LLM prompt log.

@@ -1,5 +1,6 @@
 bin
 output
+.claude/settings.local.json
 config.js
 config_aws.js
 .DS_Store

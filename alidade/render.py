@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from models import (
     PalettedRenderer,
+    PrintLayout,
     Renderer,
     SimpleFill,
     SimpleLine,
@@ -592,4 +594,808 @@ def render(spec, project_dir: Path) -> None:
     output_dir.mkdir(exist_ok=True)
     out = output_dir / "project.qgs"
     out.write_text(_QGS_DOCTYPE + ET.tostring(root, encoding="unicode"))
+    print(f"Wrote {out}")
+
+    if spec.print_layout is not None:
+        render_print_layout(spec, project_dir)
+
+
+# ── QPT print layout rendering ────────────────────────────────────────────────
+
+
+def _qpt_uuid() -> str:
+    return "{" + str(uuid.uuid4()) + "}"
+
+
+def _pos(x: float, y: float) -> str:
+    return f"{x},{y},mm"
+
+
+def _sz(w: float, h: float) -> str:
+    return f"{w},{h},mm"
+
+
+def _layout_object() -> ET.Element:
+    lo = ET.Element("LayoutObject")
+    ddp = ET.SubElement(lo, "dataDefinedProperties")
+    m = ET.SubElement(ddp, "Option", type="Map")
+    ET.SubElement(m, "Option", name="name", value="", type="QString")
+    ET.SubElement(m, "Option", name="properties")
+    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    cp = ET.SubElement(lo, "customproperties")
+    ET.SubElement(cp, "Option")
+    return lo
+
+
+def _frame_bg(el: ET.Element) -> None:
+    ET.SubElement(el, "FrameColor", alpha="255", blue="0", red="0", green="0")
+    ET.SubElement(
+        el, "BackgroundColor", alpha="255", blue="255", red="255", green="255"
+    )
+
+
+def _dd_props() -> ET.Element:
+    el = ET.Element("dd_properties")
+    m = ET.SubElement(el, "Option", type="Map")
+    ET.SubElement(m, "Option", name="name", value="", type="QString")
+    ET.SubElement(m, "Option", name="properties")
+    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    return el
+
+
+def _text_bg() -> ET.Element:
+    bg = ET.Element(
+        "background",
+        shapeRadiiX="0",
+        shapeRadiiY="0",
+        shapeOffsetMapUnitScale=_SCALE,
+        shapeOpacity="1",
+        shapeRotationType="0",
+        shapeJoinStyle="64",
+        shapeDraw="0",
+        shapeSizeUnit="MM",
+        shapeSizeType="0",
+        shapeRadiiMapUnitScale=_SCALE,
+        shapeBorderWidthUnit="MM",
+        shapeRadiiUnit="MM",
+        shapeSizeX="0",
+        shapeOffsetUnit="MM",
+        shapeSizeY="0",
+        shapeSVGFile="",
+        shapeBorderWidth="0",
+        shapeBlendMode="0",
+        shapeFillColor="255,255,255,255,rgb:1,1,1,1",
+        shapeType="0",
+        shapeRotation="0",
+        shapeSizeMapUnitScale=_SCALE,
+        shapeOffsetX="0",
+        shapeBorderColor="128,128,128,255,rgb:0.5019608,0.5019608,0.5019608,1",
+        shapeOffsetY="0",
+        shapeBorderWidthMapUnitScale=_SCALE,
+    )
+    sym = ET.SubElement(
+        bg,
+        "symbol",
+        alpha="1",
+        type="fill",
+        is_animated="0",
+        name="fillSymbol",
+        clip_to_extent="1",
+        frame_rate="10",
+        force_rhr="0",
+    )
+    sym.append(_ddp())
+    lay = ET.SubElement(
+        sym,
+        "layer",
+        locked="0",
+        enabled="1",
+        id="",
+        **{"class": "SimpleFill", "pass": "0"},
+    )
+    lay.append(
+        _opt_map(
+            {
+                "border_width_map_unit_scale": _SCALE,
+                "color": "255,255,255,255,rgb:1,1,1,1",
+                "joinstyle": "bevel",
+                "offset": "0,0",
+                "offset_map_unit_scale": _SCALE,
+                "offset_unit": "MM",
+                "outline_color": (
+                    "128,128,128,255,rgb:0.5019608,0.5019608,0.5019608,1"
+                ),
+                "outline_style": "no",
+                "outline_width": "0",
+                "outline_width_unit": "MM",
+                "style": "solid",
+            }
+        )
+    )
+    lay.append(_ddp())
+    return bg
+
+
+def _text_style(
+    font_size: int, named_style: str = "", multiline_height: float = 1.0
+) -> ET.Element:
+    ts = ET.Element(
+        "text-style",
+        allowHtml="0",
+        capitalization="0",
+        tabStopDistanceMapUnitScale=_SCALE,
+        tabStopDistanceUnit="Percentage",
+        forcedItalic="0",
+        fontLetterSpacing="0",
+        textColor="0,0,0,255,rgb:0,0,0,1",
+        textOrientation="horizontal",
+        fontSize=str(font_size),
+        textOpacity="1",
+        fontStrikeout="0",
+        fontItalic="0",
+        namedStyle=named_style,
+        fontWordSpacing="0",
+        fontFamily=".AppleSystemUIFont",
+        fontSizeMapUnitScale=_SCALE,
+        previewBkgrdColor="255,255,255,255,rgb:1,1,1,1",
+        multilineHeightUnit="Percentage",
+        fontUnderline="0",
+        fontWeight="50",
+        forcedBold="0",
+        fontKerning="1",
+        fontSizeUnit="Point",
+        blendMode="0",
+        multilineHeight=str(multiline_height),
+        tabStopDistance="6",
+    )
+    ET.SubElement(ts, "families")
+    ET.SubElement(
+        ts,
+        "text-buffer",
+        bufferColor="255,255,255,255,rgb:1,1,1,1",
+        bufferSizeMapUnitScale=_SCALE,
+        bufferBlendMode="0",
+        bufferSizeUnits="MM",
+        bufferNoFill="1",
+        bufferOpacity="1",
+        bufferJoinStyle="128",
+        bufferSize="1",
+        bufferDraw="0",
+    )
+    ET.SubElement(
+        ts,
+        "text-mask",
+        maskSizeMapUnitScale=_SCALE,
+        maskedSymbolLayers="",
+        maskSize="1.5",
+        maskSizeUnits="MM",
+        maskJoinStyle="128",
+        maskOpacity="1",
+        maskSize2="1.5",
+        maskEnabled="0",
+        maskType="0",
+    )
+    ts.append(_text_bg())
+    ET.SubElement(
+        ts,
+        "shadow",
+        shadowRadiusMapUnitScale=_SCALE,
+        shadowRadiusAlphaOnly="0",
+        shadowOpacity="0.69999999999999996",
+        shadowOffsetGlobal="1",
+        shadowOffsetDist="1",
+        shadowOffsetMapUnitScale=_SCALE,
+        shadowUnder="0",
+        shadowRadius="1.5",
+        shadowRadiusUnit="MM",
+        shadowBlendMode="6",
+        shadowColor="0,0,0,255,rgb:0,0,0,1",
+        shadowOffsetUnit="MM",
+        shadowOffsetAngle="135",
+        shadowScale="100",
+        shadowDraw="0",
+    )
+    ts.append(_dd_props())
+    return ts
+
+
+def _white_fill_sym(name: str = "") -> ET.Element:
+    sym = ET.Element(
+        "symbol",
+        alpha="1",
+        type="fill",
+        is_animated="0",
+        name=name,
+        clip_to_extent="1",
+        frame_rate="10",
+        force_rhr="0",
+    )
+    sym.append(_ddp())
+    lay = ET.SubElement(
+        sym,
+        "layer",
+        locked="0",
+        enabled="1",
+        id="",
+        **{"class": "SimpleFill", "pass": "0"},
+    )
+    lay.append(
+        _opt_map(
+            {
+                "border_width_map_unit_scale": _SCALE,
+                "color": "255,255,255,255,rgb:1,1,1,1",
+                "joinstyle": "miter",
+                "offset": "0,0",
+                "offset_map_unit_scale": _SCALE,
+                "offset_unit": "MM",
+                "outline_color": ("35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1"),
+                "outline_style": "no",
+                "outline_width": "0.26",
+                "outline_width_unit": "MM",
+                "style": "solid",
+            }
+        )
+    )
+    lay.append(_ddp())
+    return sym
+
+
+def _solid_fill_sym(color: str, name: str = "") -> ET.Element:
+    sym = ET.Element(
+        "symbol",
+        alpha="1",
+        type="fill",
+        is_animated="0",
+        name=name,
+        clip_to_extent="1",
+        frame_rate="10",
+        force_rhr="0",
+    )
+    sym.append(_ddp())
+    lay = ET.SubElement(
+        sym,
+        "layer",
+        locked="0",
+        enabled="1",
+        id="",
+        **{"class": "SimpleFill", "pass": "0"},
+    )
+    lay.append(
+        _opt_map(
+            {
+                "border_width_map_unit_scale": _SCALE,
+                "color": color,
+                "joinstyle": "bevel",
+                "offset": "0,0",
+                "offset_map_unit_scale": _SCALE,
+                "offset_unit": "MM",
+                "outline_color": ("35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1"),
+                "outline_style": "no",
+                "outline_width": "0.26",
+                "outline_width_unit": "MM",
+                "style": "solid",
+            }
+        )
+    )
+    lay.append(_ddp())
+    return sym
+
+
+def _simple_line_sym(name: str = "") -> ET.Element:
+    sym = ET.Element(
+        "symbol",
+        alpha="1",
+        type="line",
+        is_animated="0",
+        name=name,
+        clip_to_extent="1",
+        frame_rate="10",
+        force_rhr="0",
+    )
+    sym.append(_ddp())
+    lay = ET.SubElement(
+        sym,
+        "layer",
+        locked="0",
+        enabled="1",
+        id="",
+        **{"class": "SimpleLine", "pass": "0"},
+    )
+    lay.append(
+        _opt_map(
+            {
+                "align_dash_pattern": "0",
+                "capstyle": "square",
+                "customdash": "5;2",
+                "customdash_map_unit_scale": _SCALE,
+                "customdash_unit": "MM",
+                "dash_pattern_offset": "0",
+                "dash_pattern_offset_map_unit_scale": _SCALE,
+                "dash_pattern_offset_unit": "MM",
+                "draw_inside_polygon": "0",
+                "joinstyle": "miter",
+                "line_color": "0,0,0,255,rgb:0,0,0,1",
+                "line_style": "solid",
+                "line_width": "0.3",
+                "line_width_unit": "MM",
+                "offset": "0",
+                "offset_map_unit_scale": _SCALE,
+                "offset_unit": "MM",
+                "ring_filter": "0",
+                "trim_distance_end": "0",
+                "trim_distance_end_map_unit_scale": _SCALE,
+                "trim_distance_end_unit": "MM",
+                "trim_distance_start": "0",
+                "trim_distance_start_map_unit_scale": _SCALE,
+                "trim_distance_start_unit": "MM",
+                "tweak_dash_pattern_on_corners": "0",
+                "use_custom_dash": "0",
+                "width_map_unit_scale": _SCALE,
+            }
+        )
+    )
+    lay.append(_ddp())
+    return sym
+
+
+# ── QPT item builders ─────────────────────────────────────────────────────────
+
+
+def _qpt_page_collection(page) -> ET.Element:
+    pc = ET.Element("PageCollection")
+    pc.append(_white_fill_sym())
+    page_uuid = _qpt_uuid()
+    pi = ET.SubElement(
+        pc,
+        "LayoutItem",
+        position=_pos(0, 0),
+        size=_sz(page.width_mm, page.height_mm),
+        uuid=page_uuid,
+        templateUuid=page_uuid,
+        type="65638",
+        positionOnPage=_pos(0, 0),
+        zValue="0",
+        frame="false",
+        visibility="1",
+        background="true",
+        outlineWidthM="0.3,mm",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        excludeFromExports="0",
+        groupUuid="",
+        id="",
+    )
+    _frame_bg(pi)
+    pi.append(_layout_object())
+    pi.append(_white_fill_sym())
+    ET.SubElement(pc, "GuideCollection", visible="1")
+    return pc
+
+
+def _qpt_label(
+    text: str,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    font_size: int,
+    halign: int,
+    valign: int,
+    z: int,
+    named_style: str = "",
+) -> ET.Element:
+    item_uuid = _qpt_uuid()
+    el = ET.Element(
+        "LayoutItem",
+        type="65641",
+        position=_pos(x, y),
+        size=_sz(w, h),
+        uuid=item_uuid,
+        templateUuid=item_uuid,
+        positionOnPage=_pos(x, y),
+        zValue=str(z),
+        frame="false",
+        visibility="1",
+        background="false",
+        outlineWidthM="0.3,mm",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        excludeFromExports="0",
+        groupUuid="",
+        id="",
+        labelText=text,
+        halign=str(halign),
+        valign=str(valign),
+        htmlState="0",
+        marginX="0",
+        marginY="0",
+    )
+    _frame_bg(el)
+    el.append(_layout_object())
+    el.append(_text_style(font_size, named_style=named_style))
+    return el
+
+
+def _qpt_north_arrow(na, map_uuid: str, z: int) -> ET.Element:
+    item_uuid = _qpt_uuid()
+    el = ET.Element(
+        "LayoutItem",
+        type="65640",
+        position=_pos(na.x_mm, na.y_mm),
+        size=_sz(na.width_mm, na.height_mm),
+        uuid=item_uuid,
+        templateUuid=item_uuid,
+        positionOnPage=_pos(na.x_mm, na.y_mm),
+        zValue=str(z),
+        frame="false",
+        visibility="1",
+        background="false",
+        outlineWidthM="0.3,mm",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        excludeFromExports="0",
+        groupUuid="",
+        id="North Arrow",
+        file=na.svg,
+        mapUuid=map_uuid,
+        northMode="0",
+        northOffset="0",
+        pictureRotation="0",
+        pictureWidth="7.7844",
+        pictureHeight="9.82621",
+        svgBorderWidth="0.2",
+        svgFillColor="255,255,255,255,rgb:1,1,1,1",
+        svgBorderColor="0,0,0,255,rgb:0,0,0,1",
+        anchorPoint="0",
+        resizeMode="0",
+        mode="2",
+    )
+    _frame_bg(el)
+    el.append(_layout_object())
+    return el
+
+
+def _qpt_scale_bar(sb, map_uuid: str, z: int) -> ET.Element:
+    item_uuid = _qpt_uuid()
+    el = ET.Element(
+        "LayoutItem",
+        type="65646",
+        position=_pos(sb.x_mm, sb.y_mm),
+        size=_sz(45.5859, 13.0962),
+        uuid=item_uuid,
+        templateUuid=item_uuid,
+        positionOnPage=_pos(sb.x_mm, sb.y_mm),
+        zValue=str(z),
+        frame="false",
+        visibility="1",
+        background="false",
+        outlineWidthM="0.3,mm",
+        outlineWidth="0.3",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        lineJoinStyle="miter",
+        lineCapStyle="square",
+        excludeFromExports="0",
+        groupUuid="",
+        id="",
+        mapUuid=map_uuid,
+        unitType=sb.unit_type,
+        unitLabel=sb.unit_type,
+        numUnitsPerSegment=str(sb.num_units_per_segment),
+        numSegments=str(sb.num_segments),
+        numSegmentsLeft="0",
+        numSubdivisions="1",
+        style=sb.style,
+        boxContentSpace="1",
+        minBarWidth="50",
+        maxBarWidth="150",
+        segmentSizeMode="0",
+        labelHorizontalPlacement="0",
+        labelVerticalPlacement="0",
+        labelBarSpace="3",
+        subdivisionsHeight="1.5",
+        height="3",
+        method="HorizontalMiddle",
+        numMapUnitsPerScaleBarUnit="1",
+        segmentMillimeters="0",
+        alignment="0",
+    )
+    _frame_bg(el)
+    el.append(_layout_object())
+    el.append(_text_style(12))
+    ET.SubElement(el, "strokeColor", alpha="255", blue="0", red="0", green="0")
+    nf = ET.SubElement(el, "numericFormat", id="basic")
+    nf_opt = ET.SubElement(nf, "Option", type="Map")
+    ET.SubElement(nf_opt, "Option", type="invalid", name="decimal_separator")
+    ET.SubElement(nf_opt, "Option", type="int", value="6", name="decimals")
+    ET.SubElement(nf_opt, "Option", type="int", value="0", name="rounding_type")
+    ET.SubElement(nf_opt, "Option", type="bool", value="false", name="show_plus")
+    ET.SubElement(
+        nf_opt, "Option", type="bool", value="true", name="show_thousand_separator"
+    )
+    ET.SubElement(
+        nf_opt, "Option", type="bool", value="false", name="show_trailing_zeros"
+    )
+    ET.SubElement(nf_opt, "Option", type="invalid", name="thousand_separator")
+    ET.SubElement(el, "fillColor", alpha="255", blue="0", red="0", green="0")
+    ET.SubElement(el, "fillColor2", alpha="255", blue="255", red="255", green="255")
+    for tag in ("lineSymbol", "divisionLineSymbol", "subdivisionLineSymbol"):
+        wrapper = ET.SubElement(el, tag)
+        wrapper.append(_simple_line_sym())
+    fs1 = ET.SubElement(el, "fillSymbol1")
+    fs1.append(_solid_fill_sym("0,0,0,255,rgb:0,0,0,1"))
+    fs2 = ET.SubElement(el, "fillSymbol2")
+    fs2.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
+    return el
+
+
+def _qpt_legend(leg, spec, map_uuid: str, z: int) -> ET.Element:
+    item_uuid = _qpt_uuid()
+    el = ET.Element(
+        "LayoutItem",
+        type="65642",
+        position=_pos(leg.x_mm, leg.y_mm),
+        size=_sz(52.8029, 23.4825),
+        uuid=item_uuid,
+        templateUuid=item_uuid,
+        positionOnPage=_pos(leg.x_mm, leg.y_mm),
+        zValue=str(z),
+        frame="false",
+        visibility="1",
+        background="true",
+        outlineWidthM="0.3,mm",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        excludeFromExports="0",
+        groupUuid="",
+        id="",
+        map_uuid=map_uuid,
+        resizeToContents="1",
+        title="",
+        wmsLegendHeight="25",
+        wmsLegendWidth="50",
+        wrapChar="",
+        columnCount="1",
+        columnSpace="2",
+        boxSpace="2",
+        symbolWidth="7",
+        symbolHeight="4",
+        minSymbolSize="0",
+        maxSymbolSize="0",
+        rasterBorder="1",
+        rasterBorderWidth="0",
+        rasterBorderColor="0,0,0,255,rgb:0,0,0,1",
+        equalColumnWidth="0",
+        splitLayer="0",
+        legendFilterByAtlas="0",
+        symbolAlignment="1",
+        titleAlignment="1",
+    )
+    _frame_bg(el)
+    el.append(_layout_object())
+
+    styles = ET.SubElement(el, "styles")
+    legend_styles = [
+        ("title", 16, {"marginBottom": "3.5"}, 1.1),
+        ("group", 14, {"marginTop": "3"}, 1.1),
+        ("subgroup", 12, {"marginTop": "3"}, 1.1),
+        ("symbol", 10, {"marginTop": "2.5"}, 1.0),
+        ("symbolLabel", 12, {"marginTop": "2", "marginLeft": "2"}, 1.1),
+    ]
+    for name, size, margins, mh in legend_styles:
+        style_el = ET.SubElement(
+            styles, "style", name=name, alignment="1", indent="0", **margins
+        )
+        style_el.append(_text_style(size, multiline_height=mh))
+
+    ltg = ET.SubElement(el, "layer-tree-group")
+    cp_el = ET.SubElement(ltg, "customproperties")
+    ET.SubElement(cp_el, "Option")
+
+    for layer in spec.layers:
+        ltl = ET.SubElement(
+            ltg,
+            "layer-tree-layer",
+            providerKey=layer.provider,
+            legend_split_behavior="0",
+            checked="Qt::Checked",
+            patch_size="-1,-1",
+            name=layer.name,
+            source=layer.source,
+            expanded="1",
+            id=layer.id,
+            legend_exp="",
+        )
+        cp2 = ET.SubElement(ltl, "customproperties")
+        opt = ET.SubElement(cp2, "Option", type="Map")
+        ET.SubElement(
+            opt, "Option", name="cached_name", value=layer.name, type="QString"
+        )
+        if layer.provider == "wms":
+            ET.SubElement(
+                opt, "Option", name="legend/title-style", value="hidden", type="QString"
+            )
+
+    custom_order = ET.SubElement(ltg, "custom-order", enabled="0")
+    for layer in spec.layers:
+        item = ET.SubElement(custom_order, "item")
+        item.text = layer.id
+
+    return el
+
+
+def _qpt_map_frame(mf, spec, map_uuid: str, z: int) -> ET.Element:
+    el = ET.Element(
+        "LayoutItem",
+        type="65639",
+        position=_pos(mf.x_mm, mf.y_mm),
+        size=_sz(mf.width_mm, mf.height_mm),
+        uuid=map_uuid,
+        templateUuid=map_uuid,
+        positionOnPage=_pos(mf.x_mm, mf.y_mm),
+        zValue=str(z),
+        frame="false",
+        visibility="1",
+        background="true",
+        outlineWidthM="0.3,mm",
+        referencePoint="0",
+        itemRotation="0",
+        positionLock="false",
+        opacity="1",
+        blendMode="0",
+        frameJoinStyle="miter",
+        excludeFromExports="0",
+        groupUuid="",
+        id="Map 1",
+        mapFlags="0",
+        enableZRange="0",
+        drawCanvasItems="true",
+        mapRotation="0",
+        followPresetName="",
+        keepLayerSet="false",
+        followPreset="false",
+        isTemporal="0",
+        labelMargin="0,mm",
+    )
+    _frame_bg(el)
+    el.append(_layout_object())
+    if spec.extent:
+        xmin, ymin, xmax, ymax = spec.extent
+        ET.SubElement(
+            el,
+            "Extent",
+            xmin=str(xmin),
+            xmax=str(xmax),
+            ymin=str(ymin),
+            ymax=str(ymax),
+        )
+    ET.SubElement(el, "LayerSet")
+    ET.SubElement(
+        el, "AtlasMap", margin="0.10000000000000001", atlasDriven="0", scalingMode="2"
+    )
+    ET.SubElement(el, "labelBlockingItems")
+    acs = ET.SubElement(
+        el,
+        "atlasClippingSettings",
+        forceLabelsInside="0",
+        enabled="0",
+        restrictLayers="0",
+        clippingType="1",
+    )
+    ET.SubElement(acs, "layersToClip")
+    ET.SubElement(
+        el,
+        "itemClippingSettings",
+        clipSource="",
+        forceLabelsInside="0",
+        enabled="0",
+        clippingType="1",
+    )
+    return el
+
+
+def render_print_layout(spec, project_dir: Path) -> None:
+    pl: PrintLayout = spec.print_layout
+    map_uuid = _qpt_uuid()
+
+    root = ET.Element(
+        "Layout",
+        units="mm",
+        printResolution=str(pl.page.resolution_dpi),
+        name=pl.name,
+        worldFileMap=map_uuid,
+    )
+    ET.SubElement(
+        root,
+        "Snapper",
+        tolerance="5",
+        snapToGrid="0",
+        snapToGuides="1",
+        snapToItems="1",
+    )
+    ET.SubElement(
+        root,
+        "Grid",
+        offsetX="0",
+        offsetY="0",
+        resolution="10",
+        resUnits="mm",
+        offsetUnits="mm",
+    )
+    root.append(_qpt_page_collection(pl.page))
+
+    # z order matches original: credits=6, scale bar=5, north=4, legend=3, title=2, map=1
+    root.append(
+        _qpt_label(
+            text=pl.credits_text,
+            x=194.142,
+            y=204.269,
+            w=80.3963,
+            h=8.03694,
+            font_size=10,
+            halign=1,
+            valign=32,
+            z=6,
+        )
+    )
+    root.append(_qpt_scale_bar(pl.scale_bar, map_uuid, z=5))
+    root.append(_qpt_north_arrow(pl.north_arrow, map_uuid, z=4))
+    root.append(_qpt_legend(pl.legend, spec, map_uuid, z=3))
+    root.append(
+        _qpt_label(
+            text=pl.title_text,
+            x=1.764,
+            y=2.382,
+            w=265.774,
+            h=10.422,
+            font_size=30,
+            halign=4,
+            valign=128,
+            z=2,
+            named_style="Regular",
+        )
+    )
+    root.append(_qpt_map_frame(pl.map_frame, spec, map_uuid, z=1))
+
+    cp = ET.SubElement(root, "customproperties")
+    m = ET.SubElement(cp, "Option", type="Map")
+    ET.SubElement(m, "Option", name="atlasRasterFormat", value="png", type="QString")
+    ET.SubElement(m, "Option", name="singleFile", value="true", type="bool")
+    ET.SubElement(
+        root,
+        "Atlas",
+        sortFeatures="0",
+        pageNameExpression="",
+        filenamePattern="'output_'||@atlas_featurenumber",
+        enabled="0",
+        hideCoverage="0",
+        coverageLayer="",
+        filterFeatures="0",
+    )
+
+    ET.indent(root, space=" ")
+    output_dir = project_dir / "output"
+    output_dir.mkdir(exist_ok=True)
+    out = output_dir / "print.qpt"
+    out.write_text(ET.tostring(root, encoding="unicode"))
     print(f"Wrote {out}")
