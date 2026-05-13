@@ -96,3 +96,40 @@ Source URL: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
 - `layers/cartodb_positron.py` — new layer file (same source as sample project)
 - `styles/cartodb_positron.xml` — copied from `sample/styles/`
 - `project.py` — replaced `openstreetmap` import and layer reference
+
+---
+
+## Step 5 — Create 25-mile buffer around State Capitol buildings
+
+**Prompt:** create a new layer that contains polygons with 25 mile buffer around
+points in the State Capitol buildings layer
+
+**What this does:**
+
+Added `geopandas` as a project dependency (`uv add geopandas`), then created a
+derived layer that buffers the 55 State Capitol building point features by
+25 miles.
+
+Buffer distance: 25 mi × 1,609.344 m/mi = **40,233.6 m** (planar, in EPSG:3857).
+
+The helper reads the source shapefile with geopandas, applies
+`geometry.buffer(40233.6)`, and writes the resulting polygon shapefile to
+`output/capitol_buffer.shp`.
+
+Styling: semi-transparent blue fill (`100,150,255` at ~31% opacity) with a
+solid medium-blue outline (`0,80,200`), so the buffer regions are visible
+without obscuring the basemap or national parks beneath them.
+
+Layer order in project.py (top → bottom):
+
+| Layer | Note |
+|-------|------|
+| `state_capitol_bldgs` | Points stay on top |
+| `capitol_buffer` | Buffer polygons beneath points |
+| `national_parks` | Park polygons below buffers |
+| `cartodb_positron` | Basemap |
+
+**Files created/changed:**
+- `layers/capitol_buffer.py` — new derived polygon layer
+- `helpers.py` — added `buffer_capitol_buildings(inputs, output)` using geopandas
+- `project.py` — added `capitol_buffer` import and layer reference
