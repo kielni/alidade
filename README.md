@@ -24,20 +24,32 @@ made accessible through menus and dialogs. That was a big improvement in ease
 of use. Over the decades, trying to serve every use case has resulted in
 hundreds of buttons, deep menu trees, and a steep learning curve.
 
-Alidade goes back to those roots — code and shell commands — made newly
-accessible by modern tools. Instead of clicking dialogs, you write Python or describe
-changes in plain English. The steps in building a map are visible and editable,
-expressed in code rather than dialog boxes. Using an LLM adds an English
-interface: "add a slope layer colored by steepness," "make the park boundary
-dashed", without requiring you to know the GDAL command or where to find the
-symbology dialog.
+This project goes back to those roots — code and shell commands — treating a map
+project the way DevOps treats infrastructure: defined in code, committed to git,
+and reproducible from a clean checkout. The configuration is visible, diffable,
+and batch-editable. Write in English, Python, or both.
+
+Using an LLM lowers the remaining barrier. Geoffrey Litt's
+[malleable software](https://www.geoffreylitt.com/2023/03/25/llm-end-user-programming)
+argues that LLMs can make any software customizable by its users — not just
+programmers, but anyone willing to describe what they want. Tell an LLM to
+"add a slope layer colored by steepness" or "make the park boundary dashed" and
+it finds the right GDAL flag, the right XML attribute, writes clean Python, and
+logs what it did to `workflow.md`. The result is committed, readable, and
+reusable — not a sequence of menu clicks that vanishes the moment you close the
+dialog.
+
+Robin Sloan's [home-cooked app](https://www.robinsloan.com/notes/home-cooked-app/)
+draws a distinction between software built for a mass audience and software you
+cook for yourself — personal, imperfect, and fitted exactly to how you work.
+This is nit a finished product or an installable
+package. It is a starting point to fork and shape. The projects/sample/ and
+DESIGN.md are a starting point.
 
 QGIS bundles its own Python interpreter, version-locked to each release and
-lagging behind the current language, with editing confined to a limited console.
-Alidade runs outside that environment: use the latest Python, manage
-dependencies with uv, and bring in any library you want. You also get a full
-development environment: your own IDE, key bindings, syntax highlighting, and
-completion, rather than a stripped-down console.
+confined to a stripped-down console. This runs in your own environment:
+any Python version, any library, full IDE support — key bindings, syntax
+highlighting, completion, and navigation.
 
 ## Advantages
 
@@ -66,11 +78,6 @@ This tool could be for for you if:
   hunting through menus or looking up GDAL flags
 - You want to script repetitive work — standard base layers, consistent
   symbology across projects — without clicking through menus each time
-
-**This is not a finished framework.** The scripts are a working base to fork
-and modify. Expect to read the code and adapt it to your workflow. The
-`projects/sample/` project and `DESIGN.md` give you enough to orient, but you are
-starting a fork, not installing a package.
 
 ## Getting started
 
