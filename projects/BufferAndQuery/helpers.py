@@ -22,6 +22,29 @@ def buffer_capitol_buildings(inputs: list[Path], output: Path) -> None:
     buffered.to_file(output)
 
 
+def filter_capitol_buffers_near_parks(inputs: list[Path], output: Path) -> None:
+    """Filter capitol buffers to those intersecting ≥1 national park; print count.
+
+    inputs[0]: output/capitol_buffer.shp
+    inputs[1]: output/national_parks.shp
+    """
+    capitol_buffers = gpd.read_file(inputs[0])
+    national_parks_gdf = gpd.read_file(inputs[1])
+
+    joined = gpd.sjoin(
+        capitol_buffers,
+        national_parks_gdf[["geometry"]],
+        how="inner",
+        predicate="intersects",
+    )
+    result = capitol_buffers.loc[joined.index.unique()]
+    result.to_file(output)
+    print(
+        f"State capitols with 25-mile buffer intersecting a national park:"
+        f" {len(result)}"
+    )
+
+
 def filter_national_parks(inputs: list[Path], output: Path) -> None:
     """Filter USAParks.shp to FCC='D83' (National Park Service units) with ogr2ogr.
 

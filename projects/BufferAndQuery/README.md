@@ -11,6 +11,13 @@ fall within a given distance. Data covers the continental US.
 **Source:** `data/state_Capitol_bldgs.shp`  
 **Style:** see `styles/state_capitol_bldgs.xml`  
 
+### Capitol Buffers Intersecting National Parks
+
+**Source:** `output/capitol_parks_intersect.shp`  
+**Style:** single symbol — fill #ffa032 at 43% opacity, #c85a00 outline  
+**Derived from:** `capitol_buffer`, `national_parks`  
+**Processing:** Filter 25-mile capitol buffers to those intersecting at least one national park polygon; print count to stdout.
+
 ### State Capitol 25-Mile Buffer
 
 **Source:** `output/capitol_buffer.shp`  
@@ -33,9 +40,19 @@ fall within a given distance. Data covers the continental US.
 ## Data flow
 
 ```
+capitol_buffer  ──►  capitol_parks_intersect
+national_parks  ──►  capitol_parks_intersect
 state_capitol_bldgs  ──►  capitol_buffer
 usaparks  ──►  national_parks
 ```
+
+## Processing tools
+
+| Layer | Tool | Description |
+| --- | --- | --- |
+| `capitol_parks_intersect` | shapely via geopandas | Filter 25-mile capitol buffers to those intersecting at least one national park polygon; print count to stdout. |
+| `capitol_buffer` | shapely via geopandas | Buffer State Capitol building points by 25 miles (40,233.6 m in EPSG:3857). |
+| `national_parks` | `ogr2ogr` (subprocess) | Filter USAParks to FCC='D83' (National Park Service units: national parks, monuments, historic parks, seashores, etc.). |
 <!-- auto:end -->
 
 ## Workflow log

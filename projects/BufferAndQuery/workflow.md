@@ -133,3 +133,40 @@ Layer order in project.py (top → bottom):
 - `layers/capitol_buffer.py` — new derived polygon layer
 - `helpers.py` — added `buffer_capitol_buildings(inputs, output)` using geopandas
 - `project.py` — added `capitol_buffer` import and layer reference
+
+---
+
+## Step 6 — Select capitol buffers that intersect a national park
+
+**Prompt:** add a new layer: state capitol buffer polygons that intersect a
+national park polygon; output the count of selected state capitols
+
+**What this does:**
+
+Created a derived layer that spatially joins `capitol_buffer` against
+`national_parks` and keeps only the capitol buffer polygons that intersect at
+least one national park polygon. The count of matching state capitols is printed
+to stdout at build time.
+
+Implementation uses `gpd.sjoin(..., predicate="intersects")` followed by
+`capitol_buffers.loc[joined.index.unique()]` to deduplicate — a buffer touching
+multiple parks appears only once in the output.
+
+Styling: orange fill (`255,160,50` at ~43% opacity) with a dark-orange outline
+(`200,90,0`) so the selected buffers are visually distinct from the full blue
+buffer set beneath them.
+
+Layer order in project.py (top → bottom):
+
+| Layer | Note |
+|-------|------|
+| `state_capitol_bldgs` | Points stay on top |
+| `capitol_parks_intersect` | Highlighted matching buffers |
+| `capitol_buffer` | All 25-mile buffers |
+| `national_parks` | Park polygons |
+| `cartodb_positron` | Basemap |
+
+**Files created/changed:**
+- `layers/capitol_parks_intersect.py` — new derived polygon layer
+- `helpers.py` — added `filter_capitol_buffers_near_parks(inputs, output)`
+- `project.py` — added `capitol_parks_intersect` import and layer reference

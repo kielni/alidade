@@ -2,12 +2,16 @@
 # Called by build.py after render(). Replaces the section between the
 # <!-- auto:begin --> / <!-- auto:end --> markers; everything outside is preserved.
 
+import inspect
+import re
 from pathlib import Path
 
 from models import (
     Layer,
     PalettedRenderer,
+    PythonAction,
     RuleRenderer,
+    ShellAction,
     SimpleFill,
     SimpleLine,
     SimpleMarker,
@@ -17,6 +21,21 @@ from models import (
 
 _BEGIN = "<!-- auto:begin -->"
 _END = "<!-- auto:end -->"
+
+
+def _describe_action_tool(action) -> str:
+    """Return a short tool label for a processing step action."""
+    if isinstance(action, ShellAction):
+        return f"`{action.command.split()[0]}`"
+    # PythonAction: inspect source for the library doing the heavy lifting
+    src = inspect.getsource(action.fn)
+    if "subprocess.run" in src or "subprocess.call" in src:
+        m = re.search(r'\[\s*["\']([^"\']+)["\']', src)
+        exe = m.group(1) if m else "subprocess"
+        return f"`{exe}` (subprocess)"
+    if "gpd." in src or "geopandas" in src:
+        return "shapely via geopandas"
+    return "Python"
 
 
 def _color(rgba: str) -> tuple[str, int]:
@@ -113,6 +132,16 @@ def _auto_section(spec, project_dir: Path) -> str:
             for dep in step.depends_on:
                 lines.append(f"{dep}  ──►  {layer.id}")
         lines.append("```")
+        lines.append("")
+
+        lines.append("## Processing tools")
+        lines.append("")
+        lines.append("| Layer | Tool | Description |")
+        lines.append("| --- | --- | --- |")
+        for layer in derived:
+            step = layer.processing_step
+            tool = _describe_action_tool(step.action)
+            lines.append(f"| `{layer.id}` | {tool} | {step.description} |")
         lines.append("")
 
     return "\n".join(lines)
