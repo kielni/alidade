@@ -95,7 +95,7 @@ def _auto_section(spec, project_dir: Path) -> str:
         lines.append("")
         source = _source_label(layer.source)
         lines.append(f"**Source:** `{source}`  ")
-        lines.append(f"**Style:** {_describe_style(layer)}")
+        lines.append(f"**Style:** {_describe_style(layer)}  ")
         if layer.processing_step is not None:
             step = layer.processing_step
             deps = ", ".join(f"`{d}`" for d in step.depends_on)
