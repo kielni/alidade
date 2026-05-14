@@ -86,17 +86,28 @@ This tool could be for you if:
 - QGIS 3.x desktop app (Mac: `/Applications/QGIS.app`; configure path in
   `local.env`)
 - [uv](https://docs.astral.sh/uv/)
-- GDAL CLI tools (`brew install gdal`) — used for data preparation; QGIS.app
+- GDAL CLI tools (`brew install gdal`) — used for raster operations (slope,
+  hillshade, reprojection) where no clean Python equivalent exists; QGIS.app
   bundles its own GDAL but does not expose the command-line tools
+
+Processing steps prefer Python libraries (geopandas for vector operations like
+filtering, buffering, and spatial joins) over shell commands. GDAL CLI is
+reserved for raster work (`gdaldem`, `gdalwarp`, `gdal_calc`) that has no
+clean Python equivalent.
 
 ### Install
 
 ```bash
 git clone <repo>
 cd alidade
-uv sync
+uv sync                          # installs alidade as an editable package
 cp local.env.example local.env   # edit if QGIS is not at the default path
 ```
+
+`uv sync` installs `alidade` into the project virtualenv in editable mode, so
+the `alidade-build`, `alidade-dump`, `alidade-capture`, and `alidade-validate`
+console scripts are available via `uv run`. Project layer files import from
+`alidade.models` like any other installed package.
 
 ### QGIS setup
 
@@ -228,7 +239,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from models import Layer, ProcessingStep, PythonAction
+from alidade.models import Layer, ProcessingStep, PythonAction
 
 
 def filter_national_park_service(src: Path, output: Path) -> None:

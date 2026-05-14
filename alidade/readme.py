@@ -6,7 +6,7 @@ import inspect
 import re
 from pathlib import Path
 
-from models import (
+from alidade.models import (
     Layer,
     PalettedRenderer,
     Project,

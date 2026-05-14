@@ -5,8 +5,6 @@ import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
-HERE = Path(__file__).parent
-
 
 def _read_extent(qgs_path: Path) -> tuple[float, float, float, float]:
     """Parse the MapCanvas extent from qgs_path and return (xmin, ymin, xmax, ymax)."""

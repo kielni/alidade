@@ -1,4 +1,4 @@
-from models import Project
+from alidade.models import Project
 
 from .layers.arp_areas import arp_areas
 from .layers.arp_slope import arp_slope

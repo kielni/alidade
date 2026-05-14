@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
-from models import (
+from alidade.models import (
     Layer,
     Project,
     Renderer,
@@ -330,7 +330,7 @@ def _write_layer_py(layer: Layer, layers_dir: Path, skip_existing: bool = True) 
     lines = [
         "from pathlib import Path",
         "",
-        f"from models import {imports}",
+        f"from alidade.models import {imports}",
         "",
     ]
 
@@ -367,7 +367,7 @@ def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) ->
     lines = [
         "from pathlib import Path",
         "",
-        "from models import Project",
+        "from alidade.models import Project",
         "",
         *import_lines,
         "",

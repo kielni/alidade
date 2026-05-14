@@ -110,10 +110,10 @@ file — not nested inline.
 `project.py` only imports layers and assembles the `Project`:
 
 ```python
-from layers.park_polygon import park_polygon
-from layers.elevation_import import elevation_import
-from layers.elevation_10n import elevation_10n
-from layers.slope import slope
+from .layers.park_polygon import park_polygon
+from .layers.elevation_import import elevation_import
+from .layers.elevation_10n import elevation_10n
+from .layers.slope import slope
 
 spec = Project(
     title="Alum Rock Park Slope",
@@ -126,7 +126,7 @@ spec = Project(
 
 ```python
 from pathlib import Path
-from models import Layer, ProcessingStep, ShellAction
+from alidade.models import Layer, ProcessingStep, ShellAction
 
 slope = Layer(
     id="slope",

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, ProcessingStep, ShellAction
+from alidade.models import Layer, ProcessingStep, ShellAction
 
 slope = Layer(
     id="slope",

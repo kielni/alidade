@@ -3,11 +3,7 @@
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
-
-from render import _abs_source, _load_spec  # noqa: E402
+from alidade.render import _abs_source, _load_spec
 
 
 def _is_file_source(source: str) -> bool:

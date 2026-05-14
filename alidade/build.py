@@ -5,7 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from models import Layer, Project
+from alidade.models import Layer, Project
+from alidade.readme import update_readme
+from alidade.render import _load_spec, render
 
 HERE = Path(__file__).parent  # alidade/
 
@@ -129,12 +131,6 @@ def main() -> None:
     if layers_dir.exists():
         fmt_targets += [str(layers_dir)]
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
-
-    if str(HERE) not in sys.path:
-        sys.path.insert(0, str(HERE))
-
-    from readme import update_readme
-    from render import _load_spec, render
 
     spec = _load_spec(project_dir)
     _run_processing_steps(spec, project_dir, force=False)

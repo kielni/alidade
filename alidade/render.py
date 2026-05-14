@@ -1,14 +1,13 @@
 """Render project.py → output/project.qgs."""
 
-import importlib.util
-import sys
+import importlib
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from pyproj import CRS as ProjCRS
 
-from models import (
+from alidade.models import (
     Layer,
     PalettedRenderer,
     PrintLegend,
@@ -60,18 +59,8 @@ def _load_spec(project_dir: Path) -> Project:
             f"project.py not found in {project_dir} — run 'make dump' first"
         )
     repo_root = Path(__file__).parent.parent
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
     package = ".".join(project_dir.relative_to(repo_root).parts)
-    module_name = f"{package}.project"
-    module_spec = importlib.util.spec_from_file_location(module_name, spec_path)
-    assert module_spec is not None
-    assert module_spec.loader is not None
-    mod = importlib.util.module_from_spec(module_spec)
-    mod.__package__ = package
-    sys.modules[module_name] = mod
-    module_spec.loader.exec_module(mod)
-    return mod.spec
+    return importlib.import_module(f"{package}.project").spec
 
 
 def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) -> None:

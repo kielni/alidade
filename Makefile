@@ -6,7 +6,6 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 
-RUN := uv run python
 LOG ?= lint.log
 
 .PHONY: help dump build build-all capture validate lint clean
@@ -23,23 +22,23 @@ help:
 
 dump:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make dump DIR=project_dir"; exit 1; fi
-	$(RUN) alidade/dump.py $(DIR)
+	uv run alidade-dump $(DIR)
 
 build:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make build DIR=project_dir"; exit 1; fi
-	$(RUN) alidade/build.py $(DIR)
+	uv run alidade-build $(DIR)
 
 build-all:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make build-all DIR=project_dir"; exit 1; fi
-	$(RUN) alidade/build.py $(DIR) --force
+	uv run alidade-build $(DIR) --force
 
 capture:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make capture DIR=project_dir"; exit 1; fi
-	$(RUN) alidade/capture.py $(DIR)
+	uv run alidade-capture $(DIR)
 
 validate:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make validate DIR=project_dir"; exit 1; fi
-	$(RUN) alidade/validate.py $(DIR)
+	uv run alidade-validate $(DIR)
 
 lint:
 	> $(LOG)

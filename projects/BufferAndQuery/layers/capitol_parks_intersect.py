@@ -2,7 +2,14 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
+from alidade.models import (
+    Layer,
+    ProcessingStep,
+    PythonAction,
+    SimpleFill,
+    SingleSymbol,
+    Symbol,
+)
 
 
 def filter_capitol_buffers_near_parks(

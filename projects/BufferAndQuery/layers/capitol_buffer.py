@@ -2,7 +2,14 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
+from alidade.models import (
+    Layer,
+    ProcessingStep,
+    PythonAction,
+    SimpleFill,
+    SingleSymbol,
+    Symbol,
+)
 
 BUFFER_METERS = 25 * 1_609.344  # 25 miles, in EPSG:3857 meters
 

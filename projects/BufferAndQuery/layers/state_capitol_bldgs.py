@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer
+from alidade.models import Layer
 
 state_capitol_bldgs = Layer(
     id="state_capitol_bldgs",

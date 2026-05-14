@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, SimpleFill, SingleSymbol, Symbol
+from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
 
 park_polygon = Layer(
     id="park_polygon",

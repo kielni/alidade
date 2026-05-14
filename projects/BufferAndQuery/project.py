@@ -1,4 +1,4 @@
-from models import Project
+from alidade.models import Project
 
 from .layers.capitol_buffer import capitol_buffer
 from .layers.capitol_parks_intersect import capitol_parks_intersect
