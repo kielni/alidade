@@ -187,7 +187,7 @@ Each project directory contains a `workflow.md` that records the LLM prompts use
 - Any non-obvious choices (why a particular CRS, why alpha_band=2, etc.)
 - Data source URLs and download instructions for external input files
 
-**Format:** see `qgis_map/workflow.md` (the alum_rock_slope project) as a template. Sections are numbered steps; each step has a prompt block, a "What this does" description, and a files-created list.
+**Format:** see `projects/BufferAndQuery/workflow.md` as a template. Sections are numbered steps; each step has a prompt block, a "What this does" description, and a files-created list.
 
 **Purpose:** a new session can read `workflow.md` and reconstruct what was done and why — covering the intent and context that `git log` and the layer files alone don't capture.
 
@@ -201,7 +201,7 @@ Who writes what, and whether humans should edit it:
 | `styles/*.xml` | dump / QGIS Save Style | no | always safe to overwrite; treat as opaque |
 | `project.py` | human | yes | assembles layers into Project |
 | `workflow.md` | LLM + human | yes | updated after each layer or processing step |
-| `helpers.py` | human | yes | project-wide helper functions |
+| `helpers.py` | human | yes | shared helper functions; created only when two or more layers need the same function |
 | `output/` | build / prepare | no | gitignored |
 
 `styles/*.xml` absorbs all machine-written churn. Layer Python files are owned
@@ -216,8 +216,8 @@ as possible, promoted only when a second caller needs them:
   `Layer(...)` call. These are never at risk of being overwritten.
 - **Project-wide** — `{project_dir}/helpers.py`, imported by whichever layer
   files need it. Use for shared color ramps, standard fills, ARP house style, etc.
-- **General / cross-project** — factory functions in `qgis_map/models.py`
-  (construct common renderers), or `qgis_map/transforms.py` (gdal command
+- **General / cross-project** — factory functions in `alidade/models.py`
+  (construct common renderers), or `alidade/transforms.py` (gdal command
   builders, projection helpers).
 
 Promote from layer file → `helpers.py` → `qgis_map/` only when a second caller
@@ -238,7 +238,7 @@ class ShellAction(BaseModel):
 
 class PythonAction(BaseModel):
     kind: Literal["python"] = "python"
-    fn: Any  # callable(inputs: list[Path], output: Path) -> None
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
 
 class ProcessingStep(BaseModel):
     description: str       # plain-English sentence describing what this step produces
@@ -253,9 +253,9 @@ need to parse the command or function.
 
 **Shell actions** use `ShellAction(command="...")` with `{input}`, `{output}`,
 and `{input_N}` placeholders. **Python actions** use
-`PythonAction(fn=some_function)` where the function lives in `helpers.py` and
-takes `(inputs: list[Path], output: Path) -> None`. Functions are defined in
-`{project_dir}/helpers.py` and imported by the layer file.
+`PythonAction(fn=some_function)` where the function is defined in the layer
+file itself and takes `(*inputs: Path, output: Path) -> None`. Move to
+`helpers.py` only when a second layer needs the same function.
 
 Only layers with a `ProcessingStep` have a processing step. Layers without one
 (vector files, tile services, the raw elevation raster) are input-only and
@@ -292,7 +292,7 @@ class ShellAction(BaseModel):
 
 class PythonAction(BaseModel):
     kind: Literal["python"] = "python"
-    fn: Any  # callable(inputs: list[Path], output: Path) -> None
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
 
 class ProcessingStep(BaseModel):
     description: str       # plain-English sentence describing what this step produces

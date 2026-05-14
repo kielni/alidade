@@ -23,7 +23,7 @@ fall within a given distance. Data covers the continental US.
 **Source:** `output/capitol_buffer.shp`  
 **Style:** single symbol — fill #6496ff at 31% opacity, #0050c8 outline  
 **Derived from:** `state_capitol_bldgs`  
-**Processing:** Buffer each State Capitol building point by 25 miles (40,233.6 m in EPSG:3857) using gdal vector buffer.
+**Processing:** Buffer each State Capitol building point by 25 miles (40,233.6 m in EPSG:3857) using geopandas.
 
 ### National Parks
 
@@ -50,9 +50,9 @@ usaparks  ──►  national_parks
 
 | Layer | Tool | Description |
 | --- | --- | --- |
-| `capitol_parks_intersect` | `ogr2ogr` (subprocess) | Filter 25-mile capitol buffers to those intersecting at least one national park polygon; print count to stdout. |
-| `capitol_buffer` | `gdal vector buffer` | Buffer each State Capitol building point by 25 miles (40,233.6 m in EPSG:3857) using gdal vector buffer. |
-| `national_parks` | `ogr2ogr` (subprocess) | Filter USAParks to FCC='D83' (National Park Service units: national parks, monuments, historic parks, seashores, etc.). |
+| `capitol_parks_intersect` | `geopandas` | Filter 25-mile capitol buffers to those intersecting at least one national park polygon; print count to stdout. |
+| `capitol_buffer` | `geopandas` | Buffer each State Capitol building point by 25 miles (40,233.6 m in EPSG:3857) using geopandas. |
+| `national_parks` | `geopandas` | Filter USAParks to FCC='D83' (National Park Service units: national parks, monuments, historic parks, seashores, etc.). |
 <!-- auto:end -->
 
 ## Workflow log

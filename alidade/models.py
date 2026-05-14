@@ -125,7 +125,7 @@ class ShellAction(BaseModel):
 class PythonAction(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["python"] = "python"
-    fn: Any  # callable(inputs: list[Path], output: Path) -> None
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
 
 
 StepAction = Annotated[

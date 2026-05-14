@@ -35,6 +35,8 @@ def _describe_action_tool(action) -> str:
         m = re.search(r'\[\s*["\']([^"\']+)["\']', src)
         exe = m.group(1) if m else "subprocess"
         return f"`{exe}` (subprocess)"
+    if "gpd." in src or "geopandas" in src:
+        return "`geopandas`"
     return "Python"
 
 

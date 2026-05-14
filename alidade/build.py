@@ -57,7 +57,7 @@ def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
         action = step.action
         if hasattr(action, "fn"):
             print(f"  [python] {step.description}")
-            action.fn(inputs, output)
+            action.fn(*inputs, output)
         else:
             fmt = {
                 "output": output,

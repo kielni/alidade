@@ -1,7 +1,25 @@
 from pathlib import Path
 
-from helpers import filter_capitol_buffers_near_parks
+import geopandas as gpd
+
 from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
+
+
+def filter_capitol_buffers_near_parks(
+    buffers_path: Path, parks_path: Path, output: Path
+) -> None:
+    buffers = gpd.read_file(buffers_path)
+    parks = gpd.read_file(parks_path)
+    joined = gpd.sjoin(
+        buffers, parks[["geometry"]], how="inner", predicate="intersects"
+    )
+    result = buffers.loc[joined.index.unique()]
+    result.to_file(output)
+    print(
+        f"State capitols with 25-mile buffer intersecting a national park:"
+        f" {len(result)}"
+    )
+
 
 capitol_parks_intersect = Layer(
     id="capitol_parks_intersect",
