@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer
+from alidade.models import Layer
 
 arp_slope = Layer(
     id="arp_slope",

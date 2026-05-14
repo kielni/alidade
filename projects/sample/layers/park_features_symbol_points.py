@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, Rule, RuleRenderer, SimpleMarker, SvgMarker, Symbol
+from alidade.models import Layer, Rule, RuleRenderer, SimpleMarker, SvgMarker, Symbol
 
 _renderer = RuleRenderer(
     rules_key="{bb04642b-f9da-4f52-8c90-270a8056b0ff}",

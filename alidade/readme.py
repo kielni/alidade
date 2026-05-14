@@ -6,23 +6,27 @@ import inspect
 import re
 from pathlib import Path
 
-from models import (
+from alidade.models import (
     Layer,
     PalettedRenderer,
+    Project,
+    Renderer,
     RuleRenderer,
     ShellAction,
     SimpleFill,
     SimpleLine,
     SimpleMarker,
     SingleSymbol,
+    StepAction,
     SvgMarker,
+    SymbolLayer,
 )
 
 _BEGIN = "<!-- auto:begin -->"
 _END = "<!-- auto:end -->"
 
 
-def _describe_action_tool(action) -> str:
+def _describe_action_tool(action: StepAction) -> str:
     """Return a short tool label for a processing step action."""
     if isinstance(action, ShellAction):
         words = action.command.split()
@@ -35,11 +39,13 @@ def _describe_action_tool(action) -> str:
         m = re.search(r'\[\s*["\']([^"\']+)["\']', src)
         exe = m.group(1) if m else "subprocess"
         return f"`{exe}` (subprocess)"
+    if "gpd." in src or "geopandas" in src:
+        return "`geopandas`"
     return "Python"
 
 
 def _color(rgba: str) -> tuple[str, int]:
-    """Return (hex, alpha_pct) from a comma-separated 'r,g,b,a' string."""
+    """Return (hex_color, alpha_percent) from a comma-separated 'r,g,b,a' string."""
     parts = rgba.split(",")
     r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
     a = int(parts[3]) if len(parts) > 3 else 255
@@ -47,6 +53,7 @@ def _color(rgba: str) -> tuple[str, int]:
 
 
 def _source_label(source: str) -> str:
+    """Return a short human-readable label for a layer source path or URI."""
     if "cartocdn" in source:
         return "CartoDB Positron XYZ tile service"
     if "openstreetmap.org" in source or "<GDAL_WMS>" in source:
@@ -65,7 +72,8 @@ def _source_label(source: str) -> str:
     return p.name
 
 
-def _describe_symbol_layer(sl) -> str:
+def _describe_symbol_layer(sl: SymbolLayer) -> str:
+    """Return a one-line prose description of a SymbolLayer for the README."""
     if isinstance(sl, SimpleFill):
         fill_hex, fill_alpha = _color(sl.color)
         out_hex, _ = _color(sl.outline_color)
@@ -85,7 +93,8 @@ def _describe_symbol_layer(sl) -> str:
     return type(sl).__name__
 
 
-def _describe_renderer(renderer) -> str:
+def _describe_renderer(renderer: Renderer) -> str:
+    """Return a one-line prose description of a Renderer for the README."""
     if isinstance(renderer, SingleSymbol):
         parts = [_describe_symbol_layer(sl) for sl in renderer.symbol.layers]
         return "single symbol — " + "; ".join(parts)
@@ -97,6 +106,7 @@ def _describe_renderer(renderer) -> str:
 
 
 def _describe_style(layer: Layer) -> str:
+    """Return a one-line style description for a layer."""
     if layer.renderer is not None:
         return _describe_renderer(layer.renderer)
     if layer.style_xml is not None:
@@ -104,7 +114,8 @@ def _describe_style(layer: Layer) -> str:
     return "no style configured"
 
 
-def _auto_section(spec, project_dir: Path) -> str:
+def _auto_section(spec: Project, project_dir: Path) -> str:
+    """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
     lines.append("## Layers")
@@ -116,10 +127,10 @@ def _auto_section(spec, project_dir: Path) -> str:
         lines.append(f"**Source:** `{source}`  ")
         lines.append(f"**Style:** {_describe_style(layer)}  ")
         if layer.processing_step is not None:
-            step = layer.processing_step
-            deps = ", ".join(f"`{d}`" for d in step.depends_on)
+            ps = layer.processing_step
+            deps = ", ".join(f"`{d}`" for d in ps.depends_on)
             lines.append(f"**Derived from:** {deps}  ")
-            lines.append(f"**Processing:** {step.description}")
+            lines.append(f"**Processing:** {ps.description}")
         lines.append("")
 
     derived = [la for la in spec.layers if la.processing_step is not None]
@@ -129,6 +140,7 @@ def _auto_section(spec, project_dir: Path) -> str:
         lines.append("```")
         for layer in derived:
             step = layer.processing_step
+            assert step is not None
             for dep in step.depends_on:
                 lines.append(f"{dep}  ──►  {layer.id}")
         lines.append("```")
@@ -140,6 +152,7 @@ def _auto_section(spec, project_dir: Path) -> str:
         lines.append("| --- | --- | --- |")
         for layer in derived:
             step = layer.processing_step
+            assert step is not None
             tool = _describe_action_tool(step.action)
             lines.append(f"| `{layer.id}` | {tool} | {step.description} |")
         lines.append("")
@@ -147,7 +160,8 @@ def _auto_section(spec, project_dir: Path) -> str:
     return "\n".join(lines)
 
 
-def update_readme(spec, project_dir: Path) -> None:
+def update_readme(spec: Project, project_dir: Path) -> None:
+    """Write or update the auto-generated section of project_dir/README.md."""
     readme_path = project_dir / "README.md"
     section = f"{_BEGIN}\n{_auto_section(spec, project_dir)}{_END}\n"
 

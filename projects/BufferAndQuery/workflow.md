@@ -46,17 +46,16 @@ Inspected `data/USAParks.dbf` to identify TIGER FCC codes:
 | D84 |   155 | National Forests (USFS) |
 | D85 | 5,792 | State and local parks |
 
-Created `national_parks` as a derived layer that filters `usaparks` to
-`FCC='D83'` using `ogr2ogr`. The filter runs as a processing step at
-`make build` time and writes `output/national_parks.shp`.
+Created `national_parks` as a derived layer with a `PythonAction` that filters
+`usaparks` to `FCC == "D83"` using geopandas. The filter runs at `make build`
+time and writes `output/national_parks.shp`.
 
 Why D83 and not D84/D85: the exercise target is NPS-administered lands
 (national parks, monuments, historic parks, seashores). National Forests
 (D84) and state/local parks (D85) are separate jurisdictions.
 
 **Files created:**
-- `layers/national_parks.py`
-- `helpers.py` — `filter_national_parks(inputs, output)` using `ogr2ogr -where "FCC='D83'"`
+- `layers/national_parks.py` — `filter_national_park_service(src, output)` filters to `FCC == "D83"`
 
 ---
 
@@ -102,17 +101,18 @@ Source URL: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
 ## Step 5 — Create 25-mile buffer around State Capitol buildings
 
 **Prompt:** create a new layer with one 25-mile polygon around each point in
-State Capitol buildings; use a ShellAction and gdal
+State Capitol buildings
 
 **What this does:**
 
-Created `capitol_buffer` as a derived layer using `gdal vector buffer` — a GDAL
-3.9+ subcommand that buffers vector features without requiring SpatiaLite.
+Created `capitol_buffer` as a derived layer with a `PythonAction` that buffers
+each capitol building point using geopandas.
 
 Buffer distance: 25 mi × 1,609.344 m/mi = **40,233.6 m** (planar, in EPSG:3857).
 
-```
-gdal vector buffer --distance 40233.6 --overwrite {input} {output}
+```python
+BUFFER_METERS = 25 * 1_609.344  # 25 miles, in EPSG:3857 meters
+gdf["geometry"] = gdf.geometry.buffer(BUFFER_METERS)
 ```
 
 Styling: semi-transparent blue fill (`100,150,255` at ~31% opacity) with a
@@ -128,7 +128,7 @@ Layer order in project.py (top → bottom):
 | `cartodb_positron` | Basemap |
 
 **Files created/changed:**
-- `layers/capitol_buffer.py` — `ShellAction` with `gdal vector buffer`
+- `layers/capitol_buffer.py` — `buffer_capitol_buildings(src, output)` using `gdf.geometry.buffer()`
 - `project.py` — added `capitol_buffer` import and layer reference
 
 ---
@@ -140,19 +140,18 @@ national park polygon; output the count of selected state capitols
 
 **What this does:**
 
-Created `capitol_parks_intersect` as a derived layer. A temporary OGR VRT
-combines `capitol_buffer.shp` and `national_parks.shp` into one datasource,
-then `ogr2ogr` runs a SQLite/SpatiaLite `ST_Intersects` EXISTS subquery to
-select only the capitol buffers that overlap at least one national park. The
-count is printed to stdout via `ogrinfo` after the file is written.
+Created `capitol_parks_intersect` as a derived layer with a `PythonAction` that
+uses a geopandas spatial join to select capitol buffers overlapping at least one
+national park. The count is printed to stdout.
 
-```sql
-SELECT cb.* FROM capitol_buffer cb
-WHERE EXISTS (
-  SELECT 1 FROM national_parks np
-  WHERE ST_Intersects(cb.geometry, np.geometry)
-)
+```python
+joined = gpd.sjoin(buffers, parks[["geometry"]], how="inner", predicate="intersects")
+result = buffers.loc[joined.index.unique()]
 ```
+
+`parks[["geometry"]]` is passed as the right frame (geometry only) to avoid
+column-name conflicts. `index.unique()` deduplicates buffers that intersect
+multiple parks.
 
 Result: **15** state capitol buffers intersect a national park.
 
@@ -171,6 +170,7 @@ Layer order in project.py (top → bottom):
 | `cartodb_positron` | Basemap |
 
 **Files created/changed:**
-- `layers/capitol_parks_intersect.py` — new derived polygon layer
-- `helpers.py` — `filter_capitol_buffers_near_parks(inputs, output)` using VRT + ogr2ogr
+- `layers/capitol_parks_intersect.py` — `filter_capitol_buffers_near_parks(buffers_path, parks_path, output)` using `gpd.sjoin`
 - `project.py` — added `capitol_parks_intersect` import and layer reference
+
+

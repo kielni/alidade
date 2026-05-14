@@ -4,7 +4,7 @@ When writing Python code
 
   - Always use PEP-8 style.
   - Do not use inline imports.
-  - Always run black after editing code.
+  - Always run `make lint` after editing code, not black on individual files.
   - Always break string literals that exceed 88 characters using implicit string
     concatenation, since black does not split string literals.
 

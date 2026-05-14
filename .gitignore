@@ -10,3 +10,4 @@ config_aws.js
 .venv/
 __pycache__/
 qgis_map/build/
+lint.log

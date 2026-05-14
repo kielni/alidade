@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, SimpleFill, SingleSymbol, Symbol
+from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
 
 arp_areas = Layer(
     id="arp_areas",

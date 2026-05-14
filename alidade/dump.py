@@ -7,11 +7,11 @@ import sys
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
-from models import (
+from alidade.models import (
     Layer,
     Project,
     Renderer,
@@ -26,7 +26,7 @@ from models import (
     SymbolLayer,
 )
 
-HERE = Path(__file__).parent  # qgis_map/
+HERE = Path(__file__).parent  # alidade/
 
 _MODEL_IMPORT_ORDER = [
     "Layer",
@@ -44,6 +44,7 @@ _MODEL_IMPORT_ORDER = [
 
 
 def _authid(el: ET.Element | None) -> str | None:
+    """Return the authid text from a spatialrefsys element, or None."""
     if el is None:
         return None
     return el.findtext(".//authid") or None
@@ -62,9 +63,10 @@ def _resolve_source(raw: str, base_dir: Path) -> str:
     return os.path.relpath(abs_path, HERE.resolve()) + geom_suffix
 
 
-def _layer_type(ml: ET.Element) -> str:
+def _layer_type(ml: ET.Element) -> Literal["vector", "raster"]:
+    """Return 'vector' or 'raster' from a maplayer element's type attribute."""
     t = ml.get("type", "vector")
-    return t if t in ("vector", "raster") else "vector"
+    return "raster" if t == "raster" else "vector"
 
 
 # ── Human ID generation ───────────────────────────────────────────────────────
@@ -107,6 +109,7 @@ def _human_id(layer_name: str, source: str, used: set[str]) -> str:
 
 
 def _opts(el: ET.Element) -> dict[str, str]:
+    """Extract Option name/value pairs from an Option[@type='Map'] element."""
     result = {}
     for opt in el.findall("Option"):
         name = opt.get("name")
@@ -117,6 +120,7 @@ def _opts(el: ET.Element) -> dict[str, str]:
 
 
 def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
+    """Parse a <layer> element into a SymbolLayer model, or None if unrecognized."""
     kind = layer_el.get("class")
     opts_el = layer_el.find("Option[@type='Map']")
     if opts_el is None:
@@ -175,6 +179,7 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
 
 
 def _parse_symbol(sym_el: ET.Element) -> Symbol | None:
+    """Parse a <symbol> element into a Symbol model, or None if type is unsupported."""
     sym_type = sym_el.get("type")
     if sym_type not in ("fill", "line", "marker"):
         return None
@@ -186,10 +191,15 @@ def _parse_symbol(sym_el: ET.Element) -> Symbol | None:
     ]
     if not layers:
         return None
-    return Symbol(type=sym_type, alpha=alpha, layers=layers)
+    return Symbol(
+        type=cast(Literal["fill", "line", "marker"], sym_type),
+        alpha=alpha,
+        layers=layers,
+    )
 
 
 def _parse_renderer(ml: ET.Element) -> Renderer | None:
+    """Parse a <renderer-v2> element into a Renderer model, or None if unsupported."""
     renderer_el = ml.find("renderer-v2")
     if renderer_el is None:
         return None
@@ -320,7 +330,7 @@ def _write_layer_py(layer: Layer, layers_dir: Path, skip_existing: bool = True) 
     lines = [
         "from pathlib import Path",
         "",
-        f"from models import {imports}",
+        f"from alidade.models import {imports}",
         "",
     ]
 
@@ -353,11 +363,11 @@ def _write_layer_py(layer: Layer, layers_dir: Path, skip_existing: bool = True) 
 
 def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) -> None:
     """Write slim project.py that imports from layers/ and assembles Project."""
-    import_lines = [f"from layers.{hid} import {hid}" for hid in human_ids]
+    import_lines = [f"from .layers.{hid} import {hid}" for hid in human_ids]
     lines = [
         "from pathlib import Path",
         "",
-        "from models import Project",
+        "from alidade.models import Project",
         "",
         *import_lines,
         "",
@@ -391,7 +401,9 @@ def _parse_layers(
         if ltl.get("id")
     ]
     maplayers: dict[str, ET.Element] = {
-        ml.findtext("id"): ml for ml in root.findall(".//maplayer") if ml.findtext("id")
+        id_: ml
+        for ml in root.findall(".//maplayer")
+        if (id_ := ml.findtext("id")) is not None
     }
 
     styles_dir = project_dir / "styles"
@@ -438,6 +450,7 @@ def _parse_layers(
 
 
 def _save_base_qgs(root: ET.Element, path: Path) -> None:
+    """Write a stripped copy of root to path with no layers, tree, or legend entries."""
     base = copy.deepcopy(root)
 
     pl = base.find("projectlayers")
@@ -499,6 +512,7 @@ def _load_xml(project_file: Path) -> bytes:
 
 
 def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
+    """Print a human-readable summary of the parsed project to stdout."""
     print()
     print(f"Project : {spec.title!r}")
     print(f"CRS     : {spec.crs}")
@@ -516,6 +530,7 @@ def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
 
 
 def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) -> None:
+    """Parse a QGIS project file and write layers/*.py and project.py to project_dir."""
     project_file = project_file.resolve()
     project_dir = project_dir.resolve()
     qgz_dir = project_file.parent
@@ -547,10 +562,10 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
             if ext is not None:
                 try:
                     extent = (
-                        float(ext.findtext("xmin")),
-                        float(ext.findtext("ymin")),
-                        float(ext.findtext("xmax")),
-                        float(ext.findtext("ymax")),
+                        float(ext.findtext("xmin") or ""),
+                        float(ext.findtext("ymin") or ""),
+                        float(ext.findtext("xmax") or ""),
+                        float(ext.findtext("ymax") or ""),
                     )
                 except TypeError, ValueError:
                     pass

@@ -1,7 +1,21 @@
 from pathlib import Path
 
-from helpers import filter_national_parks
-from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
+import geopandas as gpd
+
+from alidade.models import (
+    Layer,
+    ProcessingStep,
+    PythonAction,
+    SimpleFill,
+    SingleSymbol,
+    Symbol,
+)
+
+
+def filter_national_park_service(src: Path, output: Path) -> None:
+    gdf = gpd.read_file(src)
+    gdf[gdf["FCC"] == "D83"].to_file(output)
+
 
 national_parks = Layer(
     id="national_parks",
@@ -28,7 +42,7 @@ national_parks = Layer(
             "Filter USAParks to FCC='D83' (National Park Service units:"
             " national parks, monuments, historic parks, seashores, etc.)."
         ),
-        action=PythonAction(fn=filter_national_parks),
+        action=PythonAction(fn=filter_national_park_service),
         depends_on=["usaparks"],
         output=Path("output/national_parks.shp"),
     ),

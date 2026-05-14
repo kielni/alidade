@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, ProcessingStep, ShellAction
+from alidade.models import Layer, ProcessingStep, ShellAction
 
 elevation_10n = Layer(
     id="elevation_10n",

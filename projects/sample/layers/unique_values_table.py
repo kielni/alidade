@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer
+from alidade.models import Layer
 
 unique_values_table = Layer(
     id="unique_values_table",

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer, SimpleLine, SingleSymbol, Symbol
+from alidade.models import Layer, SimpleLine, SingleSymbol, Symbol
 
 park_features_symbol_lines = Layer(
     id="park_features_symbol_lines",

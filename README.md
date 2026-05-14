@@ -42,7 +42,7 @@ dialog.
 Robin Sloan's [home-cooked app](https://www.robinsloan.com/notes/home-cooked-app/)
 draws a distinction between software built for a mass audience and software you
 cook for yourself — personal, imperfect, and fitted exactly to how you work.
-This is nit a finished product or an installable
+This is not a finished product or an installable
 package. It is a starting point to fork and shape. The projects/sample/ and
 DESIGN.md are a starting point.
 
@@ -68,7 +68,7 @@ highlighting, completion, and navigation.
 
 ## Use cases
 
-This tool could be for for you if:
+This tool could be for you if:
 
 - You make maps in QGIS and are frustrated that the project file is a
   compressed binary you can't diff, review, or batch-edit
@@ -86,17 +86,28 @@ This tool could be for for you if:
 - QGIS 3.x desktop app (Mac: `/Applications/QGIS.app`; configure path in
   `local.env`)
 - [uv](https://docs.astral.sh/uv/)
-- GDAL CLI tools (`brew install gdal`) — used for data preparation; QGIS.app
+- GDAL CLI tools (`brew install gdal`) — used for raster operations (slope,
+  hillshade, reprojection) where no clean Python equivalent exists; QGIS.app
   bundles its own GDAL but does not expose the command-line tools
+
+Processing steps prefer Python libraries (geopandas for vector operations like
+filtering, buffering, and spatial joins) over shell commands. GDAL CLI is
+reserved for raster work (`gdaldem`, `gdalwarp`, `gdal_calc`) that has no
+clean Python equivalent.
 
 ### Install
 
 ```bash
 git clone <repo>
 cd alidade
-uv sync
+uv sync                          # installs alidade as an editable package
 cp local.env.example local.env   # edit if QGIS is not at the default path
 ```
+
+`uv sync` installs `alidade` into the project virtualenv in editable mode, so
+the `alidade-build`, `alidade-dump`, `alidade-capture`, and `alidade-validate`
+console scripts are available via `uv run`. Project layer files import from
+`alidade.models` like any other installed package.
 
 ### QGIS setup
 
@@ -220,14 +231,21 @@ Iterate to build and customize your own toolbox:
 
 ## Example
 
-Create and describe a new layer `national_parks` by running the `filter_national_parks`
-on the `usaparks` layer.
+Create and describe a new layer `national_parks` that filters the `usaparks`
+source to National Park Service polygons.
 
-```
+```python
 from pathlib import Path
 
-from helpers import filter_national_parks
-from models import Layer, ProcessingStep, PythonAction
+import geopandas as gpd
+
+from alidade.models import Layer, ProcessingStep, PythonAction
+
+
+def filter_national_park_service(src: Path, output: Path) -> None:
+    gdf = gpd.read_file(src)
+    gdf[gdf["FCC"] == "D83"].to_file(output)
+
 
 national_parks = Layer(
     id="national_parks",
@@ -243,7 +261,7 @@ national_parks = Layer(
             "Filter USAParks to FCC='D83' (National Park Service units:"
             " national parks, monuments, historic parks, seashores, etc.)."
         ),
-        action=PythonAction(fn=filter_national_parks),
+        action=PythonAction(fn=filter_national_park_service),
         depends_on=["usaparks"],
         output=Path("output/national_parks.shp"),
     ),
@@ -265,17 +283,16 @@ Inspected `data/USAParks.dbf` to identify TIGER FCC codes:
 | D84 |   155 | National Forests (USFS) |
 | D85 | 5,792 | State and local parks |
 
-Created `national_parks` as a derived layer that filters `usaparks` to
-`FCC='D83'` using `ogr2ogr`. The filter runs as a processing step at
-`make build` time and writes `output/national_parks.shp`.
+Created `national_parks` as a derived layer with a `PythonAction` that filters
+`usaparks` to `FCC == "D83"` using geopandas. The filter runs at `make build`
+time and writes `output/national_parks.shp`.
 
 Why D83 and not D84/D85: the exercise target is NPS-administered lands
 (national parks, monuments, historic parks, seashores). National Forests
 (D84) and state/local parks (D85) are separate jurisdictions.
 
 **Files created:**
-- `layers/national_parks.py`
-- `helpers.py` — `filter_national_parks(inputs, output)` using `ogr2ogr -where "FCC='D83'"`
+- `layers/national_parks.py` — processing function defined inline in the layer file
 
 See `DESIGN.md` for architecture decisions and `projects/sample/workflow.md` for an
 example of the LLM prompt log.

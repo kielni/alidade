@@ -110,10 +110,10 @@ file — not nested inline.
 `project.py` only imports layers and assembles the `Project`:
 
 ```python
-from layers.park_polygon import park_polygon
-from layers.elevation_import import elevation_import
-from layers.elevation_10n import elevation_10n
-from layers.slope import slope
+from .layers.park_polygon import park_polygon
+from .layers.elevation_import import elevation_import
+from .layers.elevation_10n import elevation_10n
+from .layers.slope import slope
 
 spec = Project(
     title="Alum Rock Park Slope",
@@ -126,7 +126,7 @@ spec = Project(
 
 ```python
 from pathlib import Path
-from models import Layer, ProcessingStep, ShellAction
+from alidade.models import Layer, ProcessingStep, ShellAction
 
 slope = Layer(
     id="slope",
@@ -187,7 +187,7 @@ Each project directory contains a `workflow.md` that records the LLM prompts use
 - Any non-obvious choices (why a particular CRS, why alpha_band=2, etc.)
 - Data source URLs and download instructions for external input files
 
-**Format:** see `qgis_map/workflow.md` (the alum_rock_slope project) as a template. Sections are numbered steps; each step has a prompt block, a "What this does" description, and a files-created list.
+**Format:** see `projects/BufferAndQuery/workflow.md` as a template. Sections are numbered steps; each step has a prompt block, a "What this does" description, and a files-created list.
 
 **Purpose:** a new session can read `workflow.md` and reconstruct what was done and why — covering the intent and context that `git log` and the layer files alone don't capture.
 
@@ -201,7 +201,7 @@ Who writes what, and whether humans should edit it:
 | `styles/*.xml` | dump / QGIS Save Style | no | always safe to overwrite; treat as opaque |
 | `project.py` | human | yes | assembles layers into Project |
 | `workflow.md` | LLM + human | yes | updated after each layer or processing step |
-| `helpers.py` | human | yes | project-wide helper functions |
+| `helpers.py` | human | yes | shared helper functions; created only when two or more layers need the same function |
 | `output/` | build / prepare | no | gitignored |
 
 `styles/*.xml` absorbs all machine-written churn. Layer Python files are owned
@@ -216,12 +216,32 @@ as possible, promoted only when a second caller needs them:
   `Layer(...)` call. These are never at risk of being overwritten.
 - **Project-wide** — `{project_dir}/helpers.py`, imported by whichever layer
   files need it. Use for shared color ramps, standard fills, ARP house style, etc.
-- **General / cross-project** — factory functions in `qgis_map/models.py`
-  (construct common renderers), or `qgis_map/transforms.py` (gdal command
+- **General / cross-project** — factory functions in `alidade/models.py`
+  (construct common renderers), or `alidade/transforms.py` (gdal command
   builders, projection helpers).
 
 Promote from layer file → `helpers.py` → `qgis_map/` only when a second caller
 exists. Don't abstract in advance.
+
+## Code style
+
+**PEP 257 docstrings on every module, function, and method.** One-line docstrings
+keep the closing `"""` on the same line as the text. Describe *what* the function
+does, not *how*. Examples:
+
+```python
+def _layer_type(ml: ET.Element) -> Literal["vector", "raster"]:
+    """Return 'vector' or 'raster' from a maplayer element's type attribute."""
+    ...
+
+def _load_spec(project_dir: Path) -> Project:
+    """Load project.py from project_dir and return its spec attribute."""
+    ...
+```
+
+**Type annotations on every function parameter and return value.** Use types from
+`models.py` (`Project`, `Layer`, `Renderer`, etc.) rather than `Any` where the
+type is known.
 
 ## Processing steps
 
@@ -238,7 +258,7 @@ class ShellAction(BaseModel):
 
 class PythonAction(BaseModel):
     kind: Literal["python"] = "python"
-    fn: Any  # callable(inputs: list[Path], output: Path) -> None
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
 
 class ProcessingStep(BaseModel):
     description: str       # plain-English sentence describing what this step produces
@@ -251,11 +271,18 @@ Always include a `description` — one sentence saying what the step produces, i
 plain English. This is the human-readable summary for readers who should not
 need to parse the command or function.
 
+**Prefer `PythonAction` over `ShellAction`.** A primary goal of this project is
+producing human-readable artifacts. Python code with named variables is easier
+to read than a shell command string with positional flags. Use geopandas for
+vector operations (filtering, buffering, spatial joins) rather than `ogr2ogr`
+or `gdal vector`. Reserve `ShellAction` for tools with no clean Python
+equivalent — raster operations like `gdaldem slope` or `gdalwarp`.
+
 **Shell actions** use `ShellAction(command="...")` with `{input}`, `{output}`,
 and `{input_N}` placeholders. **Python actions** use
-`PythonAction(fn=some_function)` where the function lives in `helpers.py` and
-takes `(inputs: list[Path], output: Path) -> None`. Functions are defined in
-`{project_dir}/helpers.py` and imported by the layer file.
+`PythonAction(fn=some_function)` where the function is defined in the layer
+file itself and takes `(*inputs: Path, output: Path) -> None`. Move to
+`helpers.py` only when a second layer needs the same function.
 
 Only layers with a `ProcessingStep` have a processing step. Layers without one
 (vector files, tile services, the raw elevation raster) are input-only and
@@ -292,7 +319,7 @@ class ShellAction(BaseModel):
 
 class PythonAction(BaseModel):
     kind: Literal["python"] = "python"
-    fn: Any  # callable(inputs: list[Path], output: Path) -> None
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
 
 class ProcessingStep(BaseModel):
     description: str       # plain-English sentence describing what this step produces

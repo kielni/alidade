@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models import Layer
+from alidade.models import Layer
 
 cartodb_positron = Layer(
     id="cartodb_positron",

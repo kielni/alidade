@@ -5,6 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from alidade.models import Layer, Project
+from alidade.readme import update_readme
+from alidade.render import _load_spec, render
+
 HERE = Path(__file__).parent  # alidade/
 
 
@@ -18,29 +22,36 @@ def _resolve_source_path(source: str, project_dir: Path) -> Path:
     return (HERE / path_part).resolve()
 
 
-def _topo_sort(spec) -> list:
+def _visit(
+    layer_id: str,
+    steps: dict[str, Layer],
+    visited: set[str],
+    ordered: list[Layer],
+) -> None:
+    """Add layer_id and its unvisited dependencies to ordered in topological order."""
+    if layer_id in visited:
+        return
+    visited.add(layer_id)
+    layer = steps.get(layer_id)
+    if layer is not None:
+        assert layer.processing_step is not None
+        for dep in layer.processing_step.depends_on:
+            _visit(dep, steps, visited, ordered)
+        ordered.append(layer)
+
+
+def _topo_sort(spec: Project) -> list[Layer]:
     """Return layers-with-processing-steps in dependency order."""
     steps = {layer.id: layer for layer in spec.layers if layer.processing_step}
-    ordered: list = []
+    ordered: list[Layer] = []
     visited: set[str] = set()
-
-    def visit(layer_id: str) -> None:
-        if layer_id in visited:
-            return
-        visited.add(layer_id)
-        layer = steps.get(layer_id)
-        if layer is not None:
-            for dep in layer.processing_step.depends_on:
-                visit(dep)
-            ordered.append(layer)
-
     for layer in spec.layers:
         if layer.processing_step is not None:
-            visit(layer.id)
+            _visit(layer.id, steps, visited, ordered)
     return ordered
 
 
-def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
+def _run_processing_steps(spec: Project, project_dir: Path, force: bool) -> None:
     """Run processing steps in dependency order for outputs that don't exist."""
     sources = {
         layer.id: _resolve_source_path(layer.source, project_dir)
@@ -48,6 +59,7 @@ def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
     }
     for layer in _topo_sort(spec):
         step = layer.processing_step
+        assert step is not None
         output = (project_dir / step.output).resolve()
         if not force and output.exists():
             print(f"  [skip] {layer.name!r} output exists")
@@ -57,7 +69,7 @@ def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
         action = step.action
         if hasattr(action, "fn"):
             print(f"  [python] {step.description}")
-            action.fn(inputs, output)
+            action.fn(*inputs, output)
         else:
             fmt = {
                 "output": output,
@@ -72,6 +84,7 @@ def _run_processing_steps(spec, project_dir: Path, force: bool) -> None:
 
 
 def _source_hash(project_dir: Path) -> str:
+    """Return a SHA-256 hex digest of project.py and all layers/*.py files."""
     h = hashlib.sha256()
     project_py = project_dir / "project.py"
     if project_py.exists():
@@ -84,6 +97,7 @@ def _source_hash(project_dir: Path) -> str:
 
 
 def _needs_rebuild(project_dir: Path) -> bool:
+    """Return True if output/project.qgs is absent or source files have changed."""
     output_dir = project_dir / "output"
     if not (output_dir / "project.qgs").exists():
         return True
@@ -94,6 +108,7 @@ def _needs_rebuild(project_dir: Path) -> bool:
 
 
 def main() -> None:
+    """Build project_dir/output/project.qgs from project_dir/project.py."""
     force = "--force" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
@@ -116,12 +131,6 @@ def main() -> None:
     if layers_dir.exists():
         fmt_targets += [str(layers_dir)]
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
-
-    if str(HERE) not in sys.path:
-        sys.path.insert(0, str(HERE))
-
-    from readme import update_readme
-    from render import _load_spec, render
 
     spec = _load_spec(project_dir)
     _run_processing_steps(spec, project_dir, force=False)
