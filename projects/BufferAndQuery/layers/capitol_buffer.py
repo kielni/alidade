@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from helpers import buffer_capitol_buildings
-from models import Layer, ProcessingStep, PythonAction, SimpleFill, SingleSymbol, Symbol
+from models import Layer, ProcessingStep, ShellAction, SimpleFill, SingleSymbol, Symbol
 
 capitol_buffer = Layer(
     id="capitol_buffer",
@@ -26,10 +25,12 @@ capitol_buffer = Layer(
     ),
     processing_step=ProcessingStep(
         description=(
-            "Buffer State Capitol building points by 25 miles"
-            " (40,233.6 m in EPSG:3857)."
+            "Buffer each State Capitol building point by 25 miles (40,233.6 m in"
+            " EPSG:3857) using gdal vector buffer."
         ),
-        action=PythonAction(fn=buffer_capitol_buildings),
+        action=ShellAction(
+            command="gdal vector buffer --distance 40233.6 --overwrite {input} {output}"
+        ),
         depends_on=["state_capitol_bldgs"],
         output=Path("output/capitol_buffer.shp"),
     ),

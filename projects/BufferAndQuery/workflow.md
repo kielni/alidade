@@ -101,24 +101,22 @@ Source URL: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
 
 ## Step 5 — Create 25-mile buffer around State Capitol buildings
 
-**Prompt:** create a new layer that contains polygons with 25 mile buffer around
-points in the State Capitol buildings layer
+**Prompt:** create a new layer with one 25-mile polygon around each point in
+State Capitol buildings; use a ShellAction and gdal
 
 **What this does:**
 
-Added `geopandas` as a project dependency (`uv add geopandas`), then created a
-derived layer that buffers the 55 State Capitol building point features by
-25 miles.
+Created `capitol_buffer` as a derived layer using `gdal vector buffer` — a GDAL
+3.9+ subcommand that buffers vector features without requiring SpatiaLite.
 
 Buffer distance: 25 mi × 1,609.344 m/mi = **40,233.6 m** (planar, in EPSG:3857).
 
-The helper reads the source shapefile with geopandas, applies
-`geometry.buffer(40233.6)`, and writes the resulting polygon shapefile to
-`output/capitol_buffer.shp`.
+```
+gdal vector buffer --distance 40233.6 --overwrite {input} {output}
+```
 
 Styling: semi-transparent blue fill (`100,150,255` at ~31% opacity) with a
-solid medium-blue outline (`0,80,200`), so the buffer regions are visible
-without obscuring the basemap or national parks beneath them.
+solid medium-blue outline (`0,80,200`).
 
 Layer order in project.py (top → bottom):
 
@@ -130,8 +128,7 @@ Layer order in project.py (top → bottom):
 | `cartodb_positron` | Basemap |
 
 **Files created/changed:**
-- `layers/capitol_buffer.py` — new derived polygon layer
-- `helpers.py` — added `buffer_capitol_buildings(inputs, output)` using geopandas
+- `layers/capitol_buffer.py` — `ShellAction` with `gdal vector buffer`
 - `project.py` — added `capitol_buffer` import and layer reference
 
 ---
@@ -143,14 +140,21 @@ national park polygon; output the count of selected state capitols
 
 **What this does:**
 
-Created a derived layer that spatially joins `capitol_buffer` against
-`national_parks` and keeps only the capitol buffer polygons that intersect at
-least one national park polygon. The count of matching state capitols is printed
-to stdout at build time.
+Created `capitol_parks_intersect` as a derived layer. A temporary OGR VRT
+combines `capitol_buffer.shp` and `national_parks.shp` into one datasource,
+then `ogr2ogr` runs a SQLite/SpatiaLite `ST_Intersects` EXISTS subquery to
+select only the capitol buffers that overlap at least one national park. The
+count is printed to stdout via `ogrinfo` after the file is written.
 
-Implementation uses `gpd.sjoin(..., predicate="intersects")` followed by
-`capitol_buffers.loc[joined.index.unique()]` to deduplicate — a buffer touching
-multiple parks appears only once in the output.
+```sql
+SELECT cb.* FROM capitol_buffer cb
+WHERE EXISTS (
+  SELECT 1 FROM national_parks np
+  WHERE ST_Intersects(cb.geometry, np.geometry)
+)
+```
+
+Result: **15** state capitol buffers intersect a national park.
 
 Styling: orange fill (`255,160,50` at ~43% opacity) with a dark-orange outline
 (`200,90,0`) so the selected buffers are visually distinct from the full blue
@@ -168,5 +172,5 @@ Layer order in project.py (top → bottom):
 
 **Files created/changed:**
 - `layers/capitol_parks_intersect.py` — new derived polygon layer
-- `helpers.py` — added `filter_capitol_buffers_near_parks(inputs, output)`
+- `helpers.py` — `filter_capitol_buffers_near_parks(inputs, output)` using VRT + ogr2ogr
 - `project.py` — added `capitol_parks_intersect` import and layer reference

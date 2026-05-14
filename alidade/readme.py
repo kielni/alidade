@@ -9,7 +9,6 @@ from pathlib import Path
 from models import (
     Layer,
     PalettedRenderer,
-    PythonAction,
     RuleRenderer,
     ShellAction,
     SimpleFill,
@@ -26,15 +25,16 @@ _END = "<!-- auto:end -->"
 def _describe_action_tool(action) -> str:
     """Return a short tool label for a processing step action."""
     if isinstance(action, ShellAction):
-        return f"`{action.command.split()[0]}`"
+        words = action.command.split()
+        # "gdal <verb> <noun> ..." → include verb and noun as the full command name
+        n = 3 if len(words) >= 3 and words[0] == "gdal" else 1
+        return f"`{' '.join(words[:n])}`"
     # PythonAction: inspect source for the library doing the heavy lifting
     src = inspect.getsource(action.fn)
     if "subprocess.run" in src or "subprocess.call" in src:
         m = re.search(r'\[\s*["\']([^"\']+)["\']', src)
         exe = m.group(1) if m else "subprocess"
         return f"`{exe}` (subprocess)"
-    if "gpd." in src or "geopandas" in src:
-        return "shapely via geopandas"
     return "Python"
 
 

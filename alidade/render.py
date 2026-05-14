@@ -1,7 +1,5 @@
 """Render project.py → output/project.qgs."""
 
-from __future__ import annotations
-
 import importlib.util
 import sys
 import uuid
@@ -318,7 +316,6 @@ def _srs_element(authid: str) -> ET.Element:
     srs = ET.Element("srs")
     sys_el = ET.SubElement(srs, "spatialrefsys", nativeFormat="Wkt")
     ET.SubElement(sys_el, "wkt").text = crs.to_wkt()
-    ET.SubElement(sys_el, "proj4").text = crs.to_proj4()
     ET.SubElement(sys_el, "srsid").text = "0"
     ET.SubElement(sys_el, "srid").text = epsg_code
     ET.SubElement(sys_el, "authid").text = authid
@@ -1344,7 +1341,7 @@ def render_print_layout(spec, project_dir: Path) -> None:
     )
     root.append(_qpt_page_collection(pl.page))
 
-    # z order matches original: credits=6, scale bar=5, north=4, legend=3, title=2, map=1
+    # z order: credits=6, scale bar=5, north=4, legend=3, title=2, map=1
     root.append(
         _qpt_label(
             text=pl.credits_text,
