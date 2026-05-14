@@ -1,17 +1,17 @@
 from models import Project
 
-from layers.arp_areas import arp_areas
-from layers.arp_slope import arp_slope
-from layers.cartodb_positron import cartodb_positron
-from layers.elevation import elevation
-from layers.elevation_10n import elevation_10n
-from layers.esri_satellite import esri_satellite
-from layers.park_features_symbol_lines import park_features_symbol_lines
-from layers.park_features_symbol_points import park_features_symbol_points
-from layers.park_features_symbol_polygons import park_features_symbol_polygons
-from layers.park_polygon import park_polygon
-from layers.slope import slope
-from layers.unique_values_table import unique_values_table
+from .layers.arp_areas import arp_areas
+from .layers.arp_slope import arp_slope
+from .layers.cartodb_positron import cartodb_positron
+from .layers.elevation import elevation
+from .layers.elevation_10n import elevation_10n
+from .layers.esri_satellite import esri_satellite
+from .layers.park_features_symbol_lines import park_features_symbol_lines
+from .layers.park_features_symbol_points import park_features_symbol_points
+from .layers.park_features_symbol_polygons import park_features_symbol_polygons
+from .layers.park_polygon import park_polygon
+from .layers.slope import slope
+from .layers.unique_values_table import unique_values_table
 
 spec = Project(
     title="",

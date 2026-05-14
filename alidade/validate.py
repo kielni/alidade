@@ -4,11 +4,18 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+from render import _abs_source, _load_spec  # noqa: E402
 
 
 def _is_file_source(source: str) -> bool:
-    """True if source is a local path that should already exist (not a URI,
-    memory layer, or derived output that make prepare would generate)."""
+    """Return True if source is a local path that should already exist.
+
+    Returns False for URIs, memory layers, or derived outputs that
+    make prepare would generate.
+    """
     if ":" in source.split("/")[0]:  # http-header:, wms:, etc.
         return False
     if source.startswith("memory?"):
@@ -19,11 +26,7 @@ def _is_file_source(source: str) -> bool:
 
 
 def validate(project_dir: Path) -> bool:
-    if str(HERE) not in sys.path:
-        sys.path.insert(0, str(HERE))
-
-    from render import _abs_source, _load_spec
-
+    """Validate that all source and style paths for a project exist on disk."""
     spec = _load_spec(project_dir)
     errors: list[str] = []
 

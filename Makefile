@@ -3,7 +3,11 @@
 
 -include local.env
 
+SHELL := /bin/bash
+.SHELLFLAGS := -o pipefail -c
+
 RUN := uv run python
+LOG ?= lint.log
 
 .PHONY: help dump build build-all capture validate lint clean
 
@@ -38,8 +42,10 @@ validate:
 	$(RUN) alidade/validate.py $(DIR)
 
 lint:
-	uv run black .
-	uv run flake8 .
+	> $(LOG)
+	uv run black . 2>&1 | tee $(LOG)
+	uv run flake8 . 2>&1 | tee -a $(LOG)
+	uv run mypy . 2>&1 | tee -a $(LOG)
 
 clean:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make clean DIR=project_dir"; exit 1; fi

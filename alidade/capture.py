@@ -9,20 +9,24 @@ HERE = Path(__file__).parent
 
 
 def _read_extent(qgs_path: Path) -> tuple[float, float, float, float]:
+    """Parse the MapCanvas extent from qgs_path and return (xmin, ymin, xmax, ymax)."""
     tree = ElementTree.parse(qgs_path)
     root = tree.getroot()
     canvas = root.find(".//mapcanvas[@name='theMapCanvas']")
     if canvas is None:
         raise ValueError("theMapCanvas not found in project.qgs")
     extent = canvas.find("extent")
-    xmin = float(extent.find("xmin").text)
-    ymin = float(extent.find("ymin").text)
-    xmax = float(extent.find("xmax").text)
-    ymax = float(extent.find("ymax").text)
+    if extent is None:
+        raise ValueError("extent not found in theMapCanvas")
+    xmin = float(extent.findtext("xmin") or "")
+    ymin = float(extent.findtext("ymin") or "")
+    xmax = float(extent.findtext("xmax") or "")
+    ymax = float(extent.findtext("ymax") or "")
     return xmin, ymin, xmax, ymax
 
 
 def _write_extent(project_py: Path, extent: tuple[float, float, float, float]) -> None:
+    """Rewrite the extent=(...) tuple in project_py with new coordinates."""
     xmin, ymin, xmax, ymax = extent
     new_extent = (
         f"    extent=(\n"
@@ -44,6 +48,7 @@ def _write_extent(project_py: Path, extent: tuple[float, float, float, float]) -
 
 
 def main() -> None:
+    """Parse args and sync the extent from output/project.qgs into project.py."""
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         print("Usage: python capture.py <project_dir>")

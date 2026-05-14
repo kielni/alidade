@@ -223,6 +223,26 @@ as possible, promoted only when a second caller needs them:
 Promote from layer file → `helpers.py` → `qgis_map/` only when a second caller
 exists. Don't abstract in advance.
 
+## Code style
+
+**PEP 257 docstrings on every module, function, and method.** One-line docstrings
+keep the closing `"""` on the same line as the text. Describe *what* the function
+does, not *how*. Examples:
+
+```python
+def _layer_type(ml: ET.Element) -> Literal["vector", "raster"]:
+    """Return 'vector' or 'raster' from a maplayer element's type attribute."""
+    ...
+
+def _load_spec(project_dir: Path) -> Project:
+    """Load project.py from project_dir and return its spec attribute."""
+    ...
+```
+
+**Type annotations on every function parameter and return value.** Use types from
+`models.py` (`Project`, `Layer`, `Renderer`, etc.) rather than `Any` where the
+type is known.
+
 ## Processing steps
 
 Derived layers are produced by **Processing steps** — operations like slope
