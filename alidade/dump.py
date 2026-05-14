@@ -1,7 +1,5 @@
 """Parse a .qgs or .qgz file into layers/*.py and styles/*.xml."""
 
-from __future__ import annotations
-
 import copy
 import os
 import re
