@@ -251,6 +251,13 @@ Always include a `description` — one sentence saying what the step produces, i
 plain English. This is the human-readable summary for readers who should not
 need to parse the command or function.
 
+**Prefer `PythonAction` over `ShellAction`.** A primary goal of this project is
+producing human-readable artifacts. Python code with named variables is easier
+to read than a shell command string with positional flags. Use geopandas for
+vector operations (filtering, buffering, spatial joins) rather than `ogr2ogr`
+or `gdal vector`. Reserve `ShellAction` for tools with no clean Python
+equivalent — raster operations like `gdaldem slope` or `gdalwarp`.
+
 **Shell actions** use `ShellAction(command="...")` with `{input}`, `{output}`,
 and `{input_N}` placeholders. **Python actions** use
 `PythonAction(fn=some_function)` where the function is defined in the layer
