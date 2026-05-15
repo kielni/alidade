@@ -21,21 +21,21 @@ _B3 = 25.66
 _B4 = 29.97
 _MAX = 44.51
 
-# ColorBrewer 5-class Blues (light → dark = low → high %)
+# ColorBrewer 5-class Blues (light → dark = low → high %), 50% fill opacity
 _BLUES = [
-    "239,243,255,255",  # #eff3ff — 20.0–21.2 %
-    "189,215,231,255",  # #bdd7e7 — 21.2–22.9 %
-    "107,174,214,255",  # #6baed6 — 22.9–25.7 %
-    "49,130,189,255",  # #3182bd — 25.7–30.0 %
-    "8,81,156,255",  # #08519c — 30.0–44.5 %
+    "239,243,255,128",  # #eff3ff — 20.0–21.2 %
+    "189,215,231,128",  # #bdd7e7 — 21.2–22.9 %
+    "107,174,214,128",  # #6baed6 — 22.9–25.7 %
+    "49,130,189,128",  # #3182bd — 25.7–30.0 %
+    "8,81,156,128",  # #08519c — 30.0–44.5 %
 ]
-_OUTLINE = "35,35,35,128"
+_OUTLINE = "0,80,200,255"
 
 
 def _symbol(color: str) -> Symbol:
     return Symbol(
         type="fill",
-        layers=[SimpleFill(color=color, outline_color=_OUTLINE, outline_width=0.26)],
+        layers=[SimpleFill(color=color, outline_color=_OUTLINE, outline_width=0.5)],
     )
 
 
