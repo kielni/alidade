@@ -10,12 +10,19 @@
 **Derived from:**   
 **Processing:** Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227.
 
-### Males 22-39 > 20% of Population
+### Mall 5-Mile Buffers
 
-**Source:** `output/males_22_39_pct_over20.shp`  
-**Style:** rule-based (5 rules)  
-**Derived from:** `census_tracts_males_22_39`  
-**Processing:** Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20.
+**Source:** `output/mall_buffers.shp`  
+**Style:** single symbol — fill #90ee90 at 50% opacity, #50a050 outline  
+**Derived from:** `malls`  
+**Processing:** Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field.
+
+### Mall Buffer Census Tracts
+
+**Source:** `output/mall_buffer_tracts.shp`  
+**Style:** single symbol — fill #ffc832 at 71% opacity, #b47800 outline  
+**Derived from:** `mall_buffers`, `census_tracts_males_22_39`  
+**Processing:** Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39.
 
 ### Major Roads
 
@@ -42,7 +49,9 @@
 ## Data flow
 
 ```
-census_tracts_males_22_39  ──►  males_22_39_pct_over20
+malls  ──►  mall_buffers
+mall_buffers  ──►  mall_buffer_tracts
+census_tracts_males_22_39  ──►  mall_buffer_tracts
 roads  ──►  major_roads
 ```
 
@@ -51,6 +60,7 @@ roads  ──►  major_roads
 | Layer | Tool | Description |
 | --- | --- | --- |
 | `malls` | `geopandas` | Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227. |
-| `males_22_39_pct_over20` | `geopandas` | Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20. |
+| `mall_buffers` | `geopandas` | Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field. |
+| `mall_buffer_tracts` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |
 | `major_roads` | `geopandas` | Filter roads to primary/major highway FCC codes A10–A21. |
 <!-- auto:end -->

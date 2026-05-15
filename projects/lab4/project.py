@@ -3,7 +3,8 @@ from alidade.models import Project
 from .layers.cartodb_positron import cartodb_positron
 from .layers.census_tracts_males_22_39 import census_tracts_males_22_39
 from .layers.major_roads import major_roads
-from .layers.males_22_39_pct_over20 import males_22_39_pct_over20
+from .layers.mall_buffer_tracts import mall_buffer_tracts
+from .layers.mall_buffers import mall_buffers
 from .layers.malls import malls
 from .layers.roads import roads
 
@@ -18,10 +19,11 @@ spec = Project(
     ),
     layers=[
         malls,
-        males_22_39_pct_over20,
+        mall_buffers,
+        mall_buffer_tracts,
         major_roads,
-        census_tracts_males_22_39.model_copy(update={"visible": False}),
-        roads.model_copy(update={"visible": False}),
+        census_tracts_males_22_39,  # not visible
+        roads,  # not visible
         cartodb_positron,
     ],
 )
