@@ -15,10 +15,10 @@ HERE = Path(__file__).parent  # alidade/
 
 def _resolve_source_path(source: str, project_dir: Path) -> Path:
     """Return the absolute filesystem path for a layer source string."""
-    path_part = source.split("|")[0] if "|" in source else source
+    path_part = source.split("|")[0].split("?")[0]
     if path_part.startswith("/") or ":" in path_part.split("/")[0]:
         return Path(path_part)
-    if path_part.startswith("./"):
+    if path_part.startswith("./") or path_part.startswith("data/"):
         return (project_dir / path_part).resolve()
     return (HERE / path_part).resolve()
 
@@ -138,7 +138,7 @@ def main() -> None:
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
 
     spec = _load_spec(project_dir)
-    _run_processing_steps(spec, project_dir, force=False)
+    _run_processing_steps(spec, project_dir, force=force)
     render(spec, project_dir)
     update_readme(spec, project_dir)
 
