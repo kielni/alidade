@@ -1,0 +1,3 @@
+County,District,School,Street,City,Zip,State,MailStreet,MailStrAbr,MailCity,MailZip,MailState,Phone,SOCType,EdOpsCode,EdOpsName,Latitude,Longitude
+Santa Clara,Palo Alto Unified,Palo Alto High,50 Embarcadero Road,Palo Alto,94301-2321,CA,50 Embarcadero Road,50 Embarcadero Rd.,Palo Alto,94301-2321,CA,(650) 329-3701,High Schools (Public),TRAD,Traditional,37.437857,-122.15779
+Santa Clara,Palo Alto Unified,Henry M. Gunn High,780 Arastradero Road,Palo Alto,94306-3827,CA,780 Arastradero Road,780 Arastradero Rd.,Palo Alto,94306-3827,CA,(650) 354-8200,High Schools (Public),TRAD,Traditional,37.399966,-122.13179
