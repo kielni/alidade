@@ -3,6 +3,13 @@
 <!-- auto:begin -->
 ## Layers
 
+### Shopping Malls
+
+**Source:** `output/malls.shp`  
+**Style:** single symbol — circle marker #dc3232, 4.0 MM  
+**Derived from:**   
+**Processing:** Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227.
+
 ### Males 22-39 > 20% of Population
 
 **Source:** `output/males_22_39_pct_over20.shp`  
