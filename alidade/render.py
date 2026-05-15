@@ -1,6 +1,7 @@
 """Render project.py → output/project.qgs."""
 
 import importlib
+import os
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -31,24 +32,71 @@ HERE = Path(__file__).parent  # alidade/
 
 _QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
 
+# QGIS geometry attribute (display string) and wkbType (numeric code).
+_GEOMETRY_ATTR: dict[str, str] = {
+    "Point": "Point",
+    "LineString": "Line",
+    "Polygon": "Polygon",
+    "MultiPoint": "Point",
+    "MultiLineString": "Line",
+    "MultiPolygon": "Polygon",
+}
+_WKB_TYPE: dict[str, str] = {
+    "Point": "1",
+    "LineString": "2",
+    "Polygon": "3",
+    "MultiPoint": "4",
+    "MultiLineString": "5",
+    "MultiPolygon": "6",
+}
+
+
+def _split_source_suffix(source: str) -> tuple[str, str]:
+    """Split a source string into (path_part, suffix).
+
+    Handles both OGR-style (|layername=...) and delimited-text-style
+    (?type=csv&...) suffixes.  Returns (path, suffix_including_delimiter).
+    """
+    if "|" in source:
+        path, tail = source.split("|", 1)
+        return path, "|" + tail
+    if "?" in source:
+        path, tail = source.split("?", 1)
+        return path, "?" + tail
+    return source, ""
+
 
 def _abs_source(source: str, project_dir: Path) -> str:
-    """Resolve a source path to absolute for the QGS datasource.
+    """Resolve a source path to absolute.
 
-    Paths starting with './' are project-dir-relative (derived outputs).
+    Paths starting with './' or 'data/' are project-dir-relative.
     All other relative paths are HERE-relative (source data alongside the repo).
     URIs and absolute paths are returned unchanged.
     """
-    if source.startswith("/") or ":" in source.split("/")[0]:
+    if source.startswith("/") or source.startswith("?") or ":" in source.split("/")[0]:
         return source
-    geom_suffix = ""
-    path_part = source
-    if "|" in source:
-        path_part, geom_suffix = source.split("|", 1)
-        geom_suffix = "|" + geom_suffix
-    if path_part.startswith("./"):
+    path_part, geom_suffix = _split_source_suffix(source)
+    if path_part.startswith("./") or path_part.startswith("data/"):
         return str((project_dir / path_part).resolve()) + geom_suffix
     return str((HERE / path_part).resolve()) + geom_suffix
+
+
+def _rel_source(source: str, project_dir: Path) -> str:
+    """Return datasource relative to project_dir/output/ for output/project.qgs.
+
+    Local file paths are made relative to the output directory.
+    Delimited-text sources (suffix starts with '?') get a 'file:' prefix,
+    as required by the QGIS delimitedtext provider.
+    Other URIs are returned unchanged.
+    """
+    abs_src = _abs_source(source, project_dir)
+    path_part, geom_suffix = _split_source_suffix(abs_src)
+    if path_part.startswith("/"):
+        output_dir = project_dir / "output"
+        rel = os.path.relpath(path_part, output_dir)
+        prefix = "file:" if geom_suffix.startswith("?") else ""
+        return prefix + rel + geom_suffix
+    return abs_src
 
 
 def _load_spec(project_dir: Path) -> Project:
@@ -101,7 +149,7 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
+def _rebuild_layer_tree(root: ET.Element, spec: Project, project_dir: Path) -> None:
     """Rebuild the <layer-tree-group> in root from spec layers."""
     ltg = root.find("layer-tree-group")
     if ltg is None:
@@ -118,7 +166,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
             providerKey=layer.provider,
             patch_size="-1,-1",
             id=layer.id,
-            source=layer.source,
+            source=_rel_source(layer.source, project_dir),
             expanded="1",
             name=layer.name,
         )
@@ -352,11 +400,13 @@ def _srs_element(authid: str) -> ET.Element:
 def _build_vector_maplayer(layer: Layer) -> ET.Element:
     """Build a minimal <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
+    geom_attr = _GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
+    wkb_type = _WKB_TYPE.get(layer.geometry_type, "0")
     ml = ET.Element(
         "maplayer",
         type="vector",
-        geometry=layer.geometry_type,
-        wkbType=layer.geometry_type,
+        geometry=geom_attr,
+        wkbType=wkb_type,
         autoRefreshTime="0",
         autoRefreshMode="Disabled",
         styleCategories="AllStyleCategories",
@@ -577,7 +627,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
             id_el.text = layer.id
         ds = ml.find("datasource")
         if ds is not None:
-            ds.text = _abs_source(layer.source, project_dir)
+            ds.text = _rel_source(layer.source, project_dir)
         nm = ml.find("layername")
         if nm is not None:
             nm.text = layer.name
@@ -610,7 +660,7 @@ def render(spec: Project, project_dir: Path) -> None:
     _update_crs(root, spec.crs)
     _update_title(root, spec.title)
     _inject_layers(root, spec, project_dir)
-    _rebuild_layer_tree(root, spec)
+    _rebuild_layer_tree(root, spec, project_dir)
     _rebuild_legend(root, spec)
     _rebuild_layerorder(root, spec)
 

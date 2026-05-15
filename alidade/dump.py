@@ -1,9 +1,9 @@
 """Parse a .qgs or .qgz file into layers/*.py and styles/*.xml."""
 
+import argparse
 import copy
 import os
 import re
-import sys
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -67,6 +67,36 @@ def _layer_type(ml: ET.Element) -> Literal["vector", "raster"]:
     """Return 'vector' or 'raster' from a maplayer element's type attribute."""
     t = ml.get("type", "vector")
     return "raster" if t == "raster" else "vector"
+
+
+# ── Existing layer file helpers ───────────────────────────────────────────────
+
+
+def _read_existing_layer_field(py_path: Path, field: str) -> str | None:
+    """Extract a string field value from an existing layers/*.py file."""
+    text = py_path.read_text()
+    m = re.search(rf"\b{field}\s*=\s*([\"'])([^\"']+)\1", text)
+    return m.group(2) if m else None
+
+
+def _existing_layer_info(layers_dir: Path) -> dict[str, tuple[str, str]]:
+    """Return {layer_name: (var_name, layer_id)} from existing layers/*.py files.
+
+    var_name is the file stem (Python variable/import name).
+    layer_id is the id= field stored in the file (may be a QGIS UUID).
+    """
+    result: dict[str, tuple[str, str]] = {}
+    if not layers_dir.exists():
+        return result
+    for py_file in sorted(layers_dir.glob("*.py")):
+        if py_file.name.startswith("_"):
+            continue
+        var_name = py_file.stem
+        existing_id = _read_existing_layer_field(py_file, "id")
+        existing_name = _read_existing_layer_field(py_file, "name")
+        if existing_id and existing_name:
+            result[existing_name] = (var_name, existing_id)
+    return result
 
 
 # ── Human ID generation ───────────────────────────────────────────────────────
@@ -316,9 +346,15 @@ def _source_lines(source: str) -> list[str]:
     ]
 
 
-def _write_layer_py(layer: Layer, layers_dir: Path, skip_existing: bool = True) -> bool:
-    """Write layers/{layer.id}.py. Returns True if written, False if skipped."""
-    out_path = layers_dir / f"{layer.id}.py"
+def _write_layer_py(
+    layer: Layer,
+    layers_dir: Path,
+    var_name: str | None = None,
+    skip_existing: bool = True,
+) -> bool:
+    """Write layers/{var_name}.py. Returns True if written, False if skipped."""
+    var = var_name if var_name is not None else layer.id
+    out_path = layers_dir / f"{var}.py"
     if skip_existing and out_path.exists():
         return False
 
@@ -341,7 +377,7 @@ def _write_layer_py(layer: Layer, layers_dir: Path, skip_existing: bool = True) 
 
     style = f"Path({str(layer.style_xml)!r})" if layer.style_xml else "None"
     layer_lines = [
-        f"{layer.id} = Layer(",
+        f"{var} = Layer(",
         f"    id={layer.id!r},",
         f"    name={layer.name!r},",
         f"    type={layer.type!r},",
@@ -391,29 +427,37 @@ def _parse_layers(
     root: ET.Element, qgz_dir: Path, project_dir: Path
 ) -> list[tuple[str, Layer]]:
     """Parse maplayers in tree order, write style XMLs, return (hid, Layer) pairs."""
+    tree_layers: list[tuple[str, str]] = [
+        (ltl.get("id", ""), ltl.get("name", ""))
+        for ltl in root.findall(".//layer-tree-layer")
+        if ltl.get("id")
+    ]
     visibility: dict[str, bool] = {
         ltl.get("id", ""): ltl.get("checked") == "Qt::Checked"
         for ltl in root.findall(".//layer-tree-layer")
     }
-    tree_order: list[str] = [
-        ltl.get("id", "")
-        for ltl in root.findall(".//layer-tree-layer")
-        if ltl.get("id")
-    ]
     maplayers: dict[str, ET.Element] = {
         id_: ml
         for ml in root.findall(".//maplayer")
         if (id_ := ml.findtext("id")) is not None
     }
+    # Fallback index for layers whose tree id doesn't match the maplayer <id>.
+    maplayers_by_name: dict[str, ET.Element] = {
+        name: ml
+        for ml in root.findall(".//maplayer")
+        if (name := ml.findtext("layername")) is not None
+    }
 
     styles_dir = project_dir / "styles"
     styles_dir.mkdir(parents=True, exist_ok=True)
+    layers_dir = project_dir / "layers"
+    name_to_info = _existing_layer_info(layers_dir)
 
-    used_ids: set[str] = set()
+    used_vars: set[str] = set()
     pairs: list[tuple[str, Layer]] = []
 
-    for lid in tree_order:
-        ml = maplayers.get(lid)
+    for lid, tree_name in tree_layers:
+        ml = maplayers.get(lid) or maplayers_by_name.get(tree_name)
         if ml is None:
             continue
 
@@ -422,9 +466,16 @@ def _parse_layers(
         provider = ml.findtext("provider") or "ogr"
         crs = _authid(ml.find(".//srs/spatialrefsys"))
         layer_name = ml.findtext("layername") or lid
+        qgis_id = ml.findtext("id") or lid
 
-        hid = _human_id(layer_name, source, used_ids)
-        used_ids.add(hid)
+        if layer_name in name_to_info:
+            # Existing layer: preserve var name and stored id.
+            hid, layer_id = name_to_info[layer_name]
+        else:
+            # New layer: human-readable var name, QGIS UUID as layer id.
+            hid = _human_id(layer_name, source, used_vars)
+            layer_id = qgis_id
+        used_vars.add(hid)
 
         style_path = styles_dir / f"{hid}.xml"
         style_path.write_text(ET.tostring(ml, encoding="unicode"))
@@ -433,7 +484,7 @@ def _parse_layers(
             (
                 hid,
                 Layer(
-                    id=hid,
+                    id=layer_id,
                     name=layer_name,
                     type=_layer_type(ml),
                     source=source,
@@ -548,7 +599,7 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
     human_ids = [hid for hid, _ in pairs]
     for hid, layer in pairs:
         skip = force_layer != hid
-        written = _write_layer_py(layer, layers_dir, skip_existing=skip)
+        written = _write_layer_py(layer, layers_dir, var_name=hid, skip_existing=skip)
         action = "wrote" if written else "skipped (exists; use --force to overwrite)"
         renderer_tag = f" [{type(layer.renderer).__name__}]" if layer.renderer else ""
         print(f"  [{layer.type}] {layer.name!r}{renderer_tag} -> {hid}: {action}")
@@ -583,16 +634,17 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
     _print_summary(spec, pairs)
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python dump.py <project_dir> [--force LAYER_ID]")
-        sys.exit(1)
-    force = None
-    args = list(sys.argv[1:])
-    if "--force" in args:
-        idx = args.index("--force")
-        force = args[idx + 1] if idx + 1 < len(args) else None
-        args = [a for i, a in enumerate(args) if i not in (idx, idx + 1)]
-    project_dir = Path(args[0])
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Dump project layers.")
+    parser.add_argument("project_dir", help="Path to project directory")
+    parser.add_argument(
+        "--force", metavar="LAYER_ID", help="Force re-fetch of a specific layer"
+    )
+    args = parser.parse_args()
+    project_dir = Path(args.project_dir)
     project_file = _find_project_file(project_dir)
-    dump(project_file, project_dir, force_layer=force)
+    dump(project_file, project_dir, force_layer=args.force)
+
+
+if __name__ == "__main__":
+    main()

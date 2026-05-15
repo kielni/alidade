@@ -1,4 +1,7 @@
-Do not pass code as string on the command line.  When writing code, append it as a function to claude.py. Include a comment about the purpose of the code.
+Do not pass code as string on the command line — this includes `python -c "..."` and
+any shell one-liner that embeds Python.  When writing Python code to explore or test
+something, append it as a function to claude.py and run `uv run python claude.py`.
+Include a comment about the purpose of the code.
 
 When writing Python code
 

@@ -1,5 +1,6 @@
 """Validate that all file paths referenced in a project exist on disk."""
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -47,9 +48,15 @@ def validate(project_dir: Path) -> bool:
     return True
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python validate.py <project_dir>")
-        sys.exit(1)
-    ok = validate((Path.cwd() / sys.argv[1]).resolve())
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Validate that all source and style paths for a project exist."
+    )
+    parser.add_argument("project_dir", help="Path to project directory")
+    args = parser.parse_args()
+    ok = validate((Path.cwd() / args.project_dir).resolve())
     sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()

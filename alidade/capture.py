@@ -1,5 +1,6 @@
 """Read the saved extent from output/project.qgs and write it back into project.py."""
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -46,13 +47,14 @@ def _write_extent(project_py: Path, extent: tuple[float, float, float, float]) -
 
 
 def main() -> None:
-    """Parse args and sync the extent from output/project.qgs into project.py."""
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if not args:
-        print("Usage: python capture.py <project_dir>")
-        sys.exit(1)
+    """Sync the extent from output/project.qgs into project.py."""
+    parser = argparse.ArgumentParser(
+        description="Capture extent from QGIS project into project.py."
+    )
+    parser.add_argument("project_dir", help="Path to project directory")
+    args = parser.parse_args()
 
-    project_dir = (Path.cwd() / args[0]).resolve()
+    project_dir = (Path.cwd() / args.project_dir).resolve()
     qgs_path = project_dir / "output" / "project.qgs"
     project_py = project_dir / "project.py"
 

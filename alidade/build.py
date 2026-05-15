@@ -1,5 +1,6 @@
 """Entry point: render <project_dir>/project.py → <project_dir>/output/project.qgs."""
 
+import argparse
 import hashlib
 import subprocess
 import sys
@@ -14,10 +15,10 @@ HERE = Path(__file__).parent  # alidade/
 
 def _resolve_source_path(source: str, project_dir: Path) -> Path:
     """Return the absolute filesystem path for a layer source string."""
-    path_part = source.split("|")[0] if "|" in source else source
+    path_part = source.split("|")[0].split("?")[0]
     if path_part.startswith("/") or ":" in path_part.split("/")[0]:
         return Path(path_part)
-    if path_part.startswith("./"):
+    if path_part.startswith("./") or path_part.startswith("data/"):
         return (project_dir / path_part).resolve()
     return (HERE / path_part).resolve()
 
@@ -109,13 +110,17 @@ def _needs_rebuild(project_dir: Path) -> bool:
 
 def main() -> None:
     """Build project_dir/output/project.qgs from project_dir/project.py."""
-    force = "--force" in sys.argv
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if not args:
-        print("Usage: python build.py <project_dir> [--force]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Build QGIS project file from project.py."
+    )
+    parser.add_argument("project_dir", help="Path to project directory")
+    parser.add_argument(
+        "--force", action="store_true", help="Force rebuild even if up to date"
+    )
+    args = parser.parse_args()
+    force = args.force
 
-    project_dir = (Path.cwd() / args[0]).resolve()
+    project_dir = (Path.cwd() / args.project_dir).resolve()
     project_py = project_dir / "project.py"
 
     if not project_py.exists():
@@ -133,7 +138,7 @@ def main() -> None:
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
 
     spec = _load_spec(project_dir)
-    _run_processing_steps(spec, project_dir, force=False)
+    _run_processing_steps(spec, project_dir, force=force)
     render(spec, project_dir)
     update_readme(spec, project_dir)
 

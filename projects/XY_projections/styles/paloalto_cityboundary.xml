@@ -1,0 +1,302 @@
+<maplayer autoRefreshTime="0" maxScale="0" minScale="100000000" simplifyDrawingHints="1" styleCategories="AllStyleCategories" simplifyAlgorithm="0" simplifyLocal="1" readOnly="0" type="vector" hasScaleBasedVisibilityFlag="0" refreshOnNotifyEnabled="0" labelsEnabled="0" geometry="Polygon" simplifyDrawingTol="1" autoRefreshEnabled="0" wkbType="MultiPolygon" refreshOnNotifyMessage="" simplifyMaxScale="1">
+      <extent>
+        <xmin>6066838.34385131765156984</xmin>
+        <ymin>1931464.90271148481406271</ymin>
+        <xmax>6106051.83273249305784702</xmax>
+        <ymax>2000731.79091559676453471</ymax>
+      </extent>
+      <id>PaloAlto_cityboundary_95ec1801_58ca_483b_90a0_f170e1a6caa4</id>
+      <datasource>./project_data/PaloAlto_cityboundary.shp|layername=PaloAlto_cityboundary</datasource>
+      <keywordList>
+        <value />
+      </keywordList>
+      <layername>PaloAlto_cityboundary</layername>
+      <srs>
+        <spatialrefsys>
+          <wkt>PROJCRS["NAD83 / California zone 3 (ftUS)",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["SPCS83 California zone 3 (US Survey feet)",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of false origin",36.5,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",-120.5,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",38.4333333333333,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",37.0666666666667,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",6561666.667,LENGTHUNIT["US survey foot",0.304800609601219],ID["EPSG",8826]],PARAMETER["Northing at false origin",1640416.667,LENGTHUNIT["US survey foot",0.304800609601219],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["US survey foot",0.304800609601219]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["US survey foot",0.304800609601219]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["United States (USA) - California - counties Alameda; Calaveras; Contra Costa; Madera; Marin; Mariposa; Merced; Mono; San Francisco; San Joaquin; San Mateo; Santa Clara; Santa Cruz; Stanislaus; Tuolumne."],BBOX[36.73,-123.02,38.71,-117.83]],ID["EPSG",2227]]</wkt>
+          <proj4>+proj=lcc +lat_0=36.5 +lon_0=-120.5 +lat_1=38.4333333333333 +lat_2=37.0666666666667 +x_0=2000000.0001016 +y_0=500000.0001016 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs</proj4>
+          <srsid>209</srsid>
+          <srid>2227</srid>
+          <authid>EPSG:2227</authid>
+          <description>NAD83 / California zone 3 (ftUS)</description>
+          <projectionacronym>lcc</projectionacronym>
+          <ellipsoidacronym>EPSG:7019</ellipsoidacronym>
+          <geographicflag>false</geographicflag>
+        </spatialrefsys>
+      </srs>
+      <resourceMetadata>
+        <identifier />
+        <parentidentifier />
+        <language />
+        <type />
+        <title />
+        <abstract />
+        <contact>
+          <name />
+          <organization />
+          <position />
+          <voice />
+          <fax />
+          <email />
+          <role />
+        </contact>
+        <links />
+        <fees />
+        <encoding />
+        <crs>
+          <spatialrefsys>
+            <wkt />
+            <proj4 />
+            <srsid>0</srsid>
+            <srid>0</srid>
+            <authid />
+            <description />
+            <projectionacronym />
+            <ellipsoidacronym />
+            <geographicflag>false</geographicflag>
+          </spatialrefsys>
+        </crs>
+        <extent>
+          <spatial minz="0" crs="" maxz="0" maxx="0" minx="0" maxy="0" dimensions="2" miny="0" />
+          <temporal>
+            <period>
+              <start />
+              <end />
+            </period>
+          </temporal>
+        </extent>
+      </resourceMetadata>
+      <provider encoding="UTF-8">ogr</provider>
+      <vectorjoins />
+      <layerDependencies />
+      <dataDependencies />
+      <expressionfields />
+      <map-layer-style-manager current="default">
+        <map-layer-style name="default" />
+      </map-layer-style-manager>
+      <auxiliaryLayer />
+      <flags>
+        <Identifiable>1</Identifiable>
+        <Removable>1</Removable>
+        <Searchable>1</Searchable>
+      </flags>
+      <temporal endExpression="" durationUnit="min" startField="" endField="" enabled="0" fixedDuration="0" accumulate="0" startExpression="" mode="0" durationField="">
+        <fixedRange>
+          <start />
+          <end />
+        </fixedRange>
+      </temporal>
+      <renderer-v2 forceraster="0" type="singleSymbol" enableorderby="0" symbollevels="0">
+        <symbols>
+          <symbol type="fill" clip_to_extent="1" force_rhr="0" alpha="1" name="0">
+            <layer enabled="1" locked="0" pass="0" class="SimpleLine">
+              <prop k="align_dash_pattern" v="0" />
+              <prop k="capstyle" v="square" />
+              <prop k="customdash" v="5;2" />
+              <prop k="customdash_map_unit_scale" v="3x:0,0,0,0,0,0" />
+              <prop k="customdash_unit" v="MM" />
+              <prop k="dash_pattern_offset" v="0" />
+              <prop k="dash_pattern_offset_map_unit_scale" v="3x:0,0,0,0,0,0" />
+              <prop k="dash_pattern_offset_unit" v="MM" />
+              <prop k="draw_inside_polygon" v="0" />
+              <prop k="joinstyle" v="bevel" />
+              <prop k="line_color" v="130,240,126,255" />
+              <prop k="line_style" v="solid" />
+              <prop k="line_width" v="0.96" />
+              <prop k="line_width_unit" v="MM" />
+              <prop k="offset" v="0" />
+              <prop k="offset_map_unit_scale" v="3x:0,0,0,0,0,0" />
+              <prop k="offset_unit" v="MM" />
+              <prop k="ring_filter" v="0" />
+              <prop k="tweak_dash_pattern_on_corners" v="0" />
+              <prop k="use_custom_dash" v="0" />
+              <prop k="width_map_unit_scale" v="3x:0,0,0,0,0,0" />
+              <data_defined_properties>
+                <Option type="Map">
+                  <Option type="QString" name="name" value="" />
+                  <Option name="properties" />
+                  <Option type="QString" name="type" value="collection" />
+                </Option>
+              </data_defined_properties>
+            </layer>
+          </symbol>
+        </symbols>
+        <rotation />
+        <sizescale />
+      </renderer-v2>
+      <customproperties>
+        <property key="embeddedWidgets/count" value="0" />
+        <property key="variableNames" />
+        <property key="variableValues" />
+      </customproperties>
+      <blendMode>0</blendMode>
+      <featureBlendMode>0</featureBlendMode>
+      <layerOpacity>1</layerOpacity>
+      <SingleCategoryDiagramRenderer diagramType="Histogram" attributeLegend="1">
+        <DiagramCategory width="15" lineSizeType="MM" showAxis="0" barWidth="5" enabled="0" backgroundColor="#ffffff" spacingUnit="MM" sizeType="MM" height="15" spacing="0" penWidth="0" penColor="#000000" direction="1" labelPlacementMethod="XHeight" minimumSize="0" backgroundAlpha="255" lineSizeScale="3x:0,0,0,0,0,0" penAlpha="255" scaleDependency="Area" rotationOffset="270" scaleBasedVisibility="0" spacingUnitScale="3x:0,0,0,0,0,0" maxScaleDenominator="1e+08" opacity="1" minScaleDenominator="0" diagramOrientation="Up" sizeScale="3x:0,0,0,0,0,0">
+          <fontProperties description="MS Shell Dlg 2,7.85455,-1,5,50,0,0,0,0,0" style="" />
+          <attribute color="#000000" field="" label="" />
+          <axisSymbol>
+            <symbol type="line" clip_to_extent="1" force_rhr="0" alpha="1" name="">
+              <layer enabled="1" locked="0" pass="0" class="SimpleLine">
+                <prop k="align_dash_pattern" v="0" />
+                <prop k="capstyle" v="square" />
+                <prop k="customdash" v="5;2" />
+                <prop k="customdash_map_unit_scale" v="3x:0,0,0,0,0,0" />
+                <prop k="customdash_unit" v="MM" />
+                <prop k="dash_pattern_offset" v="0" />
+                <prop k="dash_pattern_offset_map_unit_scale" v="3x:0,0,0,0,0,0" />
+                <prop k="dash_pattern_offset_unit" v="MM" />
+                <prop k="draw_inside_polygon" v="0" />
+                <prop k="joinstyle" v="bevel" />
+                <prop k="line_color" v="35,35,35,255" />
+                <prop k="line_style" v="solid" />
+                <prop k="line_width" v="0.26" />
+                <prop k="line_width_unit" v="MM" />
+                <prop k="offset" v="0" />
+                <prop k="offset_map_unit_scale" v="3x:0,0,0,0,0,0" />
+                <prop k="offset_unit" v="MM" />
+                <prop k="ring_filter" v="0" />
+                <prop k="tweak_dash_pattern_on_corners" v="0" />
+                <prop k="use_custom_dash" v="0" />
+                <prop k="width_map_unit_scale" v="3x:0,0,0,0,0,0" />
+                <data_defined_properties>
+                  <Option type="Map">
+                    <Option type="QString" name="name" value="" />
+                    <Option name="properties" />
+                    <Option type="QString" name="type" value="collection" />
+                  </Option>
+                </data_defined_properties>
+              </layer>
+            </symbol>
+          </axisSymbol>
+        </DiagramCategory>
+      </SingleCategoryDiagramRenderer>
+      <DiagramLayerSettings showAll="1" priority="0" linePlacementFlags="18" obstacle="0" dist="0" placement="1" zIndex="0">
+        <properties>
+          <Option type="Map">
+            <Option type="QString" name="name" value="" />
+            <Option name="properties" />
+            <Option type="QString" name="type" value="collection" />
+          </Option>
+        </properties>
+      </DiagramLayerSettings>
+      <geometryOptions removeDuplicateNodes="0" geometryPrecision="0">
+        <activeChecks />
+        <checkConfiguration />
+      </geometryOptions>
+      <legend type="default-vector" />
+      <referencedLayers />
+      <fieldConfiguration>
+        <field name="OBJECTID" configurationFlags="None">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="NAME" configurationFlags="None">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="ACRES" configurationFlags="None">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+        <field name="SQ_MILES" configurationFlags="None">
+          <editWidget type="TextEdit">
+            <config>
+              <Option />
+            </config>
+          </editWidget>
+        </field>
+      </fieldConfiguration>
+      <aliases>
+        <alias field="OBJECTID" name="" index="0" />
+        <alias field="NAME" name="" index="1" />
+        <alias field="ACRES" name="" index="2" />
+        <alias field="SQ_MILES" name="" index="3" />
+      </aliases>
+      <defaults>
+        <default applyOnUpdate="0" field="OBJECTID" expression="" />
+        <default applyOnUpdate="0" field="NAME" expression="" />
+        <default applyOnUpdate="0" field="ACRES" expression="" />
+        <default applyOnUpdate="0" field="SQ_MILES" expression="" />
+      </defaults>
+      <constraints>
+        <constraint notnull_strength="0" exp_strength="0" unique_strength="0" field="OBJECTID" constraints="0" />
+        <constraint notnull_strength="0" exp_strength="0" unique_strength="0" field="NAME" constraints="0" />
+        <constraint notnull_strength="0" exp_strength="0" unique_strength="0" field="ACRES" constraints="0" />
+        <constraint notnull_strength="0" exp_strength="0" unique_strength="0" field="SQ_MILES" constraints="0" />
+      </constraints>
+      <constraintExpressions>
+        <constraint exp="" desc="" field="OBJECTID" />
+        <constraint exp="" desc="" field="NAME" />
+        <constraint exp="" desc="" field="ACRES" />
+        <constraint exp="" desc="" field="SQ_MILES" />
+      </constraintExpressions>
+      <expressionfields />
+      <attributeactions>
+        <defaultAction key="Canvas" value="{00000000-0000-0000-0000-000000000000}" />
+      </attributeactions>
+      <attributetableconfig sortOrder="0" actionWidgetStyle="dropDown" sortExpression="">
+        <columns>
+          <column type="field" hidden="0" name="OBJECTID" width="-1" />
+          <column type="field" hidden="0" name="NAME" width="-1" />
+          <column type="field" hidden="0" name="ACRES" width="-1" />
+          <column type="field" hidden="0" name="SQ_MILES" width="-1" />
+          <column type="actions" hidden="1" width="-1" />
+        </columns>
+      </attributetableconfig>
+      <conditionalstyles>
+        <rowstyles />
+        <fieldstyles />
+      </conditionalstyles>
+      <storedexpressions />
+      <editform tolerant="1" />
+      <editforminit />
+      <editforminitcodesource>0</editforminitcodesource>
+      <editforminitfilepath />
+      <editforminitcode># -*- coding: utf-8 -*-
+"""
+QGIS forms can have a Python function that is called when the form is
+opened.
+
+Use this function to add extra logic to your forms.
+
+Enter the name of the function in the "Python Init function"
+field.
+An example follows:
+"""
+from qgis.PyQt.QtWidgets import QWidget
+
+def my_form_open(dialog, layer, feature):
+	geom = feature.geometry()
+	control = dialog.findChild(QWidget, "MyLineEdit")
+</editforminitcode>
+      <featformsuppress>0</featformsuppress>
+      <editorlayout>generatedlayout</editorlayout>
+      <editable>
+        <field name="ACRES" editable="1" />
+        <field name="NAME" editable="1" />
+        <field name="OBJECTID" editable="1" />
+        <field name="SQ_MILES" editable="1" />
+      </editable>
+      <labelOnTop>
+        <field name="ACRES" labelOnTop="0" />
+        <field name="NAME" labelOnTop="0" />
+        <field name="OBJECTID" labelOnTop="0" />
+        <field name="SQ_MILES" labelOnTop="0" />
+      </labelOnTop>
+      <dataDefinedFieldProperties />
+      <widgets />
+      <previewExpression>OBJECTID</previewExpression>
+      <mapTip />
+    </maplayer>
+  
