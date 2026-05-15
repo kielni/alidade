@@ -1,6 +1,7 @@
 """Render project.py → output/project.qgs."""
 
 import importlib
+import os
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -33,9 +34,9 @@ _QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
 
 
 def _abs_source(source: str, project_dir: Path) -> str:
-    """Resolve a source path to absolute for the QGS datasource.
+    """Resolve a source path to absolute.
 
-    Paths starting with './' are project-dir-relative (derived outputs).
+    Paths starting with './' or 'data/' are project-dir-relative.
     All other relative paths are HERE-relative (source data alongside the repo).
     URIs and absolute paths are returned unchanged.
     """
@@ -46,9 +47,27 @@ def _abs_source(source: str, project_dir: Path) -> str:
     if "|" in source:
         path_part, geom_suffix = source.split("|", 1)
         geom_suffix = "|" + geom_suffix
-    if path_part.startswith("./"):
+    if path_part.startswith("./") or path_part.startswith("data/"):
         return str((project_dir / path_part).resolve()) + geom_suffix
     return str((HERE / path_part).resolve()) + geom_suffix
+
+
+def _rel_source(source: str, project_dir: Path) -> str:
+    """Return datasource relative to project_dir/output/ for output/project.qgs.
+
+    Local file paths are made relative to the output directory; URIs are
+    returned unchanged.
+    """
+    abs_src = _abs_source(source, project_dir)
+    geom_suffix = ""
+    path_part = abs_src
+    if "|" in abs_src:
+        path_part, geom_suffix = abs_src.split("|", 1)
+        geom_suffix = "|" + geom_suffix
+    if path_part.startswith("/"):
+        output_dir = project_dir / "output"
+        return os.path.relpath(path_part, output_dir) + geom_suffix
+    return abs_src
 
 
 def _load_spec(project_dir: Path) -> Project:
@@ -101,7 +120,7 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
+def _rebuild_layer_tree(root: ET.Element, spec: Project, project_dir: Path) -> None:
     """Rebuild the <layer-tree-group> in root from spec layers."""
     ltg = root.find("layer-tree-group")
     if ltg is None:
@@ -118,7 +137,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
             providerKey=layer.provider,
             patch_size="-1,-1",
             id=layer.id,
-            source=layer.source,
+            source=_rel_source(layer.source, project_dir),
             expanded="1",
             name=layer.name,
         )
@@ -577,7 +596,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
             id_el.text = layer.id
         ds = ml.find("datasource")
         if ds is not None:
-            ds.text = _abs_source(layer.source, project_dir)
+            ds.text = _rel_source(layer.source, project_dir)
         nm = ml.find("layername")
         if nm is not None:
             nm.text = layer.name
@@ -610,7 +629,7 @@ def render(spec: Project, project_dir: Path) -> None:
     _update_crs(root, spec.crs)
     _update_title(root, spec.title)
     _inject_layers(root, spec, project_dir)
-    _rebuild_layer_tree(root, spec)
+    _rebuild_layer_tree(root, spec, project_dir)
     _rebuild_legend(root, spec)
     _rebuild_layerorder(root, spec)
 
