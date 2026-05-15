@@ -13,9 +13,16 @@
 
 ## Processing steps
 
-| layer              | depends on    | action                                         | output                       |
-|--------------------|---------------|------------------------------------------------|------------------------------|
-| `high_schools_2227`| `high_schools`| geopandas: read CSV, reproject to EPSG:2227    | `data/high_schools_2227.shp` |
+| layer                  | depends on          | action                                             | output                          |
+|------------------------|---------------------|----------------------------------------------------|---------------------------------|
+| `high_schools_2227`    | `high_schools`      | geopandas: read CSV, reproject to EPSG:2227        | `data/high_schools_2227.shp`    |
+| `high_schools_buffer`  | `high_schools_2227` | geopandas: 1-mile (5280 ft) buffer around points   | `data/high_schools_buffer.shp`  |
+
+## Styles
+
+| layer                 | renderer      | details                                          |
+|-----------------------|---------------|--------------------------------------------------|
+| `high_schools_buffer` | SingleSymbol  | blue fill `64,128,255`, 50% transparent (α=0.5)  |
 
 ## Notes
 
@@ -27,6 +34,9 @@
   `layers/high_schools_2227.py`. Reads the CSV with pandas, builds a GeoDataFrame
   with `gpd.points_from_xy`, then `.to_crs("EPSG:2227").to_file(output)`.
   Skipped on rebuild if `data/high_schools_2227.shp` already exists.
+- `high_schools_buffer`: 1-mile (5280 ft) buffer around each point in
+  `high_schools_2227`. Depends on `high_schools_2227` in the processing step
+  chain. Output is a polygon shapefile in EPSG:2227.
 - `libraries` style comes from `styles/libraries.xml` (extracted from the QGZ).
   Layer IDs for QGZ-imported layers are preserved as QGIS UUIDs; new layers use
   human-readable IDs.

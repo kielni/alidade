@@ -3,6 +3,13 @@
 <!-- auto:begin -->
 ## Layers
 
+### High Schools Buffer
+
+**Source:** `data/high_schools_buffer.shp`  
+**Style:** single symbol — fill #4080ff, #232323 outline  
+**Derived from:** `high_schools_2227`  
+**Processing:** 1-mile buffer around each high school point (EPSG:2227 ft)
+
 ### High Schools 2227
 
 **Source:** `data/high_schools_2227.shp`  
@@ -38,6 +45,7 @@
 ## Data flow
 
 ```
+high_schools_2227  ──►  high_schools_buffer
 high_schools  ──►  high_schools_2227
 ```
 
@@ -45,5 +53,6 @@ high_schools  ──►  high_schools_2227
 
 | Layer | Tool | Description |
 | --- | --- | --- |
+| `high_schools_buffer` | `geopandas` | 1-mile buffer around each high school point (EPSG:2227 ft) |
 | `high_schools_2227` | `geopandas` | Reproject high schools CSV from EPSG:4326 to EPSG:2227 |
 <!-- auto:end -->
