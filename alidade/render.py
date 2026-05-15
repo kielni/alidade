@@ -132,13 +132,39 @@ def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) 
             break
 
 
+def _fill_spatialrefsys(srs_el: ET.Element, authid: str) -> None:
+    """Populate an existing <spatialrefsys> element with CRS data from pyproj."""
+    crs = ProjCRS(authid)
+    epsg_code = authid.split(":")[-1]
+    fields = [
+        ("wkt", crs.to_wkt()),
+        ("proj4", ""),
+        ("srsid", "0"),
+        ("srid", epsg_code),
+        ("authid", authid),
+        ("description", crs.name),
+        ("projectionacronym", ""),
+        ("ellipsoidacronym", ""),
+        ("geographicflag", "true" if crs.is_geographic else "false"),
+    ]
+    for tag, val in fields:
+        el = srs_el.find(tag)
+        if el is None:
+            el = ET.SubElement(srs_el, tag)
+        el.text = val
+
+
 def _update_crs(root: ET.Element, authid: str) -> None:
-    """Set the project CRS authid in the root XML element."""
+    """Populate projectCrs and theMapCanvas/destinationsrs with the project CRS."""
     srs = root.find("projectCrs/spatialrefsys")
     if srs is not None:
-        el = srs.find("authid")
-        if el is not None:
-            el.text = authid
+        _fill_spatialrefsys(srs, authid)
+    for canvas in root.findall("mapcanvas"):
+        if canvas.get("name") == "theMapCanvas":
+            srs = canvas.find("destinationsrs/spatialrefsys")
+            if srs is not None:
+                _fill_spatialrefsys(srs, authid)
+            break
 
 
 def _update_title(root: ET.Element, title: str) -> None:
@@ -227,6 +253,17 @@ def _ddp() -> ET.Element:
     return ddp
 
 
+def _color(c: str) -> str:
+    """Upgrade R,G,B,A color string to QGIS 3.30+ extended format with rgb: suffix."""
+    if any(tag in c for tag in ("rgb:", "hsv:", "hsl:")):
+        return c
+    parts = c.split(",")
+    if len(parts) != 4:
+        return c
+    r, g, b, a = (int(p) for p in parts)
+    return f"{c},rgb:{r/255:.7g},{g/255:.7g},{b/255:.7g},{a/255:.7g}"
+
+
 def _opt_map(props: dict[str, str]) -> ET.Element:
     """Return an <Option type='Map'> element with the given name/value pairs."""
     el = ET.Element("Option", type="Map")
@@ -241,17 +278,21 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
         "layer",
         locked="0",
         enabled="1",
-        **{"class": sl.kind, "pass": "0", "id": ""},  # type: ignore[arg-type]
+        **{  # type: ignore[arg-type]
+            "class": sl.kind,
+            "pass": "0",
+            "id": "{" + str(uuid.uuid4()) + "}",
+        },
     )
     if isinstance(sl, SimpleFill):
         props = {
             "border_width_map_unit_scale": _SCALE,
-            "color": sl.color,
+            "color": _color(sl.color),
             "joinstyle": sl.joinstyle,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": "MM",
-            "outline_color": sl.outline_color,
+            "outline_color": _color(sl.outline_color),
             "outline_style": sl.outline_style,
             "outline_width": str(sl.outline_width),
             "outline_width_unit": sl.outline_width_unit,
@@ -265,7 +306,7 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
             "customdash_unit": "MM",
             "draw_inside_polygon": "0",
             "joinstyle": sl.joinstyle,
-            "line_color": sl.line_color,
+            "line_color": _color(sl.line_color),
             "line_style": sl.line_style,
             "line_width": str(sl.line_width),
             "line_width_unit": sl.line_width_unit,
@@ -279,14 +320,14 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
     elif isinstance(sl, SvgMarker):
         props = {
             "angle": str(sl.angle),
-            "color": sl.color,
+            "color": _color(sl.color),
             "fixedAspectRatio": "0",
             "horizontal_anchor_point": "1",
             "name": sl.name,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": sl.offset_unit,
-            "outline_color": sl.outline_color,
+            "outline_color": _color(sl.outline_color),
             "outline_width": str(sl.outline_width),
             "outline_width_map_unit_scale": _SCALE,
             "outline_width_unit": sl.outline_width_unit,
@@ -298,21 +339,22 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
         }
     elif isinstance(sl, SimpleMarker):
         props = {
-            "angle": str(sl.angle),
-            "color": sl.color,
+            "angle": f"{sl.angle:g}",
+            "cap_style": sl.cap_style,
+            "color": _color(sl.color),
             "horizontal_anchor_point": "1",
             "joinstyle": sl.joinstyle,
             "name": sl.name,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": sl.offset_unit,
-            "outline_color": sl.outline_color,
+            "outline_color": _color(sl.outline_color),
             "outline_style": "solid",
-            "outline_width": str(sl.outline_width),
+            "outline_width": f"{sl.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
             "outline_width_unit": sl.outline_width_unit,
             "scale_method": "diameter",
-            "size": str(sl.size),
+            "size": f"{sl.size:g}",
             "size_map_unit_scale": _SCALE,
             "size_unit": sl.size_unit,
             "vertical_anchor_point": "1",
@@ -329,7 +371,7 @@ def _render_symbol(sym: Symbol, name: str) -> ET.Element:
     el = ET.Element(
         "symbol",
         clip_to_extent="1",
-        alpha=str(sym.alpha),
+        alpha=f"{sym.alpha:g}",
         type=sym.type,
         is_animated="0",
         frame_rate="10",

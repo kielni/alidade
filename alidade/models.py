@@ -53,6 +53,7 @@ class SimpleMarker(BaseModel):
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
+    cap_style: str = "square"
     offset: str = "0,0"
     offset_unit: str = "MM"
     joinstyle: str = "bevel"
