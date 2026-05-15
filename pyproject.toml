@@ -18,6 +18,7 @@ dependencies = [
     "types-geopandas>=1.1.3",
     "pydantic>=2.13.4",
     "pyproj>=3.7.2",
+    "mapclassify>=2.10.0",
 ]
 
 [project.scripts]

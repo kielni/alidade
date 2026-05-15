@@ -92,3 +92,115 @@ layer file documenting the ACS table structure.
 **Files changed:**
 - `layers/m22_39yrs.py` → `layers/census_tracts_males_22_39.py`
 - `project.py` — updated import and layer reference
+
+---
+
+## Step 4 — Derived layer: males 22–39 as % of population, filtered > 20%
+
+**Prompt:** for each census tract, calculate percentage of total population
+that are males 22–39; filter to > 20%; style with ColorBrewer natural breaks,
+darker = higher
+
+**What this does:**
+
+Added `males_22_39_pct_over20` as a derived layer with a `PythonAction` that
+computes `pct_m22_39 = M22_39 / Total * 100` and keeps only tracts where that
+value exceeds 20%. The output shapefile retains only four columns:
+`GEOID`, `NAMELSAD`, `pct_m22_39`, and geometry.
+
+Result: **176 of 1,617 tracts** (those with Total > 0) exceed 20%.
+Percentage range: **20.0 % – 44.5 %**.
+
+Jenks natural breaks (5 classes, computed with mapclassify):
+
+| Class | Range | Count | Color |
+|-------|-------|------:|-------|
+| 1 | 20.0 – 21.2 % | 47 | `#eff3ff` (lightest) |
+| 2 | 21.2 – 22.9 % | 34 | `#bdd7e7` |
+| 3 | 22.9 – 25.7 % | 44 | `#6baed6` |
+| 4 | 25.7 – 30.0 % | 28 | `#3182bd` |
+| 5 | 30.0 – 44.5 % | 23 | `#08519c` (darkest) |
+
+ColorBrewer sequential Blues, encoded as a `RuleRenderer` with QGIS filter
+expressions on `pct_m22_39`. Break edges are hardcoded from the initial
+mapclassify run (in `claude.py::compute_male_22_39_breaks`).
+
+**Files created/changed:**
+- `layers/males_22_39_pct_over20.py` — processing function + RuleRenderer
+- `project.py` — added `males_22_39_pct_over20` as top layer
+
+---
+
+## Step 5 — Extract break values into constants
+
+**Prompt:** pull out numbers in the renderer into constants so they can be
+changed in one spot
+
+**What this does:**
+
+Extracted all six break-edge values (`_MIN`, `_B1`–`_B4`, `_MAX`) into
+module-level constants in `males_22_39_pct_over20.py`. The filter expressions
+and labels in the `RuleRenderer` rules now use f-strings referencing those
+constants, and the `filter_males_22_39_pct` function uses `_MIN` for the
+threshold filter. Changing any break value updates the filter, label, and
+processing threshold together.
+
+**Files changed:**
+- `layers/males_22_39_pct_over20.py` — constants + f-string rules
+
+---
+
+## Step 6 — Fix OpenStreetMap basemap showing Saudi Arabia
+
+**Prompt:** there's a mismatch in projections; OSM shows Saudi Arabia with
+Bay Area census tracts on top
+
+**What this does:**
+
+The GDAL WMS provider passed canvas coordinates directly to the tile server
+as EPSG:3857 meters without reprojecting. With the project CRS set to
+EPSG:2227 (US survey feet, false easting ~6.5M ft), the canvas coordinates
+(~5.7M–6.4M, ~1.8M–2.5M) were interpreted as EPSG:3857 meters, landing in
+the Arabian Peninsula.
+
+Fix: switched to the QGIS native WMS/XYZ tile provider (`provider="wms"`,
+`type=xyz` source URL), which transforms the viewport extent from the project
+CRS into EPSG:3857 before requesting tiles. Also dropped `style_xml` so the
+maplayer XML is generated fresh from the model (the old XML encoded the GDAL
+datasource and would have overridden the source change).
+
+**Files changed:**
+- `layers/openstreetmap.py` — WMS/XYZ provider, no style_xml
+- `styles/openstreetmap.xml` — no longer used (can be deleted)
+
+---
+
+## Step 7 — Zoom initial extent to males_22_39_pct_over20 bounding box
+
+**Prompt:** update initial extent to bounding box from males_22_39_pct_over20 features
+
+**What this does:**
+
+Read `output/males_22_39_pct_over20.shp` total bounds and replaced the
+project extent in `project.py` (previously the full M22_39yrs extent).
+
+Old extent (all 1,620 source tracts): 5,695,774 – 6,355,025 x 1,770,384 – 2,507,172
+New extent (176 filtered tracts):     5,923,036 – 6,174,297 x 1,808,925 – 2,377,049
+
+**Files changed:**
+- `project.py` — updated `extent` tuple
+
+---
+
+## Step 8 — Pad extent to avoid clipping edge polygons
+
+**Prompt:** north and south polygons are cut off; update bounding box to include all polygons
+
+**What this does:**
+
+`total_bounds` is tight to outermost vertices, so polygons on the edges
+render half-clipped. Added 5% padding on each side (pad_x ≈ 12,563 ft,
+pad_y ≈ 28,406 ft).
+
+**Files changed:**
+- `project.py` — updated `extent` tuple with 5% buffer

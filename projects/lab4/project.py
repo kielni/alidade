@@ -1,6 +1,6 @@
 from alidade.models import Project
 
-from .layers.census_tracts_males_22_39 import census_tracts_males_22_39
+from .layers.males_22_39_pct_over20 import males_22_39_pct_over20
 from .layers.openstreetmap import openstreetmap
 from .layers.roads import roads
 
@@ -8,13 +8,13 @@ spec = Project(
     title="Lab 4",
     crs="EPSG:2227",
     extent=(
-        5695774.397680,
-        1770384.036803,
-        6355024.590892,
-        2507172.370473,
+        5910472.946202975,
+        1780518.6560298572,
+        6186860.062643979,
+        2405454.983961653,
     ),
     layers=[
-        census_tracts_males_22_39,
+        males_22_39_pct_over20,
         roads,
         openstreetmap,
     ],
