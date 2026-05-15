@@ -131,6 +131,33 @@ mapclassify run (in `claude.py::compute_male_22_39_breaks`).
 
 ---
 
+## Step 4b — Suppress datum transformation dialog on project open
+
+**Prompt:** every time I reload the QGIS project I have to click through a
+dialog to select transformation for OpenStreetMap and roads; project CRS
+must remain EPSG:2227 (NAD83 / California zone 3 ftUS, State Plane CA III)
+
+**What this does:**
+
+QGIS shows a "Select transformation" dialog when it finds multiple PROJ
+paths between NAD83 (basis of EPSG:2227) and WGS84 (basis of EPSG:3857 /
+OSM tiles). The fix is to embed the preferred transformation in the project
+file so QGIS never has to ask.
+
+Created `styles/base.qgs` as a per-project override of the alidade default
+template (render.py checks `styles/base.qgs` before falling back to
+`alidade/util/base.qgs`). Populated its empty `<transformContext />` with
+the `<srcDest>` entry from the XY_projections project, which had already
+saved the same CRS pair. The chosen operation uses the California/Nevada
+horizontal grid shift (`us_noaa_cnhpgn.tif`, NADCON) with `allowFallback="1"`
+so the project still opens if the grid file is absent.
+
+**Files created:**
+- `styles/base.qgs` — project base template with EPSG:3857 ↔ EPSG:2227
+  transform context pre-filled
+
+---
+
 ## Step 5 — Extract break values into constants
 
 **Prompt:** pull out numbers in the renderer into constants so they can be
@@ -204,3 +231,51 @@ pad_y ≈ 28,406 ft).
 
 **Files changed:**
 - `project.py` — updated `extent` tuple with 5% buffer
+
+---
+
+## Step 9 — Document roads.shp contents
+
+**Prompt:** read ./data/roads.shp and add a comment to the layer file describing contents
+
+**What this does:**
+
+Inspected roads.shp schema, geometry types, and FCC code distribution.
+11,201 California major road segments (STATEFIPS=06); no local streets.
+Dominant classes: A30 secondary/county (5,096), A63 rural route (3,633),
+A31 connecting road (1,260), A11 Interstate (315). LENGTH field is in miles.
+
+**Files changed:**
+- `layers/roads.py` — added header comment with field descriptions and FCC counts
+
+---
+
+## Step 10 — Derived layer: major roads (FCC A10–A21)
+
+**Prompt:** create a new layer from roads filtered to FCC A10–A21
+
+**What this does:**
+
+Created `major_roads` as a derived layer filtering the full roads dataset to
+primary and major highway FCC codes. A14, A17, A18 are included per spec but
+have no matching features in this dataset.
+
+Matched codes and counts from source data:
+
+| FCC | Count | Description |
+|-----|------:|-------------|
+| A10 | 4 | Primary limited-access highway (connector/ramp) |
+| A11 | 315 | Interstate highway |
+| A12 | 7 | Other limited-access highway (divided) |
+| A13 | 11 | Other limited-access highway |
+| A15 | 53 | Primary highway without limited access |
+| A16 | 2 | Primary highway, toll |
+| A20 | 210 | US highway without limited access |
+| A21 | 174 | State route without limited access |
+
+Total: **776 segments**. Styled as a 1.0 mm near-black line, sitting above
+the base roads layer.
+
+**Files created/changed:**
+- `layers/major_roads.py` — filter function + SingleSymbol renderer
+- `project.py` — added `major_roads` between `males_22_39_pct_over20` and `roads`

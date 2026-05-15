@@ -1,8 +1,8 @@
 from alidade.models import Project
 
+from .layers.major_roads import major_roads
 from .layers.males_22_39_pct_over20 import males_22_39_pct_over20
 from .layers.openstreetmap import openstreetmap
-from .layers.roads import roads
 
 spec = Project(
     title="Lab 4",
@@ -15,7 +15,7 @@ spec = Project(
     ),
     layers=[
         males_22_39_pct_over20,
-        roads,
+        major_roads,
         openstreetmap,
     ],
 )
