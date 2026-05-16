@@ -1,12 +1,14 @@
 from alidade.models import Project
 
 from .layers.cartodb_positron import cartodb_positron
-from .layers.census_tracts_males_22_39 import census_tracts_males_22_39
+from .layers.census_tracts import census_tracts
+from .layers.census_tracts_raw import census_tracts_raw
 from .layers.major_roads import major_roads
-from .layers.mall_buffer_tracts import mall_buffer_tracts
 from .layers.mall_buffers import mall_buffers
+from .layers.mall_target_intersect import mall_target_intersect
 from .layers.malls import malls
 from .layers.roads import roads
+from .layers.target_tracts import target_tracts
 
 spec = Project(
     title="Lab 4",
@@ -20,10 +22,12 @@ spec = Project(
     layers=[
         malls,
         mall_buffers,
-        mall_buffer_tracts,
+        mall_target_intersect,
         major_roads,
-        census_tracts_males_22_39,  # not visible
-        roads,  # not visible
+        census_tracts,
+        census_tracts_raw,
+        target_tracts,
+        roads,
         cartodb_positron,
     ],
 )

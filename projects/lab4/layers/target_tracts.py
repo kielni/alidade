@@ -11,6 +11,7 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
+from projects.lab4.util import CENSUS_BUCKETS
 
 # Jenks natural breaks on pct_m22_39 (tracts > 20%, n=176):
 #   counts: 47, 34, 44, 28, 23
@@ -21,14 +22,6 @@ _B3 = 25.66
 _B4 = 29.97
 _MAX = 44.51
 
-# ColorBrewer 5-class Blues (light → dark = low → high %), 50% fill opacity
-_BLUES = [
-    "239,243,255,128",  # #eff3ff — 20.0–21.2 %
-    "189,215,231,128",  # #bdd7e7 — 21.2–22.9 %
-    "107,174,214,128",  # #6baed6 — 22.9–25.7 %
-    "49,130,189,128",  # #3182bd — 25.7–30.0 %
-    "8,81,156,128",  # #08519c — 30.0–44.5 %
-]
 _OUTLINE = "0,80,200,255"
 
 
@@ -48,11 +41,11 @@ def filter_males_22_39_pct(src: Path, output: Path) -> None:
     ].to_file(output)
 
 
-males_22_39_pct_over20 = Layer(
-    id="males_22_39_pct_over20",
-    name="Males 22-39 > 20% of Population",
+target_tracts = Layer(
+    id="target_tracts",
+    name="Target Tracts",
     type="vector",
-    source="./output/males_22_39_pct_over20.shp",
+    source="./output/target_tracts.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -91,7 +84,7 @@ males_22_39_pct_over20 = Layer(
                 symbol_index=4,
             ),
         ],
-        symbols=[_symbol(c) for c in _BLUES],
+        symbols=[_symbol(c) for c in CENSUS_BUCKETS],
     ),
     processing_step=ProcessingStep(
         description=(
@@ -99,7 +92,7 @@ males_22_39_pct_over20 = Layer(
             "keep tracts where pct_m22_39 > 20."
         ),
         action=PythonAction(fn=filter_males_22_39_pct),
-        depends_on=["census_tracts_males_22_39"],
-        output=Path("output/males_22_39_pct_over20.shp"),
+        depends_on=["census_tracts"],
+        output=Path("output/target_tracts.shp"),
     ),
 )

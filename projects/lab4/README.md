@@ -17,11 +17,11 @@
 **Derived from:** `malls`  
 **Processing:** Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field.
 
-### Mall Buffer Census Tracts
+### Mall Target Intersect
 
-**Source:** `output/mall_buffer_tracts.shp`  
+**Source:** `output/mall_target_intersect.shp`  
 **Style:** single symbol — fill #ffc832 at 71% opacity, #b47800 outline  
-**Derived from:** `mall_buffers`, `census_tracts_males_22_39`  
+**Derived from:** `mall_buffers`, `census_tracts`  
 **Processing:** Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39.
 
 ### Major Roads
@@ -31,10 +31,24 @@
 **Derived from:** `roads`  
 **Processing:** Filter roads to primary/major highway FCC codes A10–A21.
 
-### Males Ages 22-39 (Census Tracts)
+### Census Tracts
+
+**Source:** `output/census_tracts.shp`  
+**Style:** GraduatedRenderer  
+**Derived from:** `census_tracts_raw`  
+**Processing:** Filter census tracts to those with Total > 0.
+
+### Census Tracts (raw)
 
 **Source:** `data/M22_39yrs.shp`  
-**Style:** single symbol — fill #c87832 at 71% opacity, #783c00 outline  
+**Style:** no style configured  
+
+### Target Tracts
+
+**Source:** `output/target_tracts.shp`  
+**Style:** rule-based (5 rules)  
+**Derived from:** `census_tracts`  
+**Processing:** Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20.
 
 ### Roads
 
@@ -50,9 +64,11 @@
 
 ```
 malls  ──►  mall_buffers
-mall_buffers  ──►  mall_buffer_tracts
-census_tracts_males_22_39  ──►  mall_buffer_tracts
+mall_buffers  ──►  mall_target_intersect
+census_tracts  ──►  mall_target_intersect
 roads  ──►  major_roads
+census_tracts_raw  ──►  census_tracts
+census_tracts  ──►  target_tracts
 ```
 
 ## Processing tools
@@ -61,6 +77,8 @@ roads  ──►  major_roads
 | --- | --- | --- |
 | `malls` | `geopandas` | Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227. |
 | `mall_buffers` | `geopandas` | Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field. |
-| `mall_buffer_tracts` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |
+| `mall_target_intersect` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |
 | `major_roads` | `geopandas` | Filter roads to primary/major highway FCC codes A10–A21. |
+| `census_tracts` | `geopandas` | Filter census tracts to those with Total > 0. |
+| `target_tracts` | `geopandas` | Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20. |
 <!-- auto:end -->

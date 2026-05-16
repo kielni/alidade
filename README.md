@@ -208,7 +208,13 @@ exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
 ```
 
 The script loads `output/print.qpt` into the Layout Manager if it is not
-already there, then writes `output/print.pdf`.
+already there, then writes `output/print.pdf`. To use a different template and output filename, set `print_prefix` before the
+`exec` call — it loads `<prefix>.qpt` and writes `<prefix>.pdf`:
+
+```python
+print_prefix = "overview"
+exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
+```
 
 
 #### Building your toolbox
