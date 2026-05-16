@@ -110,8 +110,24 @@ class PalettedRenderer(BaseModel):
     entries: list[PaletteEntry]
 
 
+class GraduatedRange(BaseModel):
+    lower: float
+    upper: float
+    label: str = ""
+    color: str  # "R,G,B,A"
+
+
+class GraduatedRenderer(BaseModel):
+    kind: Literal["graduated"] = "graduated"
+    attr: str  # field name to classify on
+    ranges: list[GraduatedRange]
+    outline_color: str = "35,35,35,255"
+    outline_width: float = 0.26
+    outline_style: str = "solid"
+
+
 Renderer = Annotated[
-    SingleSymbol | RuleRenderer | PalettedRenderer,
+    SingleSymbol | RuleRenderer | PalettedRenderer | GraduatedRenderer,
     Field(discriminator="kind"),
 ]
 
@@ -208,10 +224,12 @@ class PrintPage(BaseModel):
 class PrintMapFrame(BaseModel):
     # The rendered QGIS canvas, filling the page below the title strip.
     # x_mm/y_mm is the top-left corner; width_mm/height_mm is the item size.
+    # scale sets the map scale denominator (e.g. 600000 for 1:600,000).
     x_mm: float = 4.764
     y_mm: float = 15.186
     width_mm: float = 269.774
     height_mm: float = 197.12
+    scale: int | None = None
 
 
 class PrintNorthArrow(BaseModel):

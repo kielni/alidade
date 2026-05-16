@@ -9,6 +9,7 @@ from pathlib import Path
 from pyproj import CRS as ProjCRS
 
 from alidade.models import (
+    GraduatedRenderer,
     Layer,
     PalettedRenderer,
     PrintLegend,
@@ -384,6 +385,85 @@ def _render_symbol(sym: Symbol, name: str) -> ET.Element:
     return el
 
 
+def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
+    """Serialize a GraduatedRenderer to its QGS <renderer-v2> element."""
+    base = dict(
+        forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
+    )
+    el = ET.Element(
+        "renderer-v2",
+        type="graduatedSymbol",
+        attr=renderer.attr,
+        graduatedMethod="GraduatedColor",
+        **base,  # type: ignore[arg-type]
+    )
+    ranges_el = ET.SubElement(el, "ranges")
+    symbols_el = ET.SubElement(el, "symbols")
+    for i, r in enumerate(renderer.ranges):
+        label = r.label or f"{r.lower:.0f} – {r.upper:.0f}"
+        ET.SubElement(
+            ranges_el,
+            "range",
+            lower=str(r.lower),
+            upper=str(r.upper),
+            label=label,
+            symbol=str(i),
+            render="true",
+            uuid="{" + str(uuid.uuid4()) + "}",
+        )
+        sym = Symbol(
+            type="fill",
+            layers=[
+                SimpleFill(
+                    color=r.color,
+                    outline_color=renderer.outline_color,
+                    outline_width=renderer.outline_width,
+                    outline_style=renderer.outline_style,
+                )
+            ],
+        )
+        symbols_el.append(_render_symbol(sym, str(i)))
+    src_color = renderer.ranges[0].color if renderer.ranges else "200,200,200,180"
+    src_syms = ET.SubElement(el, "source-symbol")
+    src_syms.append(
+        _render_symbol(
+            Symbol(
+                type="fill",
+                layers=[
+                    SimpleFill(
+                        color=src_color,
+                        outline_color=renderer.outline_color,
+                        outline_width=renderer.outline_width,
+                    )
+                ],
+            ),
+            "0",
+        )
+    )
+    c1 = renderer.ranges[0].color if renderer.ranges else "255,255,178,255"
+    c2 = renderer.ranges[-1].color if renderer.ranges else "189,0,38,255"
+    cr = ET.SubElement(el, "colorramp", type="gradient", name="[source]")
+    cr_opts = ET.SubElement(cr, "Option", type="Map")
+    for name, value in [
+        ("color1", c1),
+        ("color2", c2),
+        ("direction", "ccw"),
+        ("discrete", "0"),
+        ("rampType", "gradient"),
+    ]:
+        ET.SubElement(cr_opts, "Option", name=name, value=value, type="QString")
+    ET.SubElement(
+        el,
+        "labelformat",
+        format="%1 - %2",
+        labelprecision="0",
+        trimtrailingzeroes="true",
+    )
+    ET.SubElement(el, "rotation")
+    ET.SubElement(el, "sizescale")
+    return el
+
+
 def _render_renderer(renderer: Renderer) -> ET.Element:
     """Serialize a Renderer model to its QGS <renderer-v2> element."""
     base = dict(
@@ -417,6 +497,8 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
         for i, sym in enumerate(renderer.symbols):
             syms.append(_render_symbol(sym, str(i)))
         return el
+    if isinstance(renderer, GraduatedRenderer):
+        return _render_graduated_renderer(renderer)
     raise ValueError(f"Unknown renderer type: {type(renderer)}")
 
 
@@ -1385,8 +1467,7 @@ def _qpt_map_frame(
     mf: PrintMapFrame, spec: Project, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
-    el = ET.Element(
-        "LayoutItem",
+    attrs: dict[str, str] = dict(
         type="65639",
         position=_pos(mf.x_mm, mf.y_mm),
         size=_sz(mf.width_mm, mf.height_mm),
@@ -1417,6 +1498,9 @@ def _qpt_map_frame(
         isTemporal="0",
         labelMargin="0,mm",
     )
+    if mf.scale is not None:
+        attrs["scale"] = str(mf.scale)
+    el = ET.Element("LayoutItem", **attrs)  # type: ignore[arg-type]
     _frame_bg(el)
     el.append(_layout_object())
     if spec.extent:
@@ -1538,6 +1622,6 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
     ET.indent(root, space=" ")
     output_dir = project_dir / "output"
     output_dir.mkdir(exist_ok=True)
-    out = output_dir / "print.qpt"
+    out = output_dir / f"{pl.name}.qpt"
     out.write_text(ET.tostring(root, encoding="unicode"))
     print(f"Wrote {out}")
