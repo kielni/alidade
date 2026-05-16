@@ -27,14 +27,7 @@ CREDITS = "US Census Bureau, 2010 data · Big Bucks INC · CartoDB Positron"
 
 
 def print_overview():
-    """Generate print_overview.qpt: 1:600,000 overview of M22_39 by census tract.
 
-    Template: print_overview.qpt
-    1:600,000 scale map
-    distribution of 22-39 year old males (census_tracts), M22_39 graduated color scheme
-    mall locations (malls)
-    major roads (major_roads)
-    """
     layers = {"census_tracts", "malls", "major_roads", "cartodb_positron"}
     base = _load_spec(PROJECT_DIR)
     layers = [
