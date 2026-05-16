@@ -105,7 +105,7 @@ cp local.env.example local.env   # edit if QGIS is not at the default path
 ```
 
 `uv sync` installs `alidade` into the project virtualenv in editable mode, so
-the `alidade-build`, `alidade-dump`, `alidade-capture`, and `alidade-validate`
+the `alidade-build`, `alidade-dump`, `alidade-extent`, and `alidade-validate`
 console scripts are available via `uv run`. Project layer files import from
 `alidade.models` like any other installed package.
 

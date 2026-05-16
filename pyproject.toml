@@ -25,7 +25,7 @@ dependencies = [
 [project.scripts]
 alidade-build = "alidade.build:main"
 alidade-dump = "alidade.dump:main"
-alidade-capture = "alidade.capture:main"
+alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"
 
 [tool.hatch.build.targets.wheel]
