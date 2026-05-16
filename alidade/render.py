@@ -12,6 +12,7 @@ from pyproj import CRS as ProjCRS
 
 from alidade.models import (
     GraduatedRenderer,
+    Label,
     Layer,
     PalettedRenderer,
     PrintLegend,
@@ -605,6 +606,180 @@ def _read_dbf_fields(dbf_path: Path) -> list[str]:
     return fields
 
 
+def _build_labeling(label: Label) -> ET.Element:
+    """Build a <labeling type='simple'> element from a Label spec."""
+    named_style = "Bold" if label.bold else "Regular"
+    font_weight = "75" if label.bold else "50"
+    labeling = ET.Element("labeling", type="simple")
+    settings = ET.SubElement(labeling, "settings", calloutType="simple")
+    ET.SubElement(
+        settings,
+        "text-style",
+        fieldName=label.field,
+        isExpression="0",
+        fontFamily=label.font_family,
+        namedStyle=named_style,
+        fontWeight=font_weight,
+        fontSize=str(label.font_size),
+        fontSizeUnit="Point",
+        fontSizeMapUnitScale="3x:0,0,0,0,0,0",
+        textColor=label.color,
+        textOpacity="1",
+        blendMode="0",
+        fontItalic="0",
+        forcedItalic="0",
+        fontUnderline="0",
+        fontStrikeout="0",
+        fontKerning="1",
+        fontLetterSpacing="0",
+        fontWordSpacing="0",
+        forcedBold="0",
+        capitalization="0",
+        multilineHeight="1",
+        multilineHeightUnit="Percentage",
+        textOrientation="horizontal",
+        allowHtml="0",
+        useSubstitutions="0",
+        previewBkgrdColor="255,255,255,255,rgb:1,1,1,1",
+        legendString="Aa",
+        tabStopDistance="80",
+        tabStopDistanceUnit="Point",
+        tabStopDistanceMapUnitScale="3x:0,0,0,0,0,0",
+    )
+    ET.SubElement(
+        settings,
+        "text-format",
+        useMaxLineLengthForAutoWrap="1",
+        autoWrapLength="0",
+        wrapChar="",
+        multilineAlign="3",
+        formatNumbers="0",
+        decimals="3",
+        plussign="0",
+        addDirectionSymbol="0",
+        leftDirectionSymbol="&lt;",
+        rightDirectionSymbol=">",
+        reverseDirectionSymbol="0",
+        placeDirectionSymbol="0",
+    )
+    ET.SubElement(
+        settings,
+        "placement",
+        placement="6",
+        offsetType="1",
+        quadOffset="7",
+        xOffset="0",
+        yOffset=str(label.y_offset),
+        offsetUnits="MM",
+        labelOffsetMapUnitScale="3x:0,0,0,0,0,0",
+        dist="0",
+        distUnits="MM",
+        distMapUnitScale="3x:0,0,0,0,0,0",
+        overlapHandling="PreventOverlap",
+        rotationAngle="0",
+        rotationUnit="AngleDegrees",
+        preserveRotation="1",
+        centroidWhole="0",
+        centroidInside="0",
+        fitInPolygonOnly="0",
+        priority="5",
+        prioritization="PreferCloser",
+        predefinedPositionOrder="TR,TL,BR,BL,R,L,TSR,BSR",
+        polygonPlacementFlags="2",
+        layerType="PointGeometry",
+        geometryGeneratorType="PointGeometry",
+        geometryGenerator="",
+        geometryGeneratorEnabled="0",
+        placementFlags="10",
+        lineAnchorType="0",
+        lineAnchorPercent="0.5",
+        lineAnchorTextPoint="FollowPlacement",
+        lineAnchorClipping="0",
+        repeatDistance="0",
+        repeatDistanceUnits="MM",
+        repeatDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        overrunDistance="0",
+        overrunDistanceUnit="MM",
+        overrunDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        maximumDistance="0",
+        maximumDistanceUnit="MM",
+        maximumDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        maxCurvedCharAngleIn="25",
+        maxCurvedCharAngleOut="-25",
+        allowDegraded="0",
+    )
+    ET.SubElement(
+        settings,
+        "rendering",
+        drawLabels="1",
+        obstacle="1",
+        obstacleType="1",
+        obstacleFactor="1",
+        zIndex="0",
+        labelPerPart="0",
+        mergeLines="0",
+        minFeatureSize="0",
+        limitNumLabels="0",
+        maxNumLabels="2000",
+        upsidedownLabels="0",
+        fontLimitPixelSize="0",
+        fontMinPixelSize="3",
+        fontMaxPixelSize="10000",
+        scaleVisibility="0",
+        scaleMin="0",
+        scaleMax="0",
+        unplacedVisibility="0",
+    )
+    dd = ET.SubElement(settings, "dd_properties")
+    dd_opt = ET.SubElement(dd, "Option", type="Map")
+    ET.SubElement(dd_opt, "Option", name="name", value="", type="QString")
+    ET.SubElement(dd_opt, "Option", name="properties")
+    ET.SubElement(dd_opt, "Option", name="type", value="collection", type="QString")
+    callout = ET.SubElement(settings, "callout", type="simple")
+    co = ET.SubElement(callout, "Option", type="Map")
+    ET.SubElement(
+        co,
+        "Option",
+        name="anchorPoint",
+        value="pole_of_inaccessibility",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="blendMode", value="0", type="int")
+    ET.SubElement(co, "Option", name="drawToAllParts", value="false", type="bool")
+    ET.SubElement(co, "Option", name="enabled", value="0", type="QString")
+    ET.SubElement(
+        co, "Option", name="labelAnchorPoint", value="point_on_exterior", type="QString"
+    )
+    ET.SubElement(co, "Option", name="minLength", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="minLengthMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="minLengthUnit", value="MM", type="QString")
+    ET.SubElement(co, "Option", name="offsetFromAnchor", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="offsetFromAnchorMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="offsetFromAnchorUnit", value="MM", type="QString")
+    ET.SubElement(co, "Option", name="offsetFromLabel", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="offsetFromLabelMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="offsetFromLabelUnit", value="MM", type="QString")
+    return labeling
+
+
 def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
     """Build a <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
@@ -618,7 +793,7 @@ def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
         autoRefreshTime="0",
         autoRefreshMode="Disabled",
         styleCategories="AllStyleCategories",
-        labelsEnabled="0",
+        labelsEnabled="1" if layer.label else "0",
         readOnly="0",
         refreshOnNotifyEnabled="0",
         refreshOnNotifyMessage="",
@@ -713,6 +888,8 @@ def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
     ET.SubElement(sel, "selectionColor", invalid="1")
     cp = ET.SubElement(ml, "customproperties")
     ET.SubElement(cp, "Option")
+    if layer.label:
+        ml.append(_build_labeling(layer.label))
     return ml
 
 

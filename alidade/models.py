@@ -159,6 +159,18 @@ class ProcessingStep(BaseModel):
     output: Path
 
 
+# ── Label ─────────────────────────────────────────────────────────────────────
+
+
+class Label(BaseModel):
+    field: str  # shapefile field name to display as label text
+    font_family: str = "Open Sans"
+    font_size: float = 10.0
+    bold: bool = True
+    color: str = "225,225,225,255,hsv:0,0,0.88213931486991681,1"
+    y_offset: float = 2.0  # MM offset above the point symbol
+
+
 # ── Layer ─────────────────────────────────────────────────────────────────────
 
 
@@ -179,6 +191,7 @@ class Layer(BaseModel):
     )
     visible: bool = True
     renderer: Renderer | None = None
+    label: Label | None = None
     processing_step: ProcessingStep | None = None
     extra: dict[str, Any] = {}
 
