@@ -53,7 +53,7 @@ def geocode_malls(output: Path) -> None:
 
 malls = Layer(
     id="mall_points",
-    name="Shopping Malls",
+    name="Big Bucks Malls",
     type="vector",
     source="./output/malls.shp",
     provider="ogr",

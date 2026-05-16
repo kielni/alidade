@@ -43,7 +43,7 @@ def filter_males_22_39_pct(src: Path, output: Path) -> None:
 
 target_tracts = Layer(
     id="target_tracts",
-    name="Target Tracts",
+    name="Target Census Tracts",
     type="vector",
     source="./output/target_tracts.shp",
     provider="ogr",
