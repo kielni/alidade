@@ -2,6 +2,7 @@
 
 import importlib
 import os
+import re
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -33,7 +34,20 @@ HERE = Path(__file__).parent  # alidade/
 
 _QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
 
-# QGIS geometry attribute (display string) and wkbType (numeric code).
+_ELLIPSOID_EPSG: dict[str, str] = {
+    "GRS 1980": "EPSG:7019",
+    "WGS 84": "EPSG:7030",
+    "Clarke 1866": "EPSG:7008",
+    "Bessel 1841": "EPSG:7004",
+    "Krassowsky 1940": "EPSG:7024",
+}
+
+_QGIS_SRSID: dict[str, int] = {
+    "EPSG:2227": 209,
+    "EPSG:4326": 3452,
+}
+
+# QGIS geometry attribute (display string) and wkbType (string name).
 _GEOMETRY_ATTR: dict[str, str] = {
     "Point": "Point",
     "LineString": "Line",
@@ -43,12 +57,12 @@ _GEOMETRY_ATTR: dict[str, str] = {
     "MultiPolygon": "Polygon",
 }
 _WKB_TYPE: dict[str, str] = {
-    "Point": "1",
-    "LineString": "2",
-    "Polygon": "3",
-    "MultiPoint": "4",
-    "MultiLineString": "5",
-    "MultiPolygon": "6",
+    "Point": "Point",
+    "LineString": "LineString",
+    "Polygon": "Polygon",
+    "MultiPoint": "MultiPoint",
+    "MultiLineString": "MultiLineString",
+    "MultiPolygon": "MultiPolygon",
 }
 
 
@@ -95,6 +109,8 @@ def _rel_source(source: str, project_dir: Path) -> str:
     if path_part.startswith("/"):
         output_dir = project_dir / "output"
         rel = os.path.relpath(path_part, output_dir)
+        if not rel.startswith(".."):
+            rel = "./" + rel
         prefix = "file:" if geom_suffix.startswith("?") else ""
         return prefix + rel + geom_suffix
     return abs_src
@@ -137,15 +153,24 @@ def _fill_spatialrefsys(srs_el: ET.Element, authid: str) -> None:
     """Populate an existing <spatialrefsys> element with CRS data from pyproj."""
     crs = ProjCRS(authid)
     epsg_code = authid.split(":")[-1]
+    try:
+        proj4 = crs.to_proj4()
+    except Exception:
+        proj4 = ""
+    proj_match = re.search(r"\+proj=(\S+)", proj4)
+    projectionacronym = proj_match.group(1) if proj_match else ""
+    ellipsoidacronym = ""
+    if crs.ellipsoid is not None:
+        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
     fields = [
         ("wkt", crs.to_wkt()),
-        ("proj4", ""),
-        ("srsid", "0"),
+        ("proj4", proj4),
+        ("srsid", str(_QGIS_SRSID.get(authid, 0))),
         ("srid", epsg_code),
         ("authid", authid),
         ("description", crs.name),
-        ("projectionacronym", ""),
-        ("ellipsoidacronym", ""),
+        ("projectionacronym", projectionacronym),
+        ("ellipsoidacronym", ellipsoidacronym),
         ("geographicflag", "true" if crs.is_geographic else "false"),
     ]
     for tag, val in fields:
@@ -247,6 +272,19 @@ _SCALE = "3x:0,0,0,0,0,0"
 def _ddp() -> ET.Element:
     """Return an empty <data_defined_properties> element used in symbol layers."""
     ddp = ET.Element("data_defined_properties")
+    m = ET.SubElement(ddp, "Option", type="Map")
+    ET.SubElement(m, "Option", name="name", value="", type="QString")
+    ET.SubElement(m, "Option", name="properties")
+    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    return ddp
+
+
+def _renderer_ddp() -> ET.Element:
+    """Return the <data-defined-properties> element used at the renderer-v2 level.
+
+    QGIS uses hyphens here (not underscores) and places it after <sizescale/>.
+    """
+    ddp = ET.Element("data-defined-properties")
     m = ET.SubElement(ddp, "Option", type="Map")
     ET.SubElement(m, "Option", name="name", value="", type="QString")
     ET.SubElement(m, "Option", name="properties")
@@ -461,6 +499,7 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     )
     ET.SubElement(el, "rotation")
     ET.SubElement(el, "sizescale")
+    el.append(_renderer_ddp())
     return el
 
 
@@ -477,6 +516,7 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
         syms.append(_render_symbol(renderer.symbol, "0"))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
+        el.append(_renderer_ddp())
         return el
     if isinstance(renderer, RuleRenderer):
         el = ET.Element(
@@ -496,6 +536,7 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
             syms.append(_render_symbol(sym, str(i)))
+        el.append(_renderer_ddp())
         return el
     if isinstance(renderer, GraduatedRenderer):
         return _render_graduated_renderer(renderer)
@@ -506,26 +547,50 @@ def _srs_element(authid: str) -> ET.Element:
     """Build a <srs> element for authid, using pyproj to supply WKT and metadata."""
     crs = ProjCRS(authid)
     epsg_code = authid.split(":")[-1]
+    try:
+        proj4 = crs.to_proj4()
+    except Exception:
+        proj4 = ""
+    proj_match = re.search(r"\+proj=(\S+)", proj4)
+    projectionacronym = proj_match.group(1) if proj_match else ""
+    ellipsoidacronym = ""
+    if crs.ellipsoid is not None:
+        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
     srs = ET.Element("srs")
     sys_el = ET.SubElement(srs, "spatialrefsys", nativeFormat="Wkt")
     ET.SubElement(sys_el, "wkt").text = crs.to_wkt()
-    ET.SubElement(sys_el, "srsid").text = "0"
+    ET.SubElement(sys_el, "proj4").text = proj4
+    ET.SubElement(sys_el, "srsid").text = str(_QGIS_SRSID.get(authid, 0))
     ET.SubElement(sys_el, "srid").text = epsg_code
     ET.SubElement(sys_el, "authid").text = authid
     ET.SubElement(sys_el, "description").text = crs.name
-    ET.SubElement(sys_el, "projectionacronym").text = ""
-    ET.SubElement(sys_el, "ellipsoidacronym").text = ""
+    ET.SubElement(sys_el, "projectionacronym").text = projectionacronym
+    ET.SubElement(sys_el, "ellipsoidacronym").text = ellipsoidacronym
     ET.SubElement(sys_el, "geographicflag").text = (
         "true" if crs.is_geographic else "false"
     )
     return srs
 
 
-def _build_vector_maplayer(layer: Layer) -> ET.Element:
-    """Build a minimal <maplayer type='vector'> element for layer."""
+def _read_dbf_fields(dbf_path: Path) -> list[str]:
+    """Return attribute field names from a dBASE III .dbf header."""
+    data = dbf_path.read_bytes()
+    fields: list[str] = []
+    offset = 32
+    while offset + 11 < len(data) and data[offset] != 0x0D:
+        name = (
+            data[offset : offset + 11].rstrip(b"\x00").decode("ascii", errors="replace")
+        )
+        fields.append(name)
+        offset += 32
+    return fields
+
+
+def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
+    """Build a <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
     geom_attr = _GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
-    wkb_type = _WKB_TYPE.get(layer.geometry_type, "0")
+    wkb_type = _WKB_TYPE.get(layer.geometry_type, layer.geometry_type)
     ml = ET.Element(
         "maplayer",
         type="vector",
@@ -565,11 +630,70 @@ def _build_vector_maplayer(layer: Layer) -> ET.Element:
         ("Private", "0"),
     ]:
         ET.SubElement(flags, flag).text = val
-    ET.SubElement(ml, "fieldConfiguration")
+
+    abs_path = _abs_source(layer.source, project_dir)
+    path_part, _ = _split_source_suffix(abs_path)
+    dbf_path = Path(path_part).with_suffix(".dbf")
+    dbf_fields: list[str] = _read_dbf_fields(dbf_path) if dbf_path.exists() else []
+
+    fc = ET.SubElement(ml, "fieldConfiguration")
+    for field_name in dbf_fields:
+        field_el = ET.SubElement(
+            fc, "field", name=field_name, configurationFlags="NoFlag"
+        )
+        ET.SubElement(field_el, "editWidget", type="")
+
     ET.SubElement(ml, "vectorjoins")
     ET.SubElement(ml, "layerDependencies")
     ET.SubElement(ml, "dataDependencies")
     ET.SubElement(ml, "expressionfields")
+
+    aliases = ET.SubElement(ml, "aliases")
+    for i, field_name in enumerate(dbf_fields):
+        ET.SubElement(aliases, "alias", field=field_name, name="", index=str(i))
+    defaults = ET.SubElement(ml, "defaults")
+    for field_name in dbf_fields:
+        ET.SubElement(
+            defaults, "default", field=field_name, expression="", applyOnUpdate="0"
+        )
+    ce = ET.SubElement(ml, "constraintExpressions")
+    for field_name in dbf_fields:
+        ET.SubElement(ce, "constraint", field=field_name, exp="", desc="")
+    constraints_el = ET.SubElement(ml, "constraints")
+    for field_name in dbf_fields:
+        ET.SubElement(
+            constraints_el,
+            "constraint",
+            field=field_name,
+            unique_strength="0",
+            constraints="0",
+            notnull_strength="0",
+            exp_strength="0",
+        )
+
+    ET.SubElement(ml, "blendMode").text = "0"
+    ET.SubElement(ml, "featureBlendMode").text = "0"
+    ET.SubElement(ml, "layerOpacity").text = "1"
+    ET.SubElement(ml, "legend", type="default-vector", showLabelLegend="0")
+    ET.SubElement(ml, "mapTip", enabled="1")
+    ET.SubElement(
+        ml, "geometryOptions", geometryPrecision="0", removeDuplicateNodes="0"
+    )
+    ET.SubElement(
+        ml,
+        "attributetableconfig",
+        sortOrder="0",
+        sortExpression="",
+        actionWidgetStyle="dropDown",
+    )
+    ET.SubElement(ml, "editform", tolerant="1")
+    ET.SubElement(ml, "editorlayout").text = "generatedlayout"
+    ET.SubElement(ml, "featformsuppress").text = "0"
+    ET.SubElement(ml, "editforminitcodesource").text = "0"
+    sel = ET.SubElement(ml, "selection", mode="Default")
+    ET.SubElement(sel, "selectionColor", invalid="1")
+    cp = ET.SubElement(ml, "customproperties")
+    ET.SubElement(cp, "Option")
     return ml
 
 
@@ -734,7 +858,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
     for layer in spec.layers:
         if layer.style_xml is None:
             if layer.type == "vector" and layer.geometry_type:
-                ml = _build_vector_maplayer(layer)
+                ml = _build_vector_maplayer(layer, project_dir)
             elif layer.type == "raster":
                 ml = _build_raster_maplayer(layer)
             else:
@@ -745,7 +869,6 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
                 print(f"  warning: {xml_path} not found, skipping {layer.name!r}")
                 continue
             ml = ET.parse(xml_path).getroot()
-        ml.set("id", layer.id)
         id_el = ml.find("id")
         if id_el is not None:
             id_el.text = layer.id

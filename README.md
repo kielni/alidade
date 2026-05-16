@@ -235,6 +235,22 @@ Iterate to build and customize your own toolbox:
    render function. Document what each field controls and what can be left at
    its default. Add it to the toolbox so the next project starts further along.
 
+#### When generated artifacts don't work
+
+If a generated layer or project file doesn't render correctly in QGIS, diagnose and fix the generator so it'll work next time.
+
+Copy the broken generated file to a separate path (e.g. `project_bad.qgs`)
+so you can compare it later. Open the project in QGIS, manually fix the layer
+(resetting the data source, adjusting the CRS, or restoring the style), and save the
+project to the original path (e.g. `project.qgs`). You now have a working file that
+QGIS produced and a broken file that the generator produced.
+
+Ask the LLM to compare the two files and explain what is different in the 
+XML. Once the
+differences are understood, apply updates so the generator produces
+correct output. Review the proposed changes, regenerate, and verify in QGIS before
+committing.
+
 ## Example
 
 Create and describe a new layer `national_parks` that filters the `usaparks`
