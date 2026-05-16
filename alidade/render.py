@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
 from pathlib import Path
 
 from pyproj import CRS as ProjCRS
@@ -303,7 +304,7 @@ def _color(c: str) -> str:
     return f"{c},rgb:{r/255:.7g},{g/255:.7g},{b/255:.7g},{a/255:.7g}"
 
 
-def _opt_map(props: dict[str, str]) -> ET.Element:
+def _opt_map(props: Mapping[str, str]) -> ET.Element:
     """Return an <Option type='Map'> element with the given name/value pairs."""
     el = ET.Element("Option", type="Map")
     for name, value in props.items():
@@ -311,7 +312,9 @@ def _opt_map(props: dict[str, str]) -> ET.Element:
     return el
 
 
-def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
+def _render_symbol_layer(
+    sl: SymbolLayer, project_dir: Path | None = None
+) -> ET.Element:
     """Serialize a SymbolLayer model to its QGS <layer> element."""
     el = ET.Element(
         "layer",
@@ -357,25 +360,39 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
             "width_map_unit_scale": _SCALE,
         }
     elif isinstance(sl, SvgMarker):
+        svg_name = sl.name
+        if project_dir is not None and (
+            svg_name.startswith("data/") or svg_name.startswith("./")
+        ):
+            svg_name = _rel_source(svg_name, project_dir)
         props = {
-            "angle": str(sl.angle),
+            "angle": f"{sl.angle:g}",
             "color": _color(sl.color),
             "fixedAspectRatio": "0",
             "horizontal_anchor_point": "1",
-            "name": sl.name,
+            "name": svg_name,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": sl.offset_unit,
             "outline_color": _color(sl.outline_color),
-            "outline_width": str(sl.outline_width),
+            "outline_width": f"{sl.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
             "outline_width_unit": sl.outline_width_unit,
             "scale_method": "diameter",
-            "size": str(sl.size),
+            "size": f"{sl.size:g}",
             "size_map_unit_scale": _SCALE,
             "size_unit": sl.size_unit,
             "vertical_anchor_point": "1",
         }
+        opt_el = _opt_map(props)
+        # QGIS requires a bare <Option name="parameters"/> for SvgMarker;
+        # insert it after outline_width_unit (alphabetical order).
+        keys = list(props.keys())
+        insert_after = keys.index("outline_width_unit")
+        opt_el.insert(insert_after + 1, ET.Element("Option", name="parameters"))
+        el.append(opt_el)
+        el.append(_ddp())
+        return el
     elif isinstance(sl, SimpleMarker):
         props = {
             "angle": f"{sl.angle:g}",
@@ -405,7 +422,9 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
     return el
 
 
-def _render_symbol(sym: Symbol, name: str) -> ET.Element:
+def _render_symbol(
+    sym: Symbol, name: str, project_dir: Path | None = None
+) -> ET.Element:
     """Serialize a Symbol model to its QGS <symbol> element."""
     el = ET.Element(
         "symbol",
@@ -419,7 +438,7 @@ def _render_symbol(sym: Symbol, name: str) -> ET.Element:
     )
     el.append(_ddp())
     for sl in sym.layers:
-        el.append(_render_symbol_layer(sl))
+        el.append(_render_symbol_layer(sl, project_dir))
     return el
 
 
@@ -503,7 +522,7 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     return el
 
 
-def _render_renderer(renderer: Renderer) -> ET.Element:
+def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.Element:
     """Serialize a Renderer model to its QGS <renderer-v2> element."""
     base = dict(
         forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
@@ -513,7 +532,7 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
             "renderer-v2", type="singleSymbol", **base  # type: ignore[arg-type]
         )
         syms = ET.SubElement(el, "symbols")
-        syms.append(_render_symbol(renderer.symbol, "0"))
+        syms.append(_render_symbol(renderer.symbol, "0", project_dir))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
         el.append(_renderer_ddp())
@@ -535,7 +554,7 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
             ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
-            syms.append(_render_symbol(sym, str(i)))
+            syms.append(_render_symbol(sym, str(i), project_dir))
         el.append(_renderer_ddp())
         return el
     if isinstance(renderer, GraduatedRenderer):
@@ -880,7 +899,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
             nm.text = layer.name
         if layer.renderer is not None and layer.type == "vector":
             old = ml.find("renderer-v2")
-            new = _render_renderer(layer.renderer)
+            new = _render_renderer(layer.renderer, project_dir)
             if old is not None:
                 children = list(ml)
                 ml.remove(old)

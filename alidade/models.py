@@ -1,7 +1,8 @@
+import uuid
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ── Symbol layers ─────────────────────────────────────────────────────────────
 
@@ -180,6 +181,14 @@ class Layer(BaseModel):
     renderer: Renderer | None = None
     processing_step: ProcessingStep | None = None
     extra: dict[str, Any] = {}
+
+    @field_validator("id")
+    @classmethod
+    def _pad_short_id(cls, v: str) -> str:
+        # QGIS silently drops layers whose <id> is 10 characters or shorter.
+        if len(v) > 10:
+            return v
+        return f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────
