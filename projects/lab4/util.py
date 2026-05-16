@@ -12,3 +12,11 @@ CENSUS_BUCKETS = [
 
 # Dark purple outline for CENSUS_BUCKETS layers; matches palette hue.
 CENSUS_OUTLINE = "63,0,125,255"  # darker than class 5, full opacity
+
+# ColorBrewer YlGnBu 3-class (light → dark = good → best).
+# Used by mall_buffer_people and mall_voronoi_people.
+MALL_BUCKET_COLORS = [
+    "161,218,180",  # #a1dab4 — good
+    "65,182,196",  # #41b6c4 — better
+    "34,94,168",  # #225ea8 — best
+]

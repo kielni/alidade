@@ -7,6 +7,7 @@ from .layers.major_roads import major_roads
 from .layers.mall_buffers import mall_buffers
 from .layers.mall_buffer_people import mall_buffer_people
 from .layers.mall_target_intersect import mall_target_intersect
+from .layers.mall_people_deduped import mall_people_deduped
 from .layers.malls import malls
 from .layers.roads import roads
 from .layers.target_tracts import target_tracts
@@ -28,10 +29,10 @@ EXTENT_600k = (
 )
 
 EXTENT_350k = (
-    5981459.437566431,
-    1911100.6096948292,
-    6124785.590493485,
-    2235174.0356207546,
+    5981864.529348838,
+    1900163.1315698293,
+    6125190.682275892,
+    2224236.5574957547,
 )
 
 spec_all = Project(
@@ -40,6 +41,7 @@ spec_all = Project(
     extent=EXTENT_600k,
     layers=[
         malls,
+        mall_people_deduped,
         mall_buffer_people,
         mall_buffers,
         mall_target_intersect,
@@ -60,7 +62,7 @@ mall locations (malls)
 major roads (major_roads)
 """
 spec_overview = Project(
-    title="Lab 4 Overview",
+    title="Map 1: Overview",
     crs="EPSG:2227",
     extent=(
         5925815.516200287,
@@ -90,7 +92,7 @@ Census tracts with greater than 20% 22-39 year old males (target_tracts)
 mall locations (malls)
 """
 spec_young_men = Project(
-    title="Lab 4 Young Men",
+    title="Map 2: Target Census Tracts and Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
     layers=[
@@ -100,7 +102,7 @@ spec_young_men = Project(
     ],
     print_layout=PrintLayout(
         name="print_young_men",
-        title_text="Census Tracts: Males Aged 22–39 Over 20%",
+        title_text="Census Tracts: Males Aged 22-39 Over 20%",
         credits_text=CREDITS,
         map_frame=_FRAME_350k,
         scale_bar=_SCALE_BAR_MI,
@@ -115,7 +117,7 @@ mall locations (malls)
 5 mile buffers of malls (mall_buffers) ; unfilled or transparent polygons
 """
 spec_near_malls = Project(
-    title="Lab 4",
+    title="Map 3: Malls and Target Tracts Near Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
     layers=[
@@ -134,4 +136,27 @@ spec_near_malls = Project(
 )
 map3 = spec_near_malls
 
-spec = map1
+
+spec_dedup = Project(
+    title="Map 4: Deduplicated Target Population by Mall Draw Zone",
+    crs="EPSG:2227",
+    extent=EXTENT_350k,
+    layers=[
+        malls,
+        # needed as depdendency for mall_people_deduped but not actually visible
+        mall_buffers.model_copy(update={"visible": False}),
+        target_tracts.model_copy(update={"visible": False}),
+        mall_people_deduped,
+        basemap,
+    ],
+    print_layout=PrintLayout(
+        name="print_voronoi",
+        title_text="Deduplicated Target Population by Mall Draw Zone",
+        credits_text=CREDITS,
+        map_frame=_FRAME_350k,
+        scale_bar=_SCALE_BAR_MI,
+    ),
+)
+map4 = spec_dedup
+
+spec = map4

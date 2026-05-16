@@ -3,6 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 
+from projects.lab4.util import MALL_BUCKET_COLORS
 from alidade.models import (
     Layer,
     ProcessingStep,
@@ -17,14 +18,6 @@ from alidade.models import (
 # across all target census tracts (pct_m22_39 > 20%) that spatially intersect
 # that buffer. Fields: mall_id, mall_name, m22_39_total, bucket, geometry.
 # bucket is 0/1/2 (good/better/best) computed at runtime via equal-count breaks.
-
-# ColorBrewer YlGnBu 3-class (light → dark = good → best).
-# Fill at 80% transparent (alpha 51); outline at full opacity, same hue.
-_YLGNBU = [
-    "161,218,180",  # #a1dab4 — good
-    "65,182,196",  # #41b6c4 — better
-    "34,94,168",  # #225ea8 — best
-]
 
 
 def _symbol(rgb: str, outline_width: float) -> Symbol:
@@ -41,9 +34,9 @@ def _symbol(rgb: str, outline_width: float) -> Symbol:
 
 
 _SYMBOLS = [
-    _symbol(_YLGNBU[0], 0.5),  # Good   — yellow-green, thin
-    _symbol(_YLGNBU[1], 0.75),  # Better — teal, medium
-    _symbol(_YLGNBU[2], 1.0),  # Best   — blue, thick
+    _symbol(MALL_BUCKET_COLORS[0], 0.5),
+    _symbol(MALL_BUCKET_COLORS[1], 0.75),
+    _symbol(MALL_BUCKET_COLORS[2], 1.0),
 ]
 
 
