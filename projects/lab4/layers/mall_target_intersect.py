@@ -3,13 +3,21 @@ from pathlib import Path
 import geopandas as gpd
 
 from alidade.models import (
+    GraduatedRange,
+    GraduatedRenderer,
     Layer,
     ProcessingStep,
     PythonAction,
-    SimpleFill,
-    SingleSymbol,
-    Symbol,
 )
+from projects.lab4.util import CENSUS_BUCKETS, CENSUS_OUTLINE
+
+# Same Jenks breaks as census_tracts (M22_39 across all 1,617 tracts).
+_MIN = 0.0
+_B1 = 424.0
+_B2 = 740.0
+_B3 = 1162.0
+_B4 = 2003.0
+_MAX = 2973.0
 
 # output/mall_target_intersect.shp: census tracts (pct_m22_39 > 20%) that
 # spatially intersect a mall 5-mile buffer. One row per (tract × mall) pair.
@@ -54,17 +62,39 @@ mall_target_intersect = Layer(
     crs="EPSG:2227",
     visible=True,
     geometry_type="Polygon",
-    renderer=SingleSymbol(
-        symbol=Symbol(
-            type="fill",
-            layers=[
-                SimpleFill(
-                    color="255,200,50,180",
-                    outline_color="180,120,0,255",
-                    outline_width=0.5,
-                )
-            ],
-        )
+    renderer=GraduatedRenderer(
+        attr="M22_39",
+        ranges=[
+            GraduatedRange(
+                lower=_MIN,
+                upper=_B1,
+                label=f"{_MIN:.0f} – {_B1:.0f}",
+                color=CENSUS_BUCKETS[0],
+            ),
+            GraduatedRange(
+                lower=_B1,
+                upper=_B2,
+                label=f"{_B1:.0f} – {_B2:.0f}",
+                color=CENSUS_BUCKETS[1],
+            ),
+            GraduatedRange(
+                lower=_B2,
+                upper=_B3,
+                label=f"{_B2:.0f} – {_B3:.0f}",
+                color=CENSUS_BUCKETS[2],
+            ),
+            GraduatedRange(
+                lower=_B3,
+                upper=_B4,
+                label=f"{_B3:.0f} – {_B4:.0f}",
+                color=CENSUS_BUCKETS[3],
+            ),
+            GraduatedRange(
+                lower=_B4, upper=_MAX, label=f"{_B4:.0f}+", color=CENSUS_BUCKETS[4]
+            ),
+        ],
+        outline_color=CENSUS_OUTLINE,
+        outline_width=0.1,
     ),
     processing_step=ProcessingStep(
         description=(

@@ -6,42 +6,41 @@
 ### Shopping Malls
 
 **Source:** `output/malls.shp`  
-**Style:** single symbol — circle marker #dc3232, 4.0 MM  
-**Derived from:**   
+**Style:** single symbol — SVG marker mall.svg, 5.0 MM  
 **Processing:** Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227.
 
-### Mall 5-Mile Buffers
+### Major Roads
 
-**Source:** `output/mall_buffers.shp`  
-**Style:** single symbol — fill #90ee90 at 50% opacity, #50a050 outline  
-**Derived from:** `malls`  
-**Processing:** Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field.
+**Source:** `output/major_roads.shp`  
+**Style:** single symbol — solid line #dcd2b4, 0.6 MM  
+**Derived from:** `roads`  
+**Processing:** Filter roads to primary/major highway FCC codes A10–A21.
 
-### Mall Target Intersect
+### Census Tracts
 
-**Source:** `output/mall_target_intersect.shp`  
-**Style:** single symbol — fill #ffc832 at 71% opacity, #b47800 outline  
-**Derived from:** `mall_buffers`, `census_tracts`  
-**Processing:** Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39.
+**Source:** `output/census_tracts.shp`  
+**Style:** graduated (5 classes on `M22_39`)  
+**Derived from:** `census_tracts_raw`  
+**Processing:** Filter census tracts to those with Total > 0.
 
-### CartoDB Positron
+### Basemap
 
 **Source:** `CartoDB Positron XYZ tile service`  
 **Style:** see `styles/cartodb_positron.xml`  
 
 ## Data flow
 
-```
-malls  ──►  mall_buffers
-mall_buffers  ──►  mall_target_intersect
-census_tracts  ──►  mall_target_intersect
+```mermaid
+flowchart LR
+    roads --> major_roads
+    census_tracts_raw --> census_tracts
 ```
 
 ## Processing tools
 
 | Layer | Tool | Description |
 | --- | --- | --- |
-| `malls` | `geopandas` | Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227. |
-| `mall_buffers` | `geopandas` | Buffer mall points by 5 miles (26,400 ft) in EPSG:2227; join mall_names.csv on id to add mall_name field. |
-| `mall_target_intersect` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |
+| `malls_c4ae8970` | `geopandas` | Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227. |
+| `major_roads` | `geopandas` | Filter roads to primary/major highway FCC codes A10–A21. |
+| `census_tracts` | `geopandas` | Filter census tracts to those with Total > 0. |
 <!-- auto:end -->

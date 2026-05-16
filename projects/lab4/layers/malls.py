@@ -11,8 +11,8 @@ from alidade.models import (
     Layer,
     ProcessingStep,
     PythonAction,
-    SimpleMarker,
     SingleSymbol,
+    SvgMarker,
     Symbol,
 )
 
@@ -50,7 +50,7 @@ def geocode_malls(output: Path) -> None:
 
 
 malls = Layer(
-    id="malls",
+    id="malls_c4ae8970",
     name="Shopping Malls",
     type="vector",
     source="./output/malls.shp",
@@ -62,11 +62,12 @@ malls = Layer(
         symbol=Symbol(
             type="marker",
             layers=[
-                SimpleMarker(
-                    color="220,50,50,255",
-                    size=4.0,
-                    outline_color="140,20,20,255",
-                    outline_width=0.5,
+                SvgMarker(
+                    name="data/mall.svg",
+                    color="230,120,0,255",
+                    outline_color="160,84,0,255",
+                    outline_width=0.0,
+                    size=5.0,
                 )
             ],
         )

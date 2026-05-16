@@ -47,8 +47,8 @@ major_roads = Layer(
             type="line",
             layers=[
                 SimpleLine(
-                    line_color="30,30,30,255",
-                    line_width=1.0,
+                    line_color="220,210,180,255",
+                    line_width=0.6,
                 )
             ],
         )

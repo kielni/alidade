@@ -1,14 +1,24 @@
-from alidade.models import Project
+from alidade.models import PrintLayout, PrintMapFrame, PrintScaleBar, Project
 
-from .layers.cartodb_positron import cartodb_positron
+from .layers.basemap import basemap
 from .layers.census_tracts import census_tracts
 from .layers.census_tracts_raw import census_tracts_raw
 from .layers.major_roads import major_roads
 from .layers.mall_buffers import mall_buffers
+from .layers.mall_buffer_people import mall_buffer_people
 from .layers.mall_target_intersect import mall_target_intersect
 from .layers.malls import malls
 from .layers.roads import roads
 from .layers.target_tracts import target_tracts
+
+CREDITS = (
+    "US Census Bureau, 2010 data · Big Bucks INC"
+    " · CartoDB Positron · CC BY-SA 4.0 via Wikimedia Commons"
+)
+
+_FRAME_600k = PrintMapFrame(scale=600000)
+_FRAME_350k = PrintMapFrame(scale=350000)
+_SCALE_BAR_MI = PrintScaleBar(unit_type="mi", num_units_per_segment=50.0)
 
 EXTENT_600k = (
     5925815.516200287,
@@ -30,6 +40,7 @@ spec_all = Project(
     extent=EXTENT_600k,
     layers=[
         malls,
+        mall_buffer_people,
         mall_buffers,
         mall_target_intersect,
         major_roads,
@@ -37,7 +48,7 @@ spec_all = Project(
         census_tracts_raw,
         target_tracts,
         roads,
-        cartodb_positron,
+        basemap,
     ],
 )
 
@@ -61,9 +72,17 @@ spec_overview = Project(
         malls,
         major_roads,
         census_tracts,
-        cartodb_positron,
+        basemap,
     ],
+    print_layout=PrintLayout(
+        name="print_overview",
+        title_text="Distribution of Males Aged 22–39",
+        credits_text=CREDITS,
+        map_frame=_FRAME_600k,
+        scale_bar=_SCALE_BAR_MI,
+    ),
 )
+map1 = spec_overview
 
 """
 1:350,000 scale map
@@ -77,9 +96,17 @@ spec_young_men = Project(
     layers=[
         malls,
         target_tracts,
-        cartodb_positron,
+        basemap,
     ],
+    print_layout=PrintLayout(
+        name="print_young_men",
+        title_text="Census Tracts: Males Aged 22–39 Over 20%",
+        credits_text=CREDITS,
+        map_frame=_FRAME_350k,
+        scale_bar=_SCALE_BAR_MI,
+    ),
 )
+map2 = spec_young_men
 
 """
 1:350,000 scale map
@@ -93,10 +120,18 @@ spec_near_malls = Project(
     extent=EXTENT_350k,
     layers=[
         malls,
-        mall_buffers,
+        mall_buffer_people,
         mall_target_intersect,
-        cartodb_positron,
+        basemap,
     ],
+    print_layout=PrintLayout(
+        name="print_young_men_near_malls",
+        title_text="Target Tracts Near Shopping Malls",
+        credits_text=CREDITS,
+        map_frame=_FRAME_350k,
+        scale_bar=_SCALE_BAR_MI,
+    ),
 )
+map3 = spec_near_malls
 
-spec = spec_near_malls
+spec = map1

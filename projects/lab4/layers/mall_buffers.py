@@ -26,10 +26,11 @@ def buffer_malls(src: Path, output: Path) -> None:
     gdf["geometry"] = gdf.geometry.buffer(_BUFFER_FT)
 
     names = pd.read_csv(_CSV, encoding="utf-8-sig")
-    names["ID"] = names["ID"].astype(str)
     names = names[["ID", "MallName"]].rename(
         columns={"ID": "id", "MallName": "mall_name"}
     )
+    names["id"] = names["id"].astype(int).astype(str)
+    gdf["id"] = gdf["id"].astype(int).astype(str)  # strip zero-padding ("01" → "1")
     gdf = gdf.merge(names, on="id", how="left")
     gdf.to_file(output)
 

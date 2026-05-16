@@ -9,7 +9,7 @@ from alidade.models import (
     ProcessingStep,
     PythonAction,
 )
-from projects.lab4.util import CENSUS_BUCKETS
+from projects.lab4.util import CENSUS_BUCKETS, CENSUS_OUTLINE
 
 # Jenks natural breaks on M22_39 (tracts with Total > 0, n=1,617):
 #   counts: 561, 594, 367, 91, 7
@@ -19,8 +19,6 @@ _B2 = 740.0
 _B3 = 1162.0
 _B4 = 2003.0
 _MAX = 2973.0
-
-_OUTLINE = "180,180,180,120"
 
 
 def filter_nonzero_population(src: Path, output: Path) -> None:
@@ -71,7 +69,7 @@ census_tracts = Layer(
                 color=CENSUS_BUCKETS[4],
             ),
         ],
-        outline_color=_OUTLINE,
+        outline_color=CENSUS_OUTLINE,
         outline_width=0.1,
     ),
     processing_step=ProcessingStep(

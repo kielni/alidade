@@ -11,7 +11,7 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.lab4.util import CENSUS_BUCKETS
+from projects.lab4.util import CENSUS_BUCKETS, CENSUS_OUTLINE
 
 # Jenks natural breaks on pct_m22_39 (tracts > 20%, n=176):
 #   counts: 47, 34, 44, 28, 23
@@ -22,13 +22,13 @@ _B3 = 25.66
 _B4 = 29.97
 _MAX = 44.51
 
-_OUTLINE = "0,80,200,255"
-
 
 def _symbol(color: str) -> Symbol:
     return Symbol(
         type="fill",
-        layers=[SimpleFill(color=color, outline_color=_OUTLINE, outline_width=0.5)],
+        layers=[
+            SimpleFill(color=color, outline_color=CENSUS_OUTLINE, outline_width=0.5)
+        ],
     )
 
 
@@ -37,7 +37,7 @@ def filter_males_22_39_pct(src: Path, output: Path) -> None:
     gdf = gdf[gdf["Total"] > 0].copy()
     gdf["pct_m22_39"] = gdf["M22_39"] / gdf["Total"] * 100
     gdf[gdf["pct_m22_39"] > _MIN][
-        ["geometry", "GEOID", "NAMELSAD", "pct_m22_39"]
+        ["geometry", "GEOID", "NAMELSAD", "M22_39", "pct_m22_39"]
     ].to_file(output)
 
 

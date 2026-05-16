@@ -2,12 +2,12 @@ from pathlib import Path
 
 from alidade.models import Layer
 
-cartodb_positron = Layer(
+basemap = Layer(
     id="cartodb_positron",
-    name="CartoDB Positron",
+    name="Basemap",
     type="raster",
     source=(
-        "http-header:referer=&type=xyz&url=https://basemaps.cartocdn.com/light_all/"
+        "http-header:referer=&type=xyz&url=https://basemaps.cartocdn.com/dark_all/"
         "%7Bz%7D/%7Bx%7D/%7By%7D.png&zmax=19&zmin=0"
     ),
     provider="wms",
