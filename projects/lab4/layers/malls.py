@@ -8,6 +8,7 @@ from shapely.geometry import Point
 
 from alidade import project_data_dir
 from alidade.models import (
+    Label,
     Layer,
     ProcessingStep,
     PythonAction,
@@ -17,9 +18,9 @@ from alidade.models import (
 )
 
 # output/malls.shp: 11 Bay Area shopping mall points, EPSG:2227.
-# Fields: id (str), name (street address), city (str).
+# Fields: id (str), Street (street address), mall_name (str), city (str).
 # Extent: x=5,990,284–6,175,052 ft  y=1,932,559–2,189,415 ft.
-_CSV = project_data_dir(__file__) / "malls.csv"
+_CSV = project_data_dir(__file__) / "mall_names.csv"
 
 
 def geocode_malls(output: Path) -> None:
@@ -35,7 +36,8 @@ def geocode_malls(output: Path) -> None:
             rows.append(
                 {
                     "id": row["ID"].strip(),
-                    "name": row["Street"].strip(),
+                    "Street": row["Street"].strip(),
+                    "mall_name": row["MallName"].strip(),
                     "city": row["City"].strip(),
                     "geometry": (
                         Point(result.longitude, result.latitude) if result else None
@@ -50,7 +52,7 @@ def geocode_malls(output: Path) -> None:
 
 
 malls = Layer(
-    id="malls_c4ae8970",
+    id="mall_points",
     name="Shopping Malls",
     type="vector",
     source="./output/malls.shp",
@@ -72,9 +74,11 @@ malls = Layer(
             ],
         )
     ),
+    label=Label(field="mall_name"),
     processing_step=ProcessingStep(
         description=(
-            "Geocode malls.csv addresses with Nominatim; reproject to EPSG:2227."
+            "Geocode mall_names.csv addresses with Nominatim; "
+            "reproject to EPSG:2227. Fields: id, Street, mall_name, city."
         ),
         action=PythonAction(fn=geocode_malls),
         depends_on=[],

@@ -56,7 +56,7 @@ major_roads = Layer(
     processing_step=ProcessingStep(
         description="Filter roads to primary/major highway FCC codes A10–A21.",
         action=PythonAction(fn=filter_major_roads),
-        depends_on=["roads"],
+        depends_on=["roads_lines"],
         output=Path("output/major_roads.shp"),
     ),
 )

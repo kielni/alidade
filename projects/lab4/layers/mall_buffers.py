@@ -1,9 +1,7 @@
 from pathlib import Path
 
 import geopandas as gpd
-import pandas as pd
 
-from alidade import project_data_dir
 from alidade.models import (
     Layer,
     ProcessingStep,
@@ -14,24 +12,15 @@ from alidade.models import (
 )
 
 # output/mall_buffers.shp: 5-mile buffer polygons around each of the 11 mall
-# points, joined with mall_names.csv on id. EPSG:2227 (US survey feet);
-# 5 miles = 26,400 survey feet. Fields: id, name, city, mall_name.
+# points. EPSG:2227 (US survey feet); 5 miles = 26,400 survey feet.
+# Fields: id, name, mall_name, city (inherited from malls.shp).
 _BUFFER_FT = 5 * 5280
-_CSV = project_data_dir(__file__) / "mall_names.csv"
 
 
 def buffer_malls(src: Path, output: Path) -> None:
     gdf = gpd.read_file(src)
     gdf = gdf.copy()
     gdf["geometry"] = gdf.geometry.buffer(_BUFFER_FT)
-
-    names = pd.read_csv(_CSV, encoding="utf-8-sig")
-    names = names[["ID", "MallName"]].rename(
-        columns={"ID": "id", "MallName": "mall_name"}
-    )
-    names["id"] = names["id"].astype(int).astype(str)
-    gdf["id"] = gdf["id"].astype(int).astype(str)  # strip zero-padding ("01" → "1")
-    gdf = gdf.merge(names, on="id", how="left")
     gdf.to_file(output)
 
 
@@ -57,12 +46,9 @@ mall_buffers = Layer(
         )
     ),
     processing_step=ProcessingStep(
-        description=(
-            "Buffer mall points by 5 miles (26,400 ft) in EPSG:2227;"
-            " join mall_names.csv on id to add mall_name field."
-        ),
+        description=("Buffer mall points by 5 miles (26,400 ft) in EPSG:2227"),
         action=PythonAction(fn=buffer_malls),
-        depends_on=["malls"],
+        depends_on=["mall_points"],
         output=Path("output/mall_buffers.shp"),
     ),
 )

@@ -13,5 +13,5 @@ basemap = Layer(
     provider="wms",
     crs="EPSG:3857",
     visible=True,
-    style_xml=Path("styles/cartodb_positron.xml"),
+    style_xml=Path("styles/cartodb_dark_matter.xml"),
 )
