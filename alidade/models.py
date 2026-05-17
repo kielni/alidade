@@ -2,7 +2,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ── Symbol layers ─────────────────────────────────────────────────────────────
 
@@ -287,7 +287,12 @@ class PrintLayout(BaseModel):
     # Complete print layout. title_text is a 30 pt header across the top of the
     # page; credits_text is a 10 pt label at the bottom right (attribution,
     # data source, date, etc.).  make build writes this to output/print.qpt.
+    #
+    # orientation="portrait" swaps the default US Letter page to 215.9×279.4 mm
+    # and render_print_layout auto-computes map frame size and item y-positions
+    # from the page dimensions.  Explicit field values always win over auto.
     name: str = "print"
+    orientation: Literal["landscape", "portrait"] = "landscape"
     page: PrintPage = Field(default_factory=PrintPage)
     title_text: str
     credits_text: str
@@ -295,6 +300,12 @@ class PrintLayout(BaseModel):
     north_arrow: PrintNorthArrow = Field(default_factory=PrintNorthArrow)
     scale_bar: PrintScaleBar = Field(default_factory=PrintScaleBar)
     legend: PrintLegend = Field(default_factory=PrintLegend)
+
+    @model_validator(mode="after")
+    def _page_from_orientation(self) -> "PrintLayout":
+        if "page" not in self.model_fields_set and self.orientation == "portrait":
+            self.page = PrintPage(width_mm=215.9, height_mm=279.4)
+        return self
 
 
 # ── Project ───────────────────────────────────────────────────────────────────

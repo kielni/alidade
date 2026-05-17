@@ -198,7 +198,8 @@ skipped; `make build-all` forces a full rebuild.
 
 **Using the print template in QGIS:** open *Project → Layout Manager → From
 template* and select `output/print.qpt`. From there you can adjust items
-interactively and export via the normal print menu.
+interactively and export via the normal print menu. Export as a template
+to a new filename to prevent overwriting manual edits on build.
 
 **Exporting the print layout to PDF from the console:** open the Python console
 in QGIS (**Plugins → Python Console**) and run:

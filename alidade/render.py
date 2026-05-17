@@ -1889,29 +1889,85 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
     )
     root.append(_qpt_page_collection(pl.page))
 
+    page = pl.page
+    pw, ph = page.width_mm, page.height_mm
+
+    # All positions are derived from page dimensions so the same code works
+    # for any page size.  Constants are back-derived from the US Letter
+    # landscape defaults so those outputs are byte-for-byte unchanged.
+    _title_x = 1.764
+    _mf_x = 4.764
+    _mf_y_default = 14.186
+    _mf_x_margin = 10.251  # 4.764 left + 5.487 right
+    _mf_bottom_margin = 6.977
+    _credits_h = 10.8497
+    _credits_bottom_margin = 4.977
+    _sb_right_margin = 24.8
+    _sb_bottom_margin = 19.073
+    _leg_bottom_margin = 70.052
+
+    title_w = pw - 2 * _title_x
+
+    # Map frame: y/width/height auto from page unless the caller set them.
+    mf = pl.map_frame
+    mf_mfs = mf.model_fields_set
+    mf_y = mf.y_mm if "y_mm" in mf_mfs else _mf_y_default
+    mf_w = mf.width_mm if "width_mm" in mf_mfs else pw - _mf_x_margin
+    mf_h = mf.height_mm if "height_mm" in mf_mfs else ph - mf_y - _mf_bottom_margin
+    mf_computed = mf.model_copy(
+        update={"y_mm": mf_y, "width_mm": mf_w, "height_mm": mf_h}
+    )
+
+    # Credits: centered, full-width, near bottom.
+    credits_x = _mf_x
+    credits_w = pw - _mf_x_margin
+    credits_y = ph - _credits_bottom_margin
+
+    # Scale bar: right-aligned; auto-compute x from bar width when scale is known.
+    sb = pl.scale_bar
+    sb_mfs = sb.model_fields_set
+    sb_y = sb.y_mm if "y_mm" in sb_mfs else ph - _sb_bottom_margin
+    if "x_mm" not in sb_mfs and mf_computed.scale is not None and sb.unit_type == "mi":
+        bar_mm = (
+            sb.num_segments
+            * sb.num_units_per_segment
+            * 5280
+            * 304.8
+            / mf_computed.scale
+        )
+        sb_x = pw - _sb_right_margin - bar_mm
+    else:
+        sb_x = sb.x_mm
+    sb_computed = sb.model_copy(update={"x_mm": sb_x, "y_mm": sb_y})
+
+    # Legend: left margin, fixed distance from page bottom.
+    leg = pl.legend
+    leg_y = leg.y_mm if "y_mm" in leg.model_fields_set else ph - _leg_bottom_margin
+    leg_computed = leg.model_copy(update={"y_mm": leg_y})
+
     # z order: credits=6, scale bar=5, north=4, legend=3, title=2, map=1
     root.append(
         _qpt_label(
             text=pl.credits_text,
-            x=194.142,
-            y=204.269,
-            w=80.3963,
-            h=8.03694,
+            x=credits_x,
+            y=credits_y,
+            w=credits_w,
+            h=_credits_h,
             font_size=10,
-            halign=1,
+            halign=4,
             valign=32,
             z=6,
         )
     )
-    root.append(_qpt_scale_bar(pl.scale_bar, map_uuid, z=5))
+    root.append(_qpt_scale_bar(sb_computed, map_uuid, z=5))
     root.append(_qpt_north_arrow(pl.north_arrow, map_uuid, z=4))
-    root.append(_qpt_legend(pl.legend, spec, map_uuid, z=3))
+    root.append(_qpt_legend(leg_computed, spec, map_uuid, z=3))
     root.append(
         _qpt_label(
             text=pl.title_text,
-            x=1.764,
+            x=_title_x,
             y=2.382,
-            w=265.774,
+            w=title_w,
             h=10.422,
             font_size=30,
             halign=4,
@@ -1920,7 +1976,7 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
             named_style="Regular",
         )
     )
-    root.append(_qpt_map_frame(pl.map_frame, spec, map_uuid, z=1))
+    root.append(_qpt_map_frame(mf_computed, spec, map_uuid, z=1))
 
     cp = ET.SubElement(root, "customproperties")
     m = ET.SubElement(cp, "Option", type="Map")
