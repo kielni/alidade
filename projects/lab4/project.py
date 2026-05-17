@@ -154,6 +154,7 @@ map4 = Project(
         # needed as depdendency for mall_people_deduped but not actually visible
         mall_buffers.model_copy(update={"visible": False}),
         target_tracts.model_copy(update={"visible": False}),
+        mall_target_intersect,
         mall_people_deduped,
         basemap,
     ],

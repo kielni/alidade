@@ -23,6 +23,13 @@
 **Derived from:** `census_tracts`  
 **Processing:** Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20.
 
+### Mall Target Intersect
+
+**Source:** `output/mall_target_intersect.shp`  
+**Style:** graduated (5 classes on `M22_39`)  
+**Derived from:** `mall_buffers`, `census_tracts`  
+**Processing:** Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39.
+
 ### Mall Draw Zones
 
 **Source:** `output/mall_people_deduped.shp`  
@@ -41,6 +48,8 @@
 flowchart LR
     mall_points --> mall_buffers
     census_tracts --> target_tracts
+    mall_buffers --> mall_target_intersect
+    census_tracts --> mall_target_intersect
     mall_buffers --> mall_people_deduped
     target_tracts --> mall_people_deduped
 ```
@@ -52,5 +61,6 @@ flowchart LR
 | `mall_points` | `geopandas` | Geocode mall_names.csv addresses with Nominatim; reproject to EPSG:2227. Fields: id, Street, mall_name, city. |
 | `mall_buffers` | `geopandas` | Buffer mall points by 5 miles (26,400 ft) in EPSG:2227 |
 | `target_tracts` | `geopandas` | Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20. |
+| `mall_target_intersect` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |
 | `mall_people_deduped` | `geopandas` | Build Voronoi draw zones (Voronoi cell ∩ 5-mile buffer) for each mall; area-weight M22_39 from target tracts across zone boundaries; assign equal-count bucket (0/1/2). |
 <!-- auto:end -->
