@@ -14,7 +14,7 @@ from .layers.target_tracts import target_tracts
 
 CREDITS = (
     "US Census Bureau, 2010 data · Big Bucks INC"
-    " · CartoDB Positron · CC BY-SA 4.0 via Wikimedia Commons"
+    " · CartoDB Dark Matter · CC BY-SA 4.0 via Wikimedia Commons"
 )
 
 _FRAME_350k = PrintMapFrame(scale=350000)
@@ -137,7 +137,7 @@ map3 = Project(
     print_layout=PrintLayout(
         name="print_3",
         orientation="portrait",
-        title_text="Target Population Near Mallss",
+        title_text="Target Population Near Malls",
         credits_text=CREDITS,
         map_frame=_FRAME_350k,
         scale_bar=_SCALE_BAR_350k,

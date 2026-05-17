@@ -56,6 +56,8 @@ def _color(rgba: str) -> tuple[str, int]:
 def _source_label(source: str) -> str:
     """Return a short human-readable label for a layer source path or URI."""
     if "cartocdn" in source:
+        if "dark_all" in source:
+            return "CartoDB Dark Matter XYZ tile service"
         return "CartoDB Positron XYZ tile service"
     if "openstreetmap.org" in source or "<GDAL_WMS>" in source:
         return "OpenStreetMap tile service"

@@ -32,7 +32,7 @@
 
 ### Basemap
 
-**Source:** `CartoDB Positron XYZ tile service`  
+**Source:** `CartoDB Dark Matter XYZ tile service`  
 **Style:** see `styles/cartodb_dark_matter.xml`  
 
 ## Data flow
