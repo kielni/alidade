@@ -17,9 +17,10 @@ CREDITS = (
     " · CartoDB Positron · CC BY-SA 4.0 via Wikimedia Commons"
 )
 
-_FRAME_600k = PrintMapFrame(scale=600000)
 _FRAME_350k = PrintMapFrame(scale=350000)
-_SCALE_BAR_MI = PrintScaleBar(unit_type="mi", num_units_per_segment=50.0)
+_SCALE_BAR_350k = PrintScaleBar(
+    unit_type="mi", num_units_per_segment=5.0, num_segments=2
+)
 
 EXTENT_600k = (
     5925815.516200287,
@@ -57,11 +58,11 @@ spec_all = Project(
 
 """
 1:600,000 scale map
-distribution of 22-39 year old males (census_tracts), M22_39 graduated color scheme
+distribution of 22-39 year old males (census_tracts)
 mall locations (malls)
 major roads (major_roads)
 """
-spec_overview = Project(
+map1 = Project(
     title="Map 1: Overview",
     crs="EPSG:2227",
     extent=(
@@ -77,21 +78,28 @@ spec_overview = Project(
         basemap,
     ],
     print_layout=PrintLayout(
-        name="print_overview",
-        title_text="Distribution of Males Aged 22–39",
+        name="print_1",
+        orientation="portrait",
+        title_text="Big Bucks Malls and Age 22-39 Men",
         credits_text=CREDITS,
-        map_frame=_FRAME_600k,
-        scale_bar=_SCALE_BAR_MI,
+        map_frame=PrintMapFrame(scale=600000),
+        # At 1:600,000 one 50-mile segment is ~134 mm; 1 segment fits centered
+        # on a 215.9 mm-wide portrait page.  Two segments would overflow.
+        scale_bar=PrintScaleBar(
+            unit_type="mi",
+            num_units_per_segment=50.0,
+            num_segments=1,
+            x_mm=40.9,
+        ),
     ),
 )
-map1 = spec_overview
 
 """
 1:350,000 scale map
 Census tracts with greater than 20% 22-39 year old males (target_tracts)
 mall locations (malls)
 """
-spec_young_men = Project(
+map2 = Project(
     title="Map 2: Target Census Tracts and Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
@@ -101,14 +109,14 @@ spec_young_men = Project(
         basemap,
     ],
     print_layout=PrintLayout(
-        name="print_young_men",
-        title_text="Census Tracts: Males Aged 22-39 Over 20%",
+        name="print_2",
+        orientation="portrait",
+        title_text="Target Areas: 20+% Age 22-39 Men",
         credits_text=CREDITS,
         map_frame=_FRAME_350k,
-        scale_bar=_SCALE_BAR_MI,
+        scale_bar=_SCALE_BAR_350k,
     ),
 )
-map2 = spec_young_men
 
 """
 1:350,000 scale map
@@ -116,7 +124,7 @@ Census tracts with >20% 22-39 year old males near malls (mall_target_intersect)
 mall locations (malls)
 5 mile buffers of malls (mall_buffers) ; unfilled or transparent polygons
 """
-spec_near_malls = Project(
+map3 = Project(
     title="Map 3: Malls and Target Tracts Near Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
@@ -127,17 +135,17 @@ spec_near_malls = Project(
         basemap,
     ],
     print_layout=PrintLayout(
-        name="print_young_men_near_malls",
-        title_text="Target Tracts Near Shopping Malls",
+        name="print_3",
+        orientation="portrait",
+        title_text="Target Population Near Mallss",
         credits_text=CREDITS,
         map_frame=_FRAME_350k,
-        scale_bar=_SCALE_BAR_MI,
+        scale_bar=_SCALE_BAR_350k,
     ),
 )
-map3 = spec_near_malls
 
 
-spec_dedup = Project(
+map4 = Project(
     title="Map 4: Deduplicated Target Population by Mall Draw Zone",
     crs="EPSG:2227",
     extent=EXTENT_350k,
@@ -150,13 +158,13 @@ spec_dedup = Project(
         basemap,
     ],
     print_layout=PrintLayout(
-        name="print_voronoi",
-        title_text="Deduplicated Target Population by Mall Draw Zone",
+        name="print_4",
+        orientation="portrait",
+        title_text="Mall Draw Zone and Target Population",
         credits_text=CREDITS,
         map_frame=_FRAME_350k,
-        scale_bar=_SCALE_BAR_MI,
+        scale_bar=_SCALE_BAR_350k,
     ),
 )
-map4 = spec_dedup
 
 spec = map4
