@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import geopandas as gpd
+
 # Shared palette for Lab 4 map layers.
 
 # ColorBrewer 5-class Purples (light → dark = low → high), 60% fill opacity.
@@ -20,3 +24,43 @@ MALL_BUCKET_COLORS = [
     "65,182,196",  # #41b6c4 — better
     "34,94,168",  # #225ea8 — best
 ]
+
+_PROJECT_DIR = Path(__file__).parent
+
+
+def generate_summary() -> gpd.GeoDataFrame:
+    """Return mall summary sorted by Voronoi young men descending.
+
+    Columns: mall_id, mall_name, total_pop, m22_39_buf, m22_39_vor.
+    """
+    buffers = gpd.read_file(_PROJECT_DIR / "output/mall_buffers.shp")[
+        ["id", "mall_name", "geometry"]
+    ].rename(columns={"id": "mall_id"})
+    buf_people = gpd.read_file(_PROJECT_DIR / "output/mall_buffer_people.shp")[
+        ["mall_id", "m22_39_tot"]
+    ].rename(columns={"m22_39_tot": "m22_39_buf"})
+    deduped = gpd.read_file(_PROJECT_DIR / "output/mall_people_deduped.shp")[
+        ["mall_id", "m22_39"]
+    ].rename(columns={"m22_39": "m22_39_vor"})
+    census = gpd.read_file(_PROJECT_DIR / "output/census_tracts.shp")[
+        ["Total", "geometry"]
+    ]
+
+    joined = gpd.sjoin(
+        census, buffers[["mall_id", "geometry"]], how="inner", predicate="intersects"
+    )
+    total_pop = (
+        joined.groupby("mall_id")["Total"]
+        .sum()
+        .reset_index()
+        .rename(columns={"Total": "total_pop"})
+    )
+
+    return (
+        buffers[["mall_id", "mall_name"]]
+        .merge(total_pop, on="mall_id", how="left")
+        .merge(buf_people, on="mall_id", how="left")
+        .merge(deduped, on="mall_id", how="left")
+        .fillna(0)
+        .sort_values("m22_39_vor", ascending=False)
+    )

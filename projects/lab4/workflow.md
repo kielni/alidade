@@ -1,5 +1,25 @@
 # Lab 4 workflow
 
+## Step 49 — Fix lint errors (unused import, trailing whitespace)
+
+**Prompt:** fix all lint errors
+
+**What this does:**
+
+Three flake8 errors fixed:
+
+- `projects/XY_projections/project.py` — removed unused `from pathlib import Path`
+- `layers/mall_people_deduped.py` lines 29, 31 — removed trailing whitespace
+  from the Voronoi explanation docstring
+
+No logic or styling changes.
+
+**Files changed:**
+- `layers/mall_people_deduped.py` — trailing whitespace removed from docstring
+- `projects/XY_projections/project.py` — unused `Path` import removed
+
+---
+
 ## Step 48 — Rename mall_voronoi_people → mall_people_deduped; simplify to one input
 
 **Prompt:** rename mall_voronoi_people to mall_people_deduped; simplify

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from alidade.models import Project
 
 from .layers.libraries import libraries

@@ -20,6 +20,7 @@ dependencies = [
     "pyproj>=3.7.2",
     "mapclassify>=2.10.0",
     "geopy>=2.4.1",
+    "matplotlib>=3.10.9",
 ]
 
 [project.scripts]
@@ -36,6 +37,7 @@ packages = ["alidade"]
 [[tool.mypy.overrides]]
 module = ["qgis.PyQt.*", "qgis.utils"]
 ignore_missing_imports = true
+
 
 [tool.black]
 line-length = 88

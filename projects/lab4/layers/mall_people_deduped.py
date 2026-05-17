@@ -26,9 +26,9 @@ Fields: mall_id, mall_name, m22_39, bucket, geometry.
 bucket is 0/1/2 (good/better/best) via equal-count breaks.
 
 A Voronoi diagram partitions space based on proximity to a set of points. Given mall
-locations, draw boundaries so that every spot on the map gets assigned to its nearest 
+locations, draw boundaries so that every spot on the map gets assigned to its nearest
 store.
-For any two stores, draw the perpendicular bisector of the line connecting them: the 
+For any two stores, draw the perpendicular bisector of the line connecting them: the
 line where every point is exactly equidistant from both stores. On one side, you're
 closer to store A; on the other, closer to store B.
 Do this for every pair of stores, and the bisectors intersect to form polygons.
