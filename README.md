@@ -105,7 +105,7 @@ cp local.env.example local.env   # edit if QGIS is not at the default path
 ```
 
 `uv sync` installs `alidade` into the project virtualenv in editable mode, so
-the `alidade-build`, `alidade-dump`, `alidade-capture`, and `alidade-validate`
+the `alidade-build`, `alidade-dump`, `alidade-extent`, and `alidade-validate`
 console scripts are available via `uv run`. Project layer files import from
 `alidade.models` like any other installed package.
 
@@ -198,7 +198,8 @@ skipped; `make build-all` forces a full rebuild.
 
 **Using the print template in QGIS:** open *Project → Layout Manager → From
 template* and select `output/print.qpt`. From there you can adjust items
-interactively and export via the normal print menu.
+interactively and export via the normal print menu. Export as a template
+to a new filename to prevent overwriting manual edits on build.
 
 **Exporting the print layout to PDF from the console:** open the Python console
 in QGIS (**Plugins → Python Console**) and run:
@@ -208,7 +209,13 @@ exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
 ```
 
 The script loads `output/print.qpt` into the Layout Manager if it is not
-already there, then writes `output/print.pdf`.
+already there, then writes `output/print.pdf`. To use a different template and output filename, set `print_prefix` before the
+`exec` call — it loads `<prefix>.qpt` and writes `<prefix>.pdf`:
+
+```python
+print_prefix = "overview"
+exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
+```
 
 
 #### Building your toolbox
@@ -228,6 +235,22 @@ Iterate to build and customize your own toolbox:
 3. **Generalize it.** Extract the variables into a Pydantic model. Write the
    render function. Document what each field controls and what can be left at
    its default. Add it to the toolbox so the next project starts further along.
+
+#### When generated artifacts don't work
+
+If a generated layer or project file doesn't render correctly in QGIS, diagnose and fix the generator so it'll work next time.
+
+Copy the broken generated file to a separate path (e.g. `project_bad.qgs`)
+so you can compare it later. Open the project in QGIS, manually fix the layer
+(resetting the data source, adjusting the CRS, or restoring the style), and save the
+project to the original path (e.g. `project.qgs`). You now have a working file that
+QGIS produced and a broken file that the generator produced.
+
+Ask the LLM to compare the two files and explain what is different in the 
+XML. Once the
+differences are understood, apply updates so the generator produces
+correct output. Review the proposed changes, regenerate, and verify in QGIS before
+committing.
 
 ## Example
 

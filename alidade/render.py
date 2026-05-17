@@ -2,13 +2,17 @@
 
 import importlib
 import os
+import re
 import uuid
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
 from pathlib import Path
 
 from pyproj import CRS as ProjCRS
 
 from alidade.models import (
+    GraduatedRenderer,
+    Label,
     Layer,
     PalettedRenderer,
     PrintLegend,
@@ -32,7 +36,20 @@ HERE = Path(__file__).parent  # alidade/
 
 _QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
 
-# QGIS geometry attribute (display string) and wkbType (numeric code).
+_ELLIPSOID_EPSG: dict[str, str] = {
+    "GRS 1980": "EPSG:7019",
+    "WGS 84": "EPSG:7030",
+    "Clarke 1866": "EPSG:7008",
+    "Bessel 1841": "EPSG:7004",
+    "Krassowsky 1940": "EPSG:7024",
+}
+
+_QGIS_SRSID: dict[str, int] = {
+    "EPSG:2227": 209,
+    "EPSG:4326": 3452,
+}
+
+# QGIS geometry attribute (display string) and wkbType (string name).
 _GEOMETRY_ATTR: dict[str, str] = {
     "Point": "Point",
     "LineString": "Line",
@@ -42,12 +59,12 @@ _GEOMETRY_ATTR: dict[str, str] = {
     "MultiPolygon": "Polygon",
 }
 _WKB_TYPE: dict[str, str] = {
-    "Point": "1",
-    "LineString": "2",
-    "Polygon": "3",
-    "MultiPoint": "4",
-    "MultiLineString": "5",
-    "MultiPolygon": "6",
+    "Point": "Point",
+    "LineString": "LineString",
+    "Polygon": "Polygon",
+    "MultiPoint": "MultiPoint",
+    "MultiLineString": "MultiLineString",
+    "MultiPolygon": "MultiPolygon",
 }
 
 
@@ -94,6 +111,8 @@ def _rel_source(source: str, project_dir: Path) -> str:
     if path_part.startswith("/"):
         output_dir = project_dir / "output"
         rel = os.path.relpath(path_part, output_dir)
+        if not rel.startswith(".."):
+            rel = "./" + rel
         prefix = "file:" if geom_suffix.startswith("?") else ""
         return prefix + rel + geom_suffix
     return abs_src
@@ -132,13 +151,48 @@ def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) 
             break
 
 
+def _fill_spatialrefsys(srs_el: ET.Element, authid: str) -> None:
+    """Populate an existing <spatialrefsys> element with CRS data from pyproj."""
+    crs = ProjCRS(authid)
+    epsg_code = authid.split(":")[-1]
+    try:
+        proj4 = crs.to_proj4()
+    except Exception:
+        proj4 = ""
+    proj_match = re.search(r"\+proj=(\S+)", proj4)
+    projectionacronym = proj_match.group(1) if proj_match else ""
+    ellipsoidacronym = ""
+    if crs.ellipsoid is not None:
+        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
+    fields = [
+        ("wkt", crs.to_wkt()),
+        ("proj4", proj4),
+        ("srsid", str(_QGIS_SRSID.get(authid, 0))),
+        ("srid", epsg_code),
+        ("authid", authid),
+        ("description", crs.name),
+        ("projectionacronym", projectionacronym),
+        ("ellipsoidacronym", ellipsoidacronym),
+        ("geographicflag", "true" if crs.is_geographic else "false"),
+    ]
+    for tag, val in fields:
+        el = srs_el.find(tag)
+        if el is None:
+            el = ET.SubElement(srs_el, tag)
+        el.text = val
+
+
 def _update_crs(root: ET.Element, authid: str) -> None:
-    """Set the project CRS authid in the root XML element."""
+    """Populate projectCrs and theMapCanvas/destinationsrs with the project CRS."""
     srs = root.find("projectCrs/spatialrefsys")
     if srs is not None:
-        el = srs.find("authid")
-        if el is not None:
-            el.text = authid
+        _fill_spatialrefsys(srs, authid)
+    for canvas in root.findall("mapcanvas"):
+        if canvas.get("name") == "theMapCanvas":
+            srs = canvas.find("destinationsrs/spatialrefsys")
+            if srs is not None:
+                _fill_spatialrefsys(srs, authid)
+            break
 
 
 def _update_title(root: ET.Element, title: str) -> None:
@@ -227,7 +281,31 @@ def _ddp() -> ET.Element:
     return ddp
 
 
-def _opt_map(props: dict[str, str]) -> ET.Element:
+def _renderer_ddp() -> ET.Element:
+    """Return the <data-defined-properties> element used at the renderer-v2 level.
+
+    QGIS uses hyphens here (not underscores) and places it after <sizescale/>.
+    """
+    ddp = ET.Element("data-defined-properties")
+    m = ET.SubElement(ddp, "Option", type="Map")
+    ET.SubElement(m, "Option", name="name", value="", type="QString")
+    ET.SubElement(m, "Option", name="properties")
+    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    return ddp
+
+
+def _color(c: str) -> str:
+    """Upgrade R,G,B,A color string to QGIS 3.30+ extended format with rgb: suffix."""
+    if any(tag in c for tag in ("rgb:", "hsv:", "hsl:")):
+        return c
+    parts = c.split(",")
+    if len(parts) != 4:
+        return c
+    r, g, b, a = (int(p) for p in parts)
+    return f"{c},rgb:{r/255:.7g},{g/255:.7g},{b/255:.7g},{a/255:.7g}"
+
+
+def _opt_map(props: Mapping[str, str]) -> ET.Element:
     """Return an <Option type='Map'> element with the given name/value pairs."""
     el = ET.Element("Option", type="Map")
     for name, value in props.items():
@@ -235,23 +313,29 @@ def _opt_map(props: dict[str, str]) -> ET.Element:
     return el
 
 
-def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
+def _render_symbol_layer(
+    sl: SymbolLayer, project_dir: Path | None = None
+) -> ET.Element:
     """Serialize a SymbolLayer model to its QGS <layer> element."""
     el = ET.Element(
         "layer",
         locked="0",
         enabled="1",
-        **{"class": sl.kind, "pass": "0", "id": ""},  # type: ignore[arg-type]
+        **{  # type: ignore[arg-type]
+            "class": sl.kind,
+            "pass": "0",
+            "id": "{" + str(uuid.uuid4()) + "}",
+        },
     )
     if isinstance(sl, SimpleFill):
         props = {
             "border_width_map_unit_scale": _SCALE,
-            "color": sl.color,
+            "color": _color(sl.color),
             "joinstyle": sl.joinstyle,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": "MM",
-            "outline_color": sl.outline_color,
+            "outline_color": _color(sl.outline_color),
             "outline_style": sl.outline_style,
             "outline_width": str(sl.outline_width),
             "outline_width_unit": sl.outline_width_unit,
@@ -265,7 +349,7 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
             "customdash_unit": "MM",
             "draw_inside_polygon": "0",
             "joinstyle": sl.joinstyle,
-            "line_color": sl.line_color,
+            "line_color": _color(sl.line_color),
             "line_style": sl.line_style,
             "line_width": str(sl.line_width),
             "line_width_unit": sl.line_width_unit,
@@ -277,42 +361,57 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
             "width_map_unit_scale": _SCALE,
         }
     elif isinstance(sl, SvgMarker):
+        svg_name = sl.name
+        if project_dir is not None and (
+            svg_name.startswith("data/") or svg_name.startswith("./")
+        ):
+            svg_name = _rel_source(svg_name, project_dir)
         props = {
-            "angle": str(sl.angle),
-            "color": sl.color,
+            "angle": f"{sl.angle:g}",
+            "color": _color(sl.color),
             "fixedAspectRatio": "0",
             "horizontal_anchor_point": "1",
-            "name": sl.name,
+            "name": svg_name,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": sl.offset_unit,
-            "outline_color": sl.outline_color,
-            "outline_width": str(sl.outline_width),
+            "outline_color": _color(sl.outline_color),
+            "outline_width": f"{sl.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
             "outline_width_unit": sl.outline_width_unit,
             "scale_method": "diameter",
-            "size": str(sl.size),
+            "size": f"{sl.size:g}",
             "size_map_unit_scale": _SCALE,
             "size_unit": sl.size_unit,
             "vertical_anchor_point": "1",
         }
+        opt_el = _opt_map(props)
+        # QGIS requires a bare <Option name="parameters"/> for SvgMarker;
+        # insert it after outline_width_unit (alphabetical order).
+        keys = list(props.keys())
+        insert_after = keys.index("outline_width_unit")
+        opt_el.insert(insert_after + 1, ET.Element("Option", name="parameters"))
+        el.append(opt_el)
+        el.append(_ddp())
+        return el
     elif isinstance(sl, SimpleMarker):
         props = {
-            "angle": str(sl.angle),
-            "color": sl.color,
+            "angle": f"{sl.angle:g}",
+            "cap_style": sl.cap_style,
+            "color": _color(sl.color),
             "horizontal_anchor_point": "1",
             "joinstyle": sl.joinstyle,
             "name": sl.name,
             "offset": sl.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": sl.offset_unit,
-            "outline_color": sl.outline_color,
+            "outline_color": _color(sl.outline_color),
             "outline_style": "solid",
-            "outline_width": str(sl.outline_width),
+            "outline_width": f"{sl.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
             "outline_width_unit": sl.outline_width_unit,
             "scale_method": "diameter",
-            "size": str(sl.size),
+            "size": f"{sl.size:g}",
             "size_map_unit_scale": _SCALE,
             "size_unit": sl.size_unit,
             "vertical_anchor_point": "1",
@@ -324,12 +423,14 @@ def _render_symbol_layer(sl: SymbolLayer) -> ET.Element:
     return el
 
 
-def _render_symbol(sym: Symbol, name: str) -> ET.Element:
+def _render_symbol(
+    sym: Symbol, name: str, project_dir: Path | None = None
+) -> ET.Element:
     """Serialize a Symbol model to its QGS <symbol> element."""
     el = ET.Element(
         "symbol",
         clip_to_extent="1",
-        alpha=str(sym.alpha),
+        alpha=f"{sym.alpha:g}",
         type=sym.type,
         is_animated="0",
         frame_rate="10",
@@ -338,11 +439,91 @@ def _render_symbol(sym: Symbol, name: str) -> ET.Element:
     )
     el.append(_ddp())
     for sl in sym.layers:
-        el.append(_render_symbol_layer(sl))
+        el.append(_render_symbol_layer(sl, project_dir))
     return el
 
 
-def _render_renderer(renderer: Renderer) -> ET.Element:
+def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
+    """Serialize a GraduatedRenderer to its QGS <renderer-v2> element."""
+    base = dict(
+        forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
+    )
+    el = ET.Element(
+        "renderer-v2",
+        type="graduatedSymbol",
+        attr=renderer.attr,
+        graduatedMethod="GraduatedColor",
+        **base,  # type: ignore[arg-type]
+    )
+    ranges_el = ET.SubElement(el, "ranges")
+    symbols_el = ET.SubElement(el, "symbols")
+    for i, r in enumerate(renderer.ranges):
+        label = r.label or f"{r.lower:.0f} – {r.upper:.0f}"
+        ET.SubElement(
+            ranges_el,
+            "range",
+            lower=str(r.lower),
+            upper=str(r.upper),
+            label=label,
+            symbol=str(i),
+            render="true",
+            uuid="{" + str(uuid.uuid4()) + "}",
+        )
+        sym = Symbol(
+            type="fill",
+            layers=[
+                SimpleFill(
+                    color=r.color,
+                    outline_color=renderer.outline_color,
+                    outline_width=renderer.outline_width,
+                    outline_style=renderer.outline_style,
+                )
+            ],
+        )
+        symbols_el.append(_render_symbol(sym, str(i)))
+    src_color = renderer.ranges[0].color if renderer.ranges else "200,200,200,180"
+    src_syms = ET.SubElement(el, "source-symbol")
+    src_syms.append(
+        _render_symbol(
+            Symbol(
+                type="fill",
+                layers=[
+                    SimpleFill(
+                        color=src_color,
+                        outline_color=renderer.outline_color,
+                        outline_width=renderer.outline_width,
+                    )
+                ],
+            ),
+            "0",
+        )
+    )
+    c1 = renderer.ranges[0].color if renderer.ranges else "255,255,178,255"
+    c2 = renderer.ranges[-1].color if renderer.ranges else "189,0,38,255"
+    cr = ET.SubElement(el, "colorramp", type="gradient", name="[source]")
+    cr_opts = ET.SubElement(cr, "Option", type="Map")
+    for name, value in [
+        ("color1", c1),
+        ("color2", c2),
+        ("direction", "ccw"),
+        ("discrete", "0"),
+        ("rampType", "gradient"),
+    ]:
+        ET.SubElement(cr_opts, "Option", name=name, value=value, type="QString")
+    ET.SubElement(
+        el,
+        "labelformat",
+        format="%1 - %2",
+        labelprecision="0",
+        trimtrailingzeroes="true",
+    )
+    ET.SubElement(el, "rotation")
+    ET.SubElement(el, "sizescale")
+    el.append(_renderer_ddp())
+    return el
+
+
+def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.Element:
     """Serialize a Renderer model to its QGS <renderer-v2> element."""
     base = dict(
         forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
@@ -352,9 +533,10 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
             "renderer-v2", type="singleSymbol", **base  # type: ignore[arg-type]
         )
         syms = ET.SubElement(el, "symbols")
-        syms.append(_render_symbol(renderer.symbol, "0"))
+        syms.append(_render_symbol(renderer.symbol, "0", project_dir))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
+        el.append(_renderer_ddp())
         return el
     if isinstance(renderer, RuleRenderer):
         el = ET.Element(
@@ -373,8 +555,11 @@ def _render_renderer(renderer: Renderer) -> ET.Element:
             ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
-            syms.append(_render_symbol(sym, str(i)))
+            syms.append(_render_symbol(sym, str(i), project_dir))
+        el.append(_renderer_ddp())
         return el
+    if isinstance(renderer, GraduatedRenderer):
+        return _render_graduated_renderer(renderer)
     raise ValueError(f"Unknown renderer type: {type(renderer)}")
 
 
@@ -382,26 +567,224 @@ def _srs_element(authid: str) -> ET.Element:
     """Build a <srs> element for authid, using pyproj to supply WKT and metadata."""
     crs = ProjCRS(authid)
     epsg_code = authid.split(":")[-1]
+    try:
+        proj4 = crs.to_proj4()
+    except Exception:
+        proj4 = ""
+    proj_match = re.search(r"\+proj=(\S+)", proj4)
+    projectionacronym = proj_match.group(1) if proj_match else ""
+    ellipsoidacronym = ""
+    if crs.ellipsoid is not None:
+        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
     srs = ET.Element("srs")
     sys_el = ET.SubElement(srs, "spatialrefsys", nativeFormat="Wkt")
     ET.SubElement(sys_el, "wkt").text = crs.to_wkt()
-    ET.SubElement(sys_el, "srsid").text = "0"
+    ET.SubElement(sys_el, "proj4").text = proj4
+    ET.SubElement(sys_el, "srsid").text = str(_QGIS_SRSID.get(authid, 0))
     ET.SubElement(sys_el, "srid").text = epsg_code
     ET.SubElement(sys_el, "authid").text = authid
     ET.SubElement(sys_el, "description").text = crs.name
-    ET.SubElement(sys_el, "projectionacronym").text = ""
-    ET.SubElement(sys_el, "ellipsoidacronym").text = ""
+    ET.SubElement(sys_el, "projectionacronym").text = projectionacronym
+    ET.SubElement(sys_el, "ellipsoidacronym").text = ellipsoidacronym
     ET.SubElement(sys_el, "geographicflag").text = (
         "true" if crs.is_geographic else "false"
     )
     return srs
 
 
-def _build_vector_maplayer(layer: Layer) -> ET.Element:
-    """Build a minimal <maplayer type='vector'> element for layer."""
+def _read_dbf_fields(dbf_path: Path) -> list[str]:
+    """Return attribute field names from a dBASE III .dbf header."""
+    data = dbf_path.read_bytes()
+    fields: list[str] = []
+    offset = 32
+    while offset + 11 < len(data) and data[offset] != 0x0D:
+        name = (
+            data[offset : offset + 11].rstrip(b"\x00").decode("ascii", errors="replace")
+        )
+        fields.append(name)
+        offset += 32
+    return fields
+
+
+def _build_labeling(label: Label) -> ET.Element:
+    """Build a <labeling type='simple'> element from a Label spec."""
+    named_style = "Bold" if label.bold else "Regular"
+    font_weight = "75" if label.bold else "50"
+    labeling = ET.Element("labeling", type="simple")
+    settings = ET.SubElement(labeling, "settings", calloutType="simple")
+    ET.SubElement(
+        settings,
+        "text-style",
+        fieldName=label.field,
+        isExpression="0",
+        fontFamily=label.font_family,
+        namedStyle=named_style,
+        fontWeight=font_weight,
+        fontSize=str(label.font_size),
+        fontSizeUnit="Point",
+        fontSizeMapUnitScale="3x:0,0,0,0,0,0",
+        textColor=label.color,
+        textOpacity="1",
+        blendMode="0",
+        fontItalic="0",
+        forcedItalic="0",
+        fontUnderline="0",
+        fontStrikeout="0",
+        fontKerning="1",
+        fontLetterSpacing="0",
+        fontWordSpacing="0",
+        forcedBold="0",
+        capitalization="0",
+        multilineHeight="1",
+        multilineHeightUnit="Percentage",
+        textOrientation="horizontal",
+        allowHtml="0",
+        useSubstitutions="0",
+        previewBkgrdColor="255,255,255,255,rgb:1,1,1,1",
+        legendString="Aa",
+        tabStopDistance="80",
+        tabStopDistanceUnit="Point",
+        tabStopDistanceMapUnitScale="3x:0,0,0,0,0,0",
+    )
+    ET.SubElement(
+        settings,
+        "text-format",
+        useMaxLineLengthForAutoWrap="1",
+        autoWrapLength="0",
+        wrapChar="",
+        multilineAlign="3",
+        formatNumbers="0",
+        decimals="3",
+        plussign="0",
+        addDirectionSymbol="0",
+        leftDirectionSymbol="&lt;",
+        rightDirectionSymbol=">",
+        reverseDirectionSymbol="0",
+        placeDirectionSymbol="0",
+    )
+    ET.SubElement(
+        settings,
+        "placement",
+        placement="6",
+        offsetType="1",
+        quadOffset="7",
+        xOffset="0",
+        yOffset=str(label.y_offset),
+        offsetUnits="MM",
+        labelOffsetMapUnitScale="3x:0,0,0,0,0,0",
+        dist="0",
+        distUnits="MM",
+        distMapUnitScale="3x:0,0,0,0,0,0",
+        overlapHandling="PreventOverlap",
+        rotationAngle="0",
+        rotationUnit="AngleDegrees",
+        preserveRotation="1",
+        centroidWhole="0",
+        centroidInside="0",
+        fitInPolygonOnly="0",
+        priority="5",
+        prioritization="PreferCloser",
+        predefinedPositionOrder="TR,TL,BR,BL,R,L,TSR,BSR",
+        polygonPlacementFlags="2",
+        layerType="PointGeometry",
+        geometryGeneratorType="PointGeometry",
+        geometryGenerator="",
+        geometryGeneratorEnabled="0",
+        placementFlags="10",
+        lineAnchorType="0",
+        lineAnchorPercent="0.5",
+        lineAnchorTextPoint="FollowPlacement",
+        lineAnchorClipping="0",
+        repeatDistance="0",
+        repeatDistanceUnits="MM",
+        repeatDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        overrunDistance="0",
+        overrunDistanceUnit="MM",
+        overrunDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        maximumDistance="0",
+        maximumDistanceUnit="MM",
+        maximumDistanceMapUnitScale="3x:0,0,0,0,0,0",
+        maxCurvedCharAngleIn="25",
+        maxCurvedCharAngleOut="-25",
+        allowDegraded="0",
+    )
+    ET.SubElement(
+        settings,
+        "rendering",
+        drawLabels="1",
+        obstacle="1",
+        obstacleType="1",
+        obstacleFactor="1",
+        zIndex="0",
+        labelPerPart="0",
+        mergeLines="0",
+        minFeatureSize="0",
+        limitNumLabels="0",
+        maxNumLabels="2000",
+        upsidedownLabels="0",
+        fontLimitPixelSize="0",
+        fontMinPixelSize="3",
+        fontMaxPixelSize="10000",
+        scaleVisibility="0",
+        scaleMin="0",
+        scaleMax="0",
+        unplacedVisibility="0",
+    )
+    dd = ET.SubElement(settings, "dd_properties")
+    dd_opt = ET.SubElement(dd, "Option", type="Map")
+    ET.SubElement(dd_opt, "Option", name="name", value="", type="QString")
+    ET.SubElement(dd_opt, "Option", name="properties")
+    ET.SubElement(dd_opt, "Option", name="type", value="collection", type="QString")
+    callout = ET.SubElement(settings, "callout", type="simple")
+    co = ET.SubElement(callout, "Option", type="Map")
+    ET.SubElement(
+        co,
+        "Option",
+        name="anchorPoint",
+        value="pole_of_inaccessibility",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="blendMode", value="0", type="int")
+    ET.SubElement(co, "Option", name="drawToAllParts", value="false", type="bool")
+    ET.SubElement(co, "Option", name="enabled", value="0", type="QString")
+    ET.SubElement(
+        co, "Option", name="labelAnchorPoint", value="point_on_exterior", type="QString"
+    )
+    ET.SubElement(co, "Option", name="minLength", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="minLengthMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="minLengthUnit", value="MM", type="QString")
+    ET.SubElement(co, "Option", name="offsetFromAnchor", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="offsetFromAnchorMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="offsetFromAnchorUnit", value="MM", type="QString")
+    ET.SubElement(co, "Option", name="offsetFromLabel", value="0", type="double")
+    ET.SubElement(
+        co,
+        "Option",
+        name="offsetFromLabelMapUnitScale",
+        value="3x:0,0,0,0,0,0",
+        type="QString",
+    )
+    ET.SubElement(co, "Option", name="offsetFromLabelUnit", value="MM", type="QString")
+    return labeling
+
+
+def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
+    """Build a <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
     geom_attr = _GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
-    wkb_type = _WKB_TYPE.get(layer.geometry_type, "0")
+    wkb_type = _WKB_TYPE.get(layer.geometry_type, layer.geometry_type)
     ml = ET.Element(
         "maplayer",
         type="vector",
@@ -410,7 +793,7 @@ def _build_vector_maplayer(layer: Layer) -> ET.Element:
         autoRefreshTime="0",
         autoRefreshMode="Disabled",
         styleCategories="AllStyleCategories",
-        labelsEnabled="0",
+        labelsEnabled="1" if layer.label else "0",
         readOnly="0",
         refreshOnNotifyEnabled="0",
         refreshOnNotifyMessage="",
@@ -441,11 +824,72 @@ def _build_vector_maplayer(layer: Layer) -> ET.Element:
         ("Private", "0"),
     ]:
         ET.SubElement(flags, flag).text = val
-    ET.SubElement(ml, "fieldConfiguration")
+
+    abs_path = _abs_source(layer.source, project_dir)
+    path_part, _ = _split_source_suffix(abs_path)
+    dbf_path = Path(path_part).with_suffix(".dbf")
+    dbf_fields: list[str] = _read_dbf_fields(dbf_path) if dbf_path.exists() else []
+
+    fc = ET.SubElement(ml, "fieldConfiguration")
+    for field_name in dbf_fields:
+        field_el = ET.SubElement(
+            fc, "field", name=field_name, configurationFlags="NoFlag"
+        )
+        ET.SubElement(field_el, "editWidget", type="")
+
     ET.SubElement(ml, "vectorjoins")
     ET.SubElement(ml, "layerDependencies")
     ET.SubElement(ml, "dataDependencies")
     ET.SubElement(ml, "expressionfields")
+
+    aliases = ET.SubElement(ml, "aliases")
+    for i, field_name in enumerate(dbf_fields):
+        ET.SubElement(aliases, "alias", field=field_name, name="", index=str(i))
+    defaults = ET.SubElement(ml, "defaults")
+    for field_name in dbf_fields:
+        ET.SubElement(
+            defaults, "default", field=field_name, expression="", applyOnUpdate="0"
+        )
+    ce = ET.SubElement(ml, "constraintExpressions")
+    for field_name in dbf_fields:
+        ET.SubElement(ce, "constraint", field=field_name, exp="", desc="")
+    constraints_el = ET.SubElement(ml, "constraints")
+    for field_name in dbf_fields:
+        ET.SubElement(
+            constraints_el,
+            "constraint",
+            field=field_name,
+            unique_strength="0",
+            constraints="0",
+            notnull_strength="0",
+            exp_strength="0",
+        )
+
+    ET.SubElement(ml, "blendMode").text = "0"
+    ET.SubElement(ml, "featureBlendMode").text = "0"
+    ET.SubElement(ml, "layerOpacity").text = "1"
+    ET.SubElement(ml, "legend", type="default-vector", showLabelLegend="0")
+    ET.SubElement(ml, "mapTip", enabled="1")
+    ET.SubElement(
+        ml, "geometryOptions", geometryPrecision="0", removeDuplicateNodes="0"
+    )
+    ET.SubElement(
+        ml,
+        "attributetableconfig",
+        sortOrder="0",
+        sortExpression="",
+        actionWidgetStyle="dropDown",
+    )
+    ET.SubElement(ml, "editform", tolerant="1")
+    ET.SubElement(ml, "editorlayout").text = "generatedlayout"
+    ET.SubElement(ml, "featformsuppress").text = "0"
+    ET.SubElement(ml, "editforminitcodesource").text = "0"
+    sel = ET.SubElement(ml, "selection", mode="Default")
+    ET.SubElement(sel, "selectionColor", invalid="1")
+    cp = ET.SubElement(ml, "customproperties")
+    ET.SubElement(cp, "Option")
+    if layer.label:
+        ml.append(_build_labeling(layer.label))
     return ml
 
 
@@ -610,7 +1054,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
     for layer in spec.layers:
         if layer.style_xml is None:
             if layer.type == "vector" and layer.geometry_type:
-                ml = _build_vector_maplayer(layer)
+                ml = _build_vector_maplayer(layer, project_dir)
             elif layer.type == "raster":
                 ml = _build_raster_maplayer(layer)
             else:
@@ -621,7 +1065,6 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
                 print(f"  warning: {xml_path} not found, skipping {layer.name!r}")
                 continue
             ml = ET.parse(xml_path).getroot()
-        ml.set("id", layer.id)
         id_el = ml.find("id")
         if id_el is not None:
             id_el.text = layer.id
@@ -633,7 +1076,7 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
             nm.text = layer.name
         if layer.renderer is not None and layer.type == "vector":
             old = ml.find("renderer-v2")
-            new = _render_renderer(layer.renderer)
+            new = _render_renderer(layer.renderer, project_dir)
             if old is not None:
                 children = list(ml)
                 ml.remove(old)
@@ -1343,8 +1786,7 @@ def _qpt_map_frame(
     mf: PrintMapFrame, spec: Project, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
-    el = ET.Element(
-        "LayoutItem",
+    attrs: dict[str, str] = dict(
         type="65639",
         position=_pos(mf.x_mm, mf.y_mm),
         size=_sz(mf.width_mm, mf.height_mm),
@@ -1375,6 +1817,9 @@ def _qpt_map_frame(
         isTemporal="0",
         labelMargin="0,mm",
     )
+    if mf.scale is not None:
+        attrs["scale"] = str(mf.scale)
+    el = ET.Element("LayoutItem", **attrs)  # type: ignore[arg-type]
     _frame_bg(el)
     el.append(_layout_object())
     if spec.extent:
@@ -1444,29 +1889,85 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
     )
     root.append(_qpt_page_collection(pl.page))
 
+    page = pl.page
+    pw, ph = page.width_mm, page.height_mm
+
+    # All positions are derived from page dimensions so the same code works
+    # for any page size.  Constants are back-derived from the US Letter
+    # landscape defaults so those outputs are byte-for-byte unchanged.
+    _title_x = 1.764
+    _mf_x = 4.764
+    _mf_y_default = 14.186
+    _mf_x_margin = 10.251  # 4.764 left + 5.487 right
+    _mf_bottom_margin = 6.977
+    _credits_h = 10.8497
+    _credits_bottom_margin = 4.977
+    _sb_right_margin = 24.8
+    _sb_bottom_margin = 19.073
+    _leg_bottom_margin = 70.052
+
+    title_w = pw - 2 * _title_x
+
+    # Map frame: y/width/height auto from page unless the caller set them.
+    mf = pl.map_frame
+    mf_mfs = mf.model_fields_set
+    mf_y = mf.y_mm if "y_mm" in mf_mfs else _mf_y_default
+    mf_w = mf.width_mm if "width_mm" in mf_mfs else pw - _mf_x_margin
+    mf_h = mf.height_mm if "height_mm" in mf_mfs else ph - mf_y - _mf_bottom_margin
+    mf_computed = mf.model_copy(
+        update={"y_mm": mf_y, "width_mm": mf_w, "height_mm": mf_h}
+    )
+
+    # Credits: centered, full-width, near bottom.
+    credits_x = _mf_x
+    credits_w = pw - _mf_x_margin
+    credits_y = ph - _credits_bottom_margin
+
+    # Scale bar: right-aligned; auto-compute x from bar width when scale is known.
+    sb = pl.scale_bar
+    sb_mfs = sb.model_fields_set
+    sb_y = sb.y_mm if "y_mm" in sb_mfs else ph - _sb_bottom_margin
+    if "x_mm" not in sb_mfs and mf_computed.scale is not None and sb.unit_type == "mi":
+        bar_mm = (
+            sb.num_segments
+            * sb.num_units_per_segment
+            * 5280
+            * 304.8
+            / mf_computed.scale
+        )
+        sb_x = pw - _sb_right_margin - bar_mm
+    else:
+        sb_x = sb.x_mm
+    sb_computed = sb.model_copy(update={"x_mm": sb_x, "y_mm": sb_y})
+
+    # Legend: left margin, fixed distance from page bottom.
+    leg = pl.legend
+    leg_y = leg.y_mm if "y_mm" in leg.model_fields_set else ph - _leg_bottom_margin
+    leg_computed = leg.model_copy(update={"y_mm": leg_y})
+
     # z order: credits=6, scale bar=5, north=4, legend=3, title=2, map=1
     root.append(
         _qpt_label(
             text=pl.credits_text,
-            x=194.142,
-            y=204.269,
-            w=80.3963,
-            h=8.03694,
+            x=credits_x,
+            y=credits_y,
+            w=credits_w,
+            h=_credits_h,
             font_size=10,
-            halign=1,
+            halign=4,
             valign=32,
             z=6,
         )
     )
-    root.append(_qpt_scale_bar(pl.scale_bar, map_uuid, z=5))
+    root.append(_qpt_scale_bar(sb_computed, map_uuid, z=5))
     root.append(_qpt_north_arrow(pl.north_arrow, map_uuid, z=4))
-    root.append(_qpt_legend(pl.legend, spec, map_uuid, z=3))
+    root.append(_qpt_legend(leg_computed, spec, map_uuid, z=3))
     root.append(
         _qpt_label(
             text=pl.title_text,
-            x=1.764,
+            x=_title_x,
             y=2.382,
-            w=265.774,
+            w=title_w,
             h=10.422,
             font_size=30,
             halign=4,
@@ -1475,7 +1976,7 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
             named_style="Regular",
         )
     )
-    root.append(_qpt_map_frame(pl.map_frame, spec, map_uuid, z=1))
+    root.append(_qpt_map_frame(mf_computed, spec, map_uuid, z=1))
 
     cp = ET.SubElement(root, "customproperties")
     m = ET.SubElement(cp, "Option", type="Map")
@@ -1496,6 +1997,6 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
     ET.indent(root, space=" ")
     output_dir = project_dir / "output"
     output_dir.mkdir(exist_ok=True)
-    out = output_dir / "print.qpt"
+    out = output_dir / f"{pl.name}.qpt"
     out.write_text(ET.tostring(root, encoding="unicode"))
     print(f"Wrote {out}")

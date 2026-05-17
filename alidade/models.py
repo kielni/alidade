@@ -1,7 +1,8 @@
+import uuid
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ── Symbol layers ─────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ class SimpleMarker(BaseModel):
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
+    cap_style: str = "square"
     offset: str = "0,0"
     offset_unit: str = "MM"
     joinstyle: str = "bevel"
@@ -109,8 +111,24 @@ class PalettedRenderer(BaseModel):
     entries: list[PaletteEntry]
 
 
+class GraduatedRange(BaseModel):
+    lower: float
+    upper: float
+    label: str = ""
+    color: str  # "R,G,B,A"
+
+
+class GraduatedRenderer(BaseModel):
+    kind: Literal["graduated"] = "graduated"
+    attr: str  # field name to classify on
+    ranges: list[GraduatedRange]
+    outline_color: str = "35,35,35,255"
+    outline_width: float = 0.26
+    outline_style: str = "solid"
+
+
 Renderer = Annotated[
-    SingleSymbol | RuleRenderer | PalettedRenderer,
+    SingleSymbol | RuleRenderer | PalettedRenderer | GraduatedRenderer,
     Field(discriminator="kind"),
 ]
 
@@ -141,6 +159,18 @@ class ProcessingStep(BaseModel):
     output: Path
 
 
+# ── Label ─────────────────────────────────────────────────────────────────────
+
+
+class Label(BaseModel):
+    field: str  # shapefile field name to display as label text
+    font_family: str = "Open Sans"
+    font_size: float = 10.0
+    bold: bool = True
+    color: str = "225,225,225,255,hsv:0,0,0.88213931486991681,1"
+    y_offset: float = 2.0  # MM offset above the point symbol
+
+
 # ── Layer ─────────────────────────────────────────────────────────────────────
 
 
@@ -161,8 +191,17 @@ class Layer(BaseModel):
     )
     visible: bool = True
     renderer: Renderer | None = None
+    label: Label | None = None
     processing_step: ProcessingStep | None = None
     extra: dict[str, Any] = {}
+
+    @field_validator("id")
+    @classmethod
+    def _pad_short_id(cls, v: str) -> str:
+        # QGIS silently drops layers whose <id> is 10 characters or shorter.
+        if len(v) > 10:
+            return v
+        return f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────
@@ -207,10 +246,12 @@ class PrintPage(BaseModel):
 class PrintMapFrame(BaseModel):
     # The rendered QGIS canvas, filling the page below the title strip.
     # x_mm/y_mm is the top-left corner; width_mm/height_mm is the item size.
+    # scale sets the map scale denominator (e.g. 600000 for 1:600,000).
     x_mm: float = 4.764
     y_mm: float = 15.186
     width_mm: float = 269.774
     height_mm: float = 197.12
+    scale: int | None = None
 
 
 class PrintNorthArrow(BaseModel):
@@ -246,7 +287,12 @@ class PrintLayout(BaseModel):
     # Complete print layout. title_text is a 30 pt header across the top of the
     # page; credits_text is a 10 pt label at the bottom right (attribution,
     # data source, date, etc.).  make build writes this to output/print.qpt.
+    #
+    # orientation="portrait" swaps the default US Letter page to 215.9×279.4 mm
+    # and render_print_layout auto-computes map frame size and item y-positions
+    # from the page dimensions.  Explicit field values always win over auto.
     name: str = "print"
+    orientation: Literal["landscape", "portrait"] = "landscape"
     page: PrintPage = Field(default_factory=PrintPage)
     title_text: str
     credits_text: str
@@ -254,6 +300,12 @@ class PrintLayout(BaseModel):
     north_arrow: PrintNorthArrow = Field(default_factory=PrintNorthArrow)
     scale_bar: PrintScaleBar = Field(default_factory=PrintScaleBar)
     legend: PrintLegend = Field(default_factory=PrintLegend)
+
+    @model_validator(mode="after")
+    def _page_from_orientation(self) -> "PrintLayout":
+        if "page" not in self.model_fields_set and self.orientation == "portrait":
+            self.page = PrintPage(width_mm=215.9, height_mm=279.4)
+        return self
 
 
 # ── Project ───────────────────────────────────────────────────────────────────

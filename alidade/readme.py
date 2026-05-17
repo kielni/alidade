@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 from alidade.models import (
+    GraduatedRenderer,
     Layer,
     PalettedRenderer,
     Project,
@@ -55,6 +56,8 @@ def _color(rgba: str) -> tuple[str, int]:
 def _source_label(source: str) -> str:
     """Return a short human-readable label for a layer source path or URI."""
     if "cartocdn" in source:
+        if "dark_all" in source:
+            return "CartoDB Dark Matter XYZ tile service"
         return "CartoDB Positron XYZ tile service"
     if "openstreetmap.org" in source or "<GDAL_WMS>" in source:
         return "OpenStreetMap tile service"
@@ -102,6 +105,8 @@ def _describe_renderer(renderer: Renderer) -> str:
         return f"rule-based ({len(renderer.rules)} rules)"
     if isinstance(renderer, PalettedRenderer):
         return f"paletted raster ({len(renderer.entries)} classes)"
+    if isinstance(renderer, GraduatedRenderer):
+        return f"graduated ({len(renderer.ranges)} classes on `{renderer.attr}`)"
     return type(renderer).__name__
 
 
@@ -128,8 +133,9 @@ def _auto_section(spec: Project, project_dir: Path) -> str:
         lines.append(f"**Style:** {_describe_style(layer)}  ")
         if layer.processing_step is not None:
             ps = layer.processing_step
-            deps = ", ".join(f"`{d}`" for d in ps.depends_on)
-            lines.append(f"**Derived from:** {deps}  ")
+            if ps.depends_on:
+                deps = ", ".join(f"`{d}`" for d in ps.depends_on)
+                lines.append(f"**Derived from:** {deps}  ")
             lines.append(f"**Processing:** {ps.description}")
         lines.append("")
 
@@ -137,12 +143,13 @@ def _auto_section(spec: Project, project_dir: Path) -> str:
     if derived:
         lines.append("## Data flow")
         lines.append("")
-        lines.append("```")
+        lines.append("```mermaid")
+        lines.append("flowchart LR")
         for layer in derived:
             step = layer.processing_step
             assert step is not None
             for dep in step.depends_on:
-                lines.append(f"{dep}  ──►  {layer.id}")
+                lines.append(f"    {dep} --> {layer.id}")
         lines.append("```")
         lines.append("")
 
