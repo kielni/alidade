@@ -1,17 +1,20 @@
 import uuid
+import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from alidade import colors
 
 # ── Symbol layers ─────────────────────────────────────────────────────────────
 
 
 class SimpleFill(BaseModel):
     kind: Literal["SimpleFill"] = "SimpleFill"
-    color: str = "0,0,0,255"
+    color: str = colors.BLACK
     style: str = "solid"
-    outline_color: str = "35,35,35,255"
+    outline_color: str = colors.DARK_GRAY
     outline_style: str = "solid"
     outline_width: float = 0.5
     outline_width_unit: str = "MM"
@@ -21,7 +24,7 @@ class SimpleFill(BaseModel):
 
 class SimpleLine(BaseModel):
     kind: Literal["SimpleLine"] = "SimpleLine"
-    line_color: str = "0,0,0,255"
+    line_color: str = colors.BLACK
     line_style: str = "solid"
     line_width: float = 0.5
     line_width_unit: str = "MM"
@@ -35,8 +38,8 @@ class SvgMarker(BaseModel):
     name: str  # path to SVG file
     size: float = 6.0
     size_unit: str = "MM"
-    color: str = "0,0,0,255"
-    outline_color: str = "35,35,35,255"
+    color: str = colors.BLACK
+    outline_color: str = colors.DARK_GRAY
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
@@ -49,8 +52,8 @@ class SimpleMarker(BaseModel):
     name: str = "circle"  # shape: circle, square, diamond, …
     size: float = 2.0
     size_unit: str = "MM"
-    color: str = "0,0,0,255"
-    outline_color: str = "35,35,35,255"
+    color: str = colors.BLACK
+    outline_color: str = colors.DARK_GRAY
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
@@ -122,7 +125,7 @@ class GraduatedRenderer(BaseModel):
     kind: Literal["graduated"] = "graduated"
     attr: str  # field name to classify on
     ranges: list[GraduatedRange]
-    outline_color: str = "35,35,35,255"
+    outline_color: str = colors.DARK_GRAY
     outline_width: float = 0.26
     outline_style: str = "solid"
 
@@ -167,7 +170,7 @@ class Label(BaseModel):
     font_family: str = "Open Sans"
     font_size: float = 10.0
     bold: bool = True
-    color: str = "225,225,225,255,hsv:0,0,0.88213931486991681,1"
+    color: str = colors.LABEL_GRAY
     y_offset: float = 2.0  # MM offset above the point symbol
 
 
@@ -180,6 +183,7 @@ class Layer(BaseModel):
     name: str
     type: Literal["vector", "raster"]
     source: str
+    # "ogr" for files (shapefile/GeoJSON/CSV); "wms" for XYZ/WMS tile services.
     provider: str = "ogr"
     style_xml: Path | None = None  # styles/{layer_id}.xml — full <maplayer> element
     crs: str | None = None
@@ -201,7 +205,13 @@ class Layer(BaseModel):
         # QGIS silently drops layers whose <id> is 10 characters or shorter.
         if len(v) > 10:
             return v
-        return f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
+        padded = f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
+        warnings.warn(
+            f"Layer id {v!r} is <=10 chars and will be dropped by QGIS; "
+            f"padded to {padded!r}",
+            stacklevel=2,
+        )
+        return padded
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────
@@ -237,16 +247,20 @@ class Layer(BaseModel):
 
 
 class PrintPage(BaseModel):
-    # Page dimensions and output resolution. Defaults to US Letter landscape.
+    """Page dimensions and output resolution. Defaults to US Letter landscape."""
+
     width_mm: float = 279.4
     height_mm: float = 215.9
     resolution_dpi: int = 300
 
 
 class PrintMapFrame(BaseModel):
-    # The rendered QGIS canvas, filling the page below the title strip.
-    # x_mm/y_mm is the top-left corner; width_mm/height_mm is the item size.
-    # scale sets the map scale denominator (e.g. 600000 for 1:600,000).
+    """The rendered QGIS canvas, filling the page below the title strip.
+
+    x_mm/y_mm is the top-left corner; width_mm/height_mm is the item size.
+    scale sets the map scale denominator (e.g. 600000 for 1:600,000).
+    """
+
     x_mm: float = 4.764
     y_mm: float = 15.186
     width_mm: float = 269.774
@@ -255,8 +269,11 @@ class PrintMapFrame(BaseModel):
 
 
 class PrintNorthArrow(BaseModel):
-    # SVG north arrow, overlaid on the top-left corner of the map frame.
-    # svg accepts any QGIS resource path (:/images/…) or an absolute file path.
+    """SVG north arrow, overlaid on the top-left corner of the map frame.
+
+    svg accepts any QGIS resource path (:/images/...) or an absolute file path.
+    """
+
     x_mm: float = 6.253
     y_mm: float = 17.270
     width_mm: float = 8.933
@@ -265,9 +282,12 @@ class PrintNorthArrow(BaseModel):
 
 
 class PrintScaleBar(BaseModel):
-    # Scale bar drawn below the map, roughly centered horizontally.
-    # unit_type is a QGIS unit string: "mi", "km", "m", "ft", etc.
-    # style is a QGIS scale bar style name, e.g. "Single Box" or "Line Ticks Up".
+    """Scale bar drawn below the map, roughly centered horizontally.
+
+    unit_type is a QGIS unit string: "mi", "km", "m", "ft", etc.
+    style is a QGIS scale bar style name, e.g. "Single Box" or "Line Ticks Up".
+    """
+
     x_mm: float = 124.139
     y_mm: float = 199.209
     unit_type: str = "mi"
@@ -277,20 +297,28 @@ class PrintScaleBar(BaseModel):
 
 
 class PrintLegend(BaseModel):
-    # Auto-sized legend drawn in the bottom-left. Only the anchor position is
-    # configurable; the box grows downward/rightward with the number of layers.
+    """Auto-sized legend drawn in the bottom-left.
+
+    Only the anchor position is configurable; the box grows downward/rightward
+    with the number of layers.
+    """
+
     x_mm: float = 4.764
     y_mm: float = 188.823
 
 
 class PrintLayout(BaseModel):
-    # Complete print layout. title_text is a 30 pt header across the top of the
-    # page; credits_text is a 10 pt label at the bottom right (attribution,
-    # data source, date, etc.).  make build writes this to output/print.qpt.
-    #
-    # orientation="portrait" swaps the default US Letter page to 215.9×279.4 mm
-    # and render_print_layout auto-computes map frame size and item y-positions
-    # from the page dimensions.  Explicit field values always win over auto.
+    """Complete print layout.
+
+    title_text is a 30 pt header across the top of the page; credits_text is a
+    10 pt label at the bottom right (attribution, data source, date, etc.).
+    make build writes this to output/print.qpt.
+
+    orientation="portrait" swaps the default US Letter page to 215.9x279.4 mm
+    and render_print_layout auto-computes map frame size and item y-positions
+    from the page dimensions. Explicit field values always win over auto.
+    """
+
     name: str = "print"
     orientation: Literal["landscape", "portrait"] = "landscape"
     page: PrintPage = Field(default_factory=PrintPage)

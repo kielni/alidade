@@ -37,3 +37,29 @@ helpers:
 - `compute_layer_extent(shapefile_path, pad_pct=0.05)` — padded bounding box
 - `audit_project_crs(project_dir)` — CRS consistency across shapefiles,
   transform context, and layer declarations in project.qgs
+
+When adding an `SvgMarker` to a layer:
+
+1. **Use a solid fill color — never transparent.**  Most QGIS built-in SVGs
+   (tourist, amenity, etc.) are solid-fill silhouette paths with no separate
+   stroke geometry.  Setting `color="0,0,0,0"` makes the icon completely
+   invisible.  Use a solid color, e.g. `color="0,0,0,255"` for black.
+
+2. **Use built-in QGIS SVGs by relative path** — e.g.
+   `name="tourist/tourist_zoo.svg"`.  QGIS resolves these against its internal
+   SVG library (`<QGIS.app>/Contents/Resources/qgis/svg/` on macOS).  Do not
+   hard-code the absolute system path.
+
+3. **Verify the SVG exists** before referencing it:
+   `find /Applications/QGIS.app -name "<name>.svg" 2>/dev/null`
+
+4. **Inspect the SVG source** to understand its parameterisation before
+   choosing colors.  A path with only `param(fill)` needs a solid `color`;
+   one with both `param(fill)` and `param(outline)` supports fill + stroke.
+   Run `cat /Applications/QGIS.app/Contents/Resources/qgis/svg/<path>` and
+   look for `param(fill)` vs `param(outline)` usage.
+
+5. **When a marker is invisible, diff against a QGIS-saved file** using
+   `diff_qgs_layers(generated, qgis_saved, layer_id=..., subtree="renderer-v2")`
+   to see exactly what QGIS changed.  If QGIS stripped the `renderer-v2`
+   entirely on save, it rejected the renderer — check the SVG path and color.

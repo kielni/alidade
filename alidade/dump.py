@@ -4,6 +4,7 @@ import argparse
 import copy
 import os
 import re
+import warnings
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
+from alidade import colors
 from alidade.models import (
     Layer,
     Project,
@@ -159,9 +161,9 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
 
     if kind == "SimpleFill":
         return SimpleFill(
-            color=o.get("color", "0,0,0,255"),
+            color=o.get("color", colors.BLACK),
             style=o.get("style", "solid"),
-            outline_color=o.get("outline_color", "35,35,35,255"),
+            outline_color=o.get("outline_color", colors.DARK_GRAY),
             outline_style=o.get("outline_style", "solid"),
             outline_width=float(o.get("outline_width", "0.5")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
@@ -170,7 +172,7 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
         )
     if kind == "SimpleLine":
         return SimpleLine(
-            line_color=o.get("line_color", "0,0,0,255"),
+            line_color=o.get("line_color", colors.BLACK),
             line_style=o.get("line_style", "solid"),
             line_width=float(o.get("line_width", "0.5")),
             line_width_unit=o.get("line_width_unit", "MM"),
@@ -183,8 +185,8 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
             name=o.get("name", ""),
             size=float(o.get("size", "6")),
             size_unit=o.get("size_unit", "MM"),
-            color=o.get("color", "0,0,0,255"),
-            outline_color=o.get("outline_color", "35,35,35,255"),
+            color=o.get("color", colors.BLACK),
+            outline_color=o.get("outline_color", colors.DARK_GRAY),
             outline_width=float(o.get("outline_width", "0")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
             angle=float(o.get("angle", "0")),
@@ -196,8 +198,8 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
             name=o.get("name", "circle"),
             size=float(o.get("size", "2")),
             size_unit=o.get("size_unit", "MM"),
-            color=o.get("color", "0,0,0,255"),
-            outline_color=o.get("outline_color", "35,35,35,255"),
+            color=o.get("color", colors.BLACK),
+            outline_color=o.get("outline_color", colors.DARK_GRAY),
             outline_width=float(o.get("outline_width", "0")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
             angle=float(o.get("angle", "0")),
@@ -208,44 +210,44 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
     return None
 
 
-def _parse_symbol(sym_el: ET.Element) -> Symbol | None:
+def _parse_symbol(symbol_el: ET.Element) -> Symbol | None:
     """Parse a <symbol> element into a Symbol model, or None if type is unsupported."""
-    sym_type = sym_el.get("type")
-    if sym_type not in ("fill", "line", "marker"):
+    symbol_type = symbol_el.get("type")
+    if symbol_type not in ("fill", "line", "marker"):
         return None
-    alpha = float(sym_el.get("alpha", "1"))
+    alpha = float(symbol_el.get("alpha", "1"))
     layers = [
-        sl
-        for layer_el in sym_el.findall("layer")
-        if (sl := _parse_symbol_layer(layer_el)) is not None
+        symbol_layer
+        for layer_el in symbol_el.findall("layer")
+        if (symbol_layer := _parse_symbol_layer(layer_el)) is not None
     ]
     if not layers:
         return None
     return Symbol(
-        type=cast(Literal["fill", "line", "marker"], sym_type),
+        type=cast(Literal["fill", "line", "marker"], symbol_type),
         alpha=alpha,
         layers=layers,
     )
 
 
-def _parse_renderer(ml: ET.Element) -> Renderer | None:
+def _parse_renderer(maplayer_el: ET.Element) -> Renderer | None:
     """Parse a <renderer-v2> element into a Renderer model, or None if unsupported."""
-    renderer_el = ml.find("renderer-v2")
+    renderer_el = maplayer_el.find("renderer-v2")
     if renderer_el is None:
         return None
-    rtype = renderer_el.get("type")
+    renderer_type = renderer_el.get("type")
 
-    if rtype == "singleSymbol":
+    if renderer_type == "singleSymbol":
         symbols_el = renderer_el.find("symbols")
         if symbols_el is None:
             return None
-        sym_el = symbols_el.find("symbol")
-        if sym_el is None:
+        symbol_el = symbols_el.find("symbol")
+        if symbol_el is None:
             return None
-        sym = _parse_symbol(sym_el)
-        return SingleSymbol(symbol=sym) if sym else None
+        symbol = _parse_symbol(symbol_el)
+        return SingleSymbol(symbol=symbol) if symbol else None
 
-    if rtype == "RuleRenderer":
+    if renderer_type == "RuleRenderer":
         rules_el = renderer_el.find("rules")
         if rules_el is None:
             return None
@@ -261,21 +263,22 @@ def _parse_renderer(ml: ET.Element) -> Renderer | None:
             if r.get("symbol") is not None
         ]
         symbols_el = renderer_el.find("symbols")
-        symbols = []
+        symbols: list[Symbol] = []
         if symbols_el is not None:
-            for sym_el in sorted(
+            for symbol_el in sorted(
                 symbols_el.findall("symbol"),
                 key=lambda e: int(e.get("name", "0")),
             ):
-                sym = _parse_symbol(sym_el)
-                if sym:
-                    symbols.append(sym)
+                symbol = _parse_symbol(symbol_el)
+                if symbol:
+                    symbols.append(symbol)
         return RuleRenderer(
             rules_key=rules_el.get("key", ""),
             rules=rules,
             symbols=symbols,
         )
 
+    warnings.warn(f"Skipping unknown renderer type {renderer_type!r}")
     return None
 
 
@@ -286,7 +289,7 @@ def _py_repr(val: Any) -> str:
     """Recursively generate a Python constructor expression for a value."""
     if isinstance(val, BaseModel):
         cls = type(val).__name__
-        pairs = []
+        pairs: list[str] = []
         for name, field_info in type(val).model_fields.items():
             if name == "kind":
                 continue
@@ -362,15 +365,21 @@ def _write_layer_py(
     if layer.renderer is not None:
         model_names |= _collect_classes(layer.renderer)
     imports = ", ".join(n for n in _MODEL_IMPORT_ORDER if n in model_names)
-
+    source_stem = Path(layer.source.split("|")[0]).name if layer.source else ""
+    docstring = f'"""{layer.name} — {layer.type} layer'
+    if source_stem:
+        docstring += f" from {source_stem}"
+    docstring += '."""'
     lines = [
+        docstring,
+        "",
         "from pathlib import Path",
         "",
         f"from alidade.models import {imports}",
         "",
     ]
 
-    renderer_var = None
+    renderer_var: str | None = None
     if isinstance(layer.renderer, RuleRenderer):
         renderer_var = "_renderer"
         lines += [f"_renderer = {_py_repr(layer.renderer)}", ""]

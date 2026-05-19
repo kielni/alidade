@@ -26,6 +26,17 @@ from alidade.models import (
 _BEGIN = "<!-- auto:begin -->"
 _END = "<!-- auto:end -->"
 
+# Ordered list of (substring, label) pairs for _source_label. Checked in order;
+# first match wins. "wms" is matched case-insensitively via .lower().
+_SOURCE_LABELS: list[tuple[str, str]] = [
+    ("dark_all", "CartoDB Dark Matter XYZ tile service"),
+    ("cartocdn", "CartoDB Positron XYZ tile service"),
+    ("openstreetmap.org", "OpenStreetMap tile service"),
+    ("<GDAL_WMS>", "OpenStreetMap tile service"),
+    ("http-header", "WMS/XYZ tile service"),
+    ("wms", "WMS/XYZ tile service"),
+]
+
 
 def _describe_action_tool(action: StepAction) -> str:
     """Return a short tool label for a processing step action."""
@@ -55,14 +66,10 @@ def _color(rgba: str) -> tuple[str, int]:
 
 def _source_label(source: str) -> str:
     """Return a short human-readable label for a layer source path or URI."""
-    if "cartocdn" in source:
-        if "dark_all" in source:
-            return "CartoDB Dark Matter XYZ tile service"
-        return "CartoDB Positron XYZ tile service"
-    if "openstreetmap.org" in source or "<GDAL_WMS>" in source:
-        return "OpenStreetMap tile service"
-    if "http-header" in source or "wms" in source.lower():
-        return "WMS/XYZ tile service"
+    source_lower = source.lower()
+    for substring, label in _SOURCE_LABELS:
+        if substring in source or substring in source_lower:
+            return label
     path_part = source.split("|")[0]
     p = Path(path_part)
     parts = p.parts

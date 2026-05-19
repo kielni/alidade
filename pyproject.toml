@@ -21,6 +21,7 @@ dependencies = [
     "mapclassify>=2.10.0",
     "geopy>=2.4.1",
     "matplotlib>=3.10.9",
+    "colour>=0.1.5",
 ]
 
 [project.scripts]
@@ -36,6 +37,10 @@ packages = ["alidade"]
 
 [[tool.mypy.overrides]]
 module = ["qgis.PyQt.*", "qgis.utils"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["colour"]
 ignore_missing_imports = true
 
 

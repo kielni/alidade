@@ -4,6 +4,7 @@ import importlib
 import os
 import re
 import uuid
+import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from pathlib import Path
@@ -271,17 +272,17 @@ def _rebuild_layerorder(root: ET.Element, spec: Project) -> None:
 _SCALE = "3x:0,0,0,0,0,0"
 
 
-def _ddp() -> ET.Element:
+def _data_defined_properties() -> ET.Element:
     """Return an empty <data_defined_properties> element used in symbol layers."""
-    ddp = ET.Element("data_defined_properties")
-    m = ET.SubElement(ddp, "Option", type="Map")
+    el = ET.Element("data_defined_properties")
+    m = ET.SubElement(el, "Option", type="Map")
     ET.SubElement(m, "Option", name="name", value="", type="QString")
     ET.SubElement(m, "Option", name="properties")
     ET.SubElement(m, "Option", name="type", value="collection", type="QString")
-    return ddp
+    return el
 
 
-def _renderer_ddp() -> ET.Element:
+def _renderer_data_defined_properties() -> ET.Element:
     """Return the <data-defined-properties> element used at the renderer-v2 level.
 
     QGIS uses hyphens here (not underscores) and places it after <sizescale/>.
@@ -314,7 +315,7 @@ def _opt_map(props: Mapping[str, str]) -> ET.Element:
 
 
 def _render_symbol_layer(
-    sl: SymbolLayer, project_dir: Path | None = None
+    symbol_layer: SymbolLayer, project_dir: Path | None = None
 ) -> ET.Element:
     """Serialize a SymbolLayer model to its QGS <layer> element."""
     el = ET.Element(
@@ -322,67 +323,67 @@ def _render_symbol_layer(
         locked="0",
         enabled="1",
         **{  # type: ignore[arg-type]
-            "class": sl.kind,
+            "class": symbol_layer.kind,
             "pass": "0",
             "id": "{" + str(uuid.uuid4()) + "}",
         },
     )
-    if isinstance(sl, SimpleFill):
+    if isinstance(symbol_layer, SimpleFill):
         props = {
             "border_width_map_unit_scale": _SCALE,
-            "color": _color(sl.color),
-            "joinstyle": sl.joinstyle,
-            "offset": sl.offset,
+            "color": _color(symbol_layer.color),
+            "joinstyle": symbol_layer.joinstyle,
+            "offset": symbol_layer.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": "MM",
-            "outline_color": _color(sl.outline_color),
-            "outline_style": sl.outline_style,
-            "outline_width": str(sl.outline_width),
-            "outline_width_unit": sl.outline_width_unit,
-            "style": sl.style,
+            "outline_color": _color(symbol_layer.outline_color),
+            "outline_style": symbol_layer.outline_style,
+            "outline_width": str(symbol_layer.outline_width),
+            "outline_width_unit": symbol_layer.outline_width_unit,
+            "style": symbol_layer.style,
         }
-    elif isinstance(sl, SimpleLine):
+    elif isinstance(symbol_layer, SimpleLine):
         props = {
-            "capstyle": sl.capstyle,
+            "capstyle": symbol_layer.capstyle,
             "customdash": "5;2",
             "customdash_map_unit_scale": _SCALE,
             "customdash_unit": "MM",
             "draw_inside_polygon": "0",
-            "joinstyle": sl.joinstyle,
-            "line_color": _color(sl.line_color),
-            "line_style": sl.line_style,
-            "line_width": str(sl.line_width),
-            "line_width_unit": sl.line_width_unit,
-            "offset": sl.offset,
+            "joinstyle": symbol_layer.joinstyle,
+            "line_color": _color(symbol_layer.line_color),
+            "line_style": symbol_layer.line_style,
+            "line_width": str(symbol_layer.line_width),
+            "line_width_unit": symbol_layer.line_width_unit,
+            "offset": symbol_layer.offset,
             "offset_map_unit_scale": _SCALE,
             "offset_unit": "MM",
             "ring_filter": "0",
             "use_custom_dash": "0",
             "width_map_unit_scale": _SCALE,
         }
-    elif isinstance(sl, SvgMarker):
-        svg_name = sl.name
+    elif isinstance(symbol_layer, SvgMarker):
+        svg_name = symbol_layer.name
         if project_dir is not None and (
             svg_name.startswith("data/") or svg_name.startswith("./")
         ):
             svg_name = _rel_source(svg_name, project_dir)
         props = {
-            "angle": f"{sl.angle:g}",
-            "color": _color(sl.color),
+            "angle": f"{symbol_layer.angle:g}",
+            "color": _color(symbol_layer.color),
             "fixedAspectRatio": "0",
             "horizontal_anchor_point": "1",
             "name": svg_name,
-            "offset": sl.offset,
+            "offset": symbol_layer.offset,
             "offset_map_unit_scale": _SCALE,
-            "offset_unit": sl.offset_unit,
-            "outline_color": _color(sl.outline_color),
-            "outline_width": f"{sl.outline_width:g}",
+            "offset_unit": symbol_layer.offset_unit,
+            "outline_color": _color(symbol_layer.outline_color),
+            "outline_width": f"{symbol_layer.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
-            "outline_width_unit": sl.outline_width_unit,
+            "outline_width_unit": symbol_layer.outline_width_unit,
             "scale_method": "diameter",
-            "size": f"{sl.size:g}",
+            "size": f"{symbol_layer.size:g}",
             "size_map_unit_scale": _SCALE,
-            "size_unit": sl.size_unit,
+            "size_unit": symbol_layer.size_unit,
             "vertical_anchor_point": "1",
         }
         opt_el = _opt_map(props)
@@ -392,34 +393,38 @@ def _render_symbol_layer(
         insert_after = keys.index("outline_width_unit")
         opt_el.insert(insert_after + 1, ET.Element("Option", name="parameters"))
         el.append(opt_el)
-        el.append(_ddp())
+        el.append(_data_defined_properties())
         return el
-    elif isinstance(sl, SimpleMarker):
+    elif isinstance(symbol_layer, SimpleMarker):
         props = {
-            "angle": f"{sl.angle:g}",
-            "cap_style": sl.cap_style,
-            "color": _color(sl.color),
+            "angle": f"{symbol_layer.angle:g}",
+            "cap_style": symbol_layer.cap_style,
+            "color": _color(symbol_layer.color),
             "horizontal_anchor_point": "1",
-            "joinstyle": sl.joinstyle,
-            "name": sl.name,
-            "offset": sl.offset,
+            "joinstyle": symbol_layer.joinstyle,
+            "name": symbol_layer.name,
+            "offset": symbol_layer.offset,
             "offset_map_unit_scale": _SCALE,
-            "offset_unit": sl.offset_unit,
-            "outline_color": _color(sl.outline_color),
+            "offset_unit": symbol_layer.offset_unit,
+            "outline_color": _color(symbol_layer.outline_color),
             "outline_style": "solid",
-            "outline_width": f"{sl.outline_width:g}",
+            "outline_width": f"{symbol_layer.outline_width:g}",
             "outline_width_map_unit_scale": _SCALE,
-            "outline_width_unit": sl.outline_width_unit,
+            "outline_width_unit": symbol_layer.outline_width_unit,
             "scale_method": "diameter",
-            "size": f"{sl.size:g}",
+            "size": f"{symbol_layer.size:g}",
             "size_map_unit_scale": _SCALE,
-            "size_unit": sl.size_unit,
+            "size_unit": symbol_layer.size_unit,
             "vertical_anchor_point": "1",
         }
     else:
+        warnings.warn(
+            f"Unrecognized symbol layer type {type(symbol_layer).__name__!r};"
+            " skipping"
+        )
         props = {}
     el.append(_opt_map(props))
-    el.append(_ddp())
+    el.append(_data_defined_properties())
     return el
 
 
@@ -437,7 +442,7 @@ def _render_symbol(
         force_rhr="0",
         name=name,
     )
-    el.append(_ddp())
+    el.append(_data_defined_properties())
     for sl in sym.layers:
         el.append(_render_symbol_layer(sl, project_dir))
     return el
@@ -519,7 +524,7 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     )
     ET.SubElement(el, "rotation")
     ET.SubElement(el, "sizescale")
-    el.append(_renderer_ddp())
+    el.append(_renderer_data_defined_properties())
     return el
 
 
@@ -536,7 +541,7 @@ def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.
         syms.append(_render_symbol(renderer.symbol, "0", project_dir))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
-        el.append(_renderer_ddp())
+        el.append(_renderer_data_defined_properties())
         return el
     if isinstance(renderer, RuleRenderer):
         el = ET.Element(
@@ -556,7 +561,7 @@ def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
             syms.append(_render_symbol(sym, str(i), project_dir))
-        el.append(_renderer_ddp())
+        el.append(_renderer_data_defined_properties())
         return el
     if isinstance(renderer, GraduatedRenderer):
         return _render_graduated_renderer(renderer)
@@ -1208,7 +1213,7 @@ def _text_bg() -> ET.Element:
         frame_rate="10",
         force_rhr="0",
     )
-    sym.append(_ddp())
+    sym.append(_data_defined_properties())
     lay = ET.SubElement(
         sym,
         "layer",
@@ -1236,7 +1241,7 @@ def _text_bg() -> ET.Element:
             }
         )
     )
-    lay.append(_ddp())
+    lay.append(_data_defined_properties())
     return bg
 
 
@@ -1324,48 +1329,6 @@ def _text_style(
     return ts
 
 
-def _white_fill_sym(name: str = "") -> ET.Element:
-    """Return a white SimpleFill <symbol> element."""
-    sym = ET.Element(
-        "symbol",
-        alpha="1",
-        type="fill",
-        is_animated="0",
-        name=name,
-        clip_to_extent="1",
-        frame_rate="10",
-        force_rhr="0",
-    )
-    sym.append(_ddp())
-    lay = ET.SubElement(
-        sym,
-        "layer",
-        locked="0",
-        enabled="1",
-        id="",
-        **{"class": "SimpleFill", "pass": "0"},  # type: ignore[arg-type]
-    )
-    lay.append(
-        _opt_map(
-            {
-                "border_width_map_unit_scale": _SCALE,
-                "color": "255,255,255,255,rgb:1,1,1,1",
-                "joinstyle": "miter",
-                "offset": "0,0",
-                "offset_map_unit_scale": _SCALE,
-                "offset_unit": "MM",
-                "outline_color": ("35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1"),
-                "outline_style": "no",
-                "outline_width": "0.26",
-                "outline_width_unit": "MM",
-                "style": "solid",
-            }
-        )
-    )
-    lay.append(_ddp())
-    return sym
-
-
 def _solid_fill_sym(color: str, name: str = "") -> ET.Element:
     """Return a solid-color SimpleFill <symbol> element."""
     sym = ET.Element(
@@ -1378,7 +1341,7 @@ def _solid_fill_sym(color: str, name: str = "") -> ET.Element:
         frame_rate="10",
         force_rhr="0",
     )
-    sym.append(_ddp())
+    sym.append(_data_defined_properties())
     lay = ET.SubElement(
         sym,
         "layer",
@@ -1404,7 +1367,7 @@ def _solid_fill_sym(color: str, name: str = "") -> ET.Element:
             }
         )
     )
-    lay.append(_ddp())
+    lay.append(_data_defined_properties())
     return sym
 
 
@@ -1420,7 +1383,7 @@ def _simple_line_sym(name: str = "") -> ET.Element:
         frame_rate="10",
         force_rhr="0",
     )
-    sym.append(_ddp())
+    sym.append(_data_defined_properties())
     lay = ET.SubElement(
         sym,
         "layer",
@@ -1462,7 +1425,7 @@ def _simple_line_sym(name: str = "") -> ET.Element:
             }
         )
     )
-    lay.append(_ddp())
+    lay.append(_data_defined_properties())
     return sym
 
 
@@ -1472,7 +1435,7 @@ def _simple_line_sym(name: str = "") -> ET.Element:
 def _qpt_page_collection(page: PrintPage) -> ET.Element:
     """Return a <PageCollection> element for the print layout page."""
     pc = ET.Element("PageCollection")
-    pc.append(_white_fill_sym())
+    pc.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
     page_uuid = _qpt_uuid()
     pi = ET.SubElement(
         pc,
@@ -1500,7 +1463,7 @@ def _qpt_page_collection(page: PrintPage) -> ET.Element:
     )
     _frame_bg(pi)
     pi.append(_layout_object())
-    pi.append(_white_fill_sym())
+    pi.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
     ET.SubElement(pc, "GuideCollection", visible="1")
     return pc
 

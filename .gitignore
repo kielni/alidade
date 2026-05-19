@@ -11,3 +11,4 @@ config_aws.js
 __pycache__/
 qgis_map/build/
 lint.log
+.vscode
