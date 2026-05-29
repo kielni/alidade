@@ -1,4 +1,9 @@
-from alidade.models import PrintLayout, PrintMapFrame, PrintScaleBar, Project
+from alidade.models import (
+    PrintLayout,
+    PrintMapFrame,
+    PrintScaleBar,
+    QGISProject as Project,
+)
 
 from .layers.basemap import basemap
 from .layers.census_tracts import census_tracts

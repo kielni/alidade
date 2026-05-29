@@ -40,10 +40,11 @@ fall within a given distance. Data covers the continental US.
 ## Data flow
 
 ```
-capitol_buffer  ──►  capitol_parks_intersect
-national_parks  ──►  capitol_parks_intersect
-state_capitol_bldgs  ──►  capitol_buffer
-usaparks  ──►  national_parks
+flowchart LR
+    capitol_buffer --> capitol_parks_intersect
+    national_parks --> capitol_parks_intersect
+    state_capitol_bldgs --> capitol_buffer
+    usaparks --> national_parks
 ```
 
 ## Processing tools

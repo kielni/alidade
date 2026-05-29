@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import QGISProject as Project
 
 from .layers.libraries import libraries
 from .layers.paloalto_cityboundary import paloalto_cityboundary

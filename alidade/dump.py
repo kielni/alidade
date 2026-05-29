@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from alidade import colors
 from alidade.models import (
     Layer,
-    Project,
+    QGISProject,
     Renderer,
     Rule,
     RuleRenderer,
@@ -406,13 +406,15 @@ def _write_layer_py(
     return True
 
 
-def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) -> None:
+def _write_project_py(
+    spec: QGISProject, human_ids: list[str], project_dir: Path
+) -> None:
     """Write slim project.py that imports from layers/ and assembles Project."""
     import_lines = [f"from .layers.{hid} import {hid}" for hid in human_ids]
     lines = [
         "from pathlib import Path",
         "",
-        "from alidade.models import Project",
+        "from alidade.models import QGISProject as Project",
         "",
         *import_lines,
         "",
@@ -571,7 +573,7 @@ def _load_xml(project_file: Path) -> bytes:
 # ── Terminal summary ──────────────────────────────────────────────────────────
 
 
-def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
+def _print_summary(spec: QGISProject, pairs: list[tuple[str, Layer]]) -> None:
     """Print a human-readable summary of the parsed project to stdout."""
     print()
     print(f"Project : {spec.title!r}")
@@ -631,7 +633,7 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
                     pass
             break
 
-    spec = Project(
+    spec = QGISProject(
         title=title,
         crs=project_crs,
         extent=extent,

@@ -1,16 +1,17 @@
 # Alidade
 
-A toolkit for managing QGIS projects as code, built for working with an LLM.
+A toolkit for managing GIS projects as code, built for working with an LLM.
 
 *An alidade is the sighting rule on a plane table — the instrument that draws
 the map line, not just the one that measures.*
 
 ## Overview
 
-Alidade treats a QGIS project as build output, not source. The source of truth
+Alidade treats a GIS project as build output, not source. The source of truth
 is Python — one file per layer — that you edit in an IDE or describe in plain
 English to an LLM. A build step renders those files into a `.qgs` that QGIS
-opens. QGIS stays open as a viewer; all changes happen in code.
+opens, or an `.aprx` that ArcGIS Pro opens. The GIS application stays open as
+a viewer; all changes happen in code.
 
 Data processing steps (reprojection, slope calculation, reclassification) are
 recorded alongside the layers they produce. The shell command and its inputs are
@@ -42,9 +43,9 @@ dialog.
 Robin Sloan's [home-cooked app](https://www.robinsloan.com/notes/home-cooked-app/)
 draws a distinction between software built for a mass audience and software you
 cook for yourself — personal, imperfect, and fitted exactly to how you work.
-This is not a finished product or an installable
-package. It is a starting point to fork and shape. The projects/sample/ and
-DESIGN.md are a starting point.
+This is not a finished product or an installable package. It is a starting
+point to fork and shape. The `projects/sample/` and `DESIGN.md` are a starting
+point.
 
 QGIS bundles its own Python interpreter, version-locked to each release and
 confined to a stripped-down console. This runs in your own environment:
@@ -64,14 +65,16 @@ highlighting, completion, and navigation.
   the prompts and decisions so a new session can continue without reconstructing
   context
 - **IDE-native** — browse, search, and edit layer configuration in your editor,
-  not QGIS dialogs
+  not GIS dialogs
+- **Dual output** — the same `project.py` spec can render to QGIS or ArcGIS Pro
+  without duplicating layer definitions
 
 ## Use cases
 
 This tool could be for you if:
 
-- You make maps in QGIS and are frustrated that the project file is a
-  compressed binary you can't diff, review, or batch-edit
+- You make maps in QGIS or ArcGIS Pro and are frustrated that the project file
+  is a compressed binary you can't diff, review, or batch-edit
 - You're comfortable writing Python and want to manage map configuration the way
   you manage code: IDE editing, meaningful commits, reproducible builds
 - You want to describe map changes in plain English to an LLM rather than
@@ -84,11 +87,11 @@ This tool could be for you if:
 ### Requirements
 
 - QGIS 3.x desktop app (Mac: `/Applications/QGIS.app`; configure path in
-  `local.env`)
+  `local.env`) — for QGIS output
+- ArcGIS Pro 3.4+ — for `.aprx` output
 - [uv](https://docs.astral.sh/uv/)
 - GDAL CLI tools (`brew install gdal`) — used for raster operations (slope,
-  hillshade, reprojection) where no clean Python equivalent exists; QGIS.app
-  bundles its own GDAL but does not expose the command-line tools
+  hillshade, reprojection) where no clean Python equivalent exists
 
 Processing steps prefer Python libraries (geopandas for vector operations like
 filtering, buffering, and spatial joins) over shell commands. GDAL CLI is
@@ -127,22 +130,44 @@ Plugins* — it watches data files and auto-reloads affected layers on change.
 ```
 alidade/
   alidade/
-    models.py          — Pydantic types for layers, renderers, symbols, print layouts
-    dump.py            — import a .qgz into a project directory
-    render.py          — render project.py → output/project.qgs and output/print.qpt
-    build.py           — entry point with incremental rebuild
+    models.py               — Pydantic types: BaseProject/QGISProject/ArcGISProject,
+                              Layer, renderers, symbols, print layouts
+    dump.py                 — import a .qgz into a project directory (QGIS only)
+    render.py               — project.py → output/project.qgs + output/print.qpt
+    render_arcgispro.py     — project.py → output/project.aprx (CIM v3.4.0 JSON)
+    build.py                — entry point; dispatches on output_format
     util/
-      qgis_startup.py  — QGIS startup script (Ctrl-R reload shortcut)
-      export_pdf.py    — QGIS console script to export the print layout to PDF
-  
-  projects/            — one directory per project
-    project.py         — source of truth (edit this)
-    data/              — data files
-    styles/            — per-layer XML extracted from the .qgz
-    output/            — generated .qgs, print.qpt, and derived rasters (gitignored)
+      qgis_startup.py       — QGIS startup script (Ctrl-R reload shortcut)
+      export_pdf.py         — QGIS console script to export print layout to PDF
+
+  projects/                 — one directory per project
+    project.py              — source of truth (edit this)
+    data/                   — data files
+    styles/                 — per-layer XML extracted from the .qgz (QGIS only)
+    output/                 — generated project files and derived data (gitignored)
 ```
 
-### Import an existing QGIS project
+## Project types
+
+`project.py` declares the output format by choosing the model class:
+
+```python
+# QGIS project
+from alidade.models import QGISProject as Project
+
+spec = Project(title="My Map", crs="EPSG:3857", layers=[...])
+```
+
+```python
+# ArcGIS Pro project
+from alidade.models import ArcGISProject
+
+spec = ArcGISProject(title="My Map", crs="EPSG:3857", layers=[...])
+```
+
+`make build DIR=my_project` detects the type and routes to the right renderer.
+
+## Import an existing QGIS project
 
 ```bash
 # place my_project.qgz inside my_project/, then:
@@ -154,103 +179,78 @@ make build DIR=my_project   # render project.py → output/project.qgs
 style under `styles/`. Rename the layer IDs from QGIS-generated UUIDs to
 human-friendly names before committing.
 
-Edit `my_project/project.py` to assemble your layers. Add layer files under
-`my_project/layers/` and data under `my_project/data/`.
+## Workflow
 
-```bash
-make build DIR=my_project
-# open my_project/output/project.qgs in QGIS
-# after each rebuild, reload with Ctrl-R
-```
+- Edit a layer file or describe the change to an LLM.
+- Run `make build DIR=my_project`.
+- **QGIS:** reload with Ctrl-R.
+- **ArcGIS Pro:** open `output/project.aprx` (or re-open if already open).
+- Commit `project.py` and updated layer files.
 
-### Workflow
+For derived rasters, run `make build --force DIR=my_project` when source data
+or a processing command changes. This re-runs stale transforms in dependency
+order before rendering.
 
-- Edit a layer file or describe the change to an LLM. 
-- Run `make build DIR=my_project`. 
-- Reload in QGIS with Ctrl-R. 
-- Commit `project.py` and updated `layers` and `styles/`.
-
-For derived rasters, run `make prepare DIR=my_project` when source data or a
-processing command changes. This re-runs stale transforms in dependency order,
-then triggers a build.
-
-
-### Build
+## Build
 
 `make build DIR=my_project` runs black on the project source, loads
 `project.py`, runs any stale processing steps in dependency order, and renders
-the spec into the `output/` directory. Steps whose output already exists are
-skipped; `make build-all` forces a full rebuild.
+the spec. Steps whose output already exists are skipped.
 
-**Artifacts:**
+**QGIS output** (`QGISProject`):
 
-- `output/project.qgs` — the QGIS project file. Open this in QGIS; reload
-  after each rebuild with Ctrl-R.
-- `output/<derived files>` — shapefiles, rasters, or other outputs produced by
-  processing steps (filtering, reprojection, reclassification, etc.).
-- `output/print.qpt` — QGIS print template, produced when `project.py` has a
-  `print_layout` field. US Letter landscape with a full-page map frame, title
-  strip, north arrow, scale bar, legend, and credits label. Page dimensions,
-  item positions, and scale bar units are all configurable fields — see
-  `alidade/models.py` for defaults and a layout diagram.
-- `README.md` — the Layers and Data flow sections are regenerated from the
-  current project spec.
+- `output/project.qgs` — open in QGIS; reload after each rebuild with Ctrl-R
+- `output/print.qpt` — print template, when `project.py` has a `print_layout`
+  field; US Letter with map frame, title, north arrow, scale bar, legend,
+  credits
+- `output/<derived files>` — shapefiles, rasters from processing steps
+- `README.md` — Layers and Data flow sections regenerated from the spec
 
-**Using the print template in QGIS:** open *Project → Layout Manager → From
-template* and select `output/print.qpt`. From there you can adjust items
-interactively and export via the normal print menu. Export as a template
-to a new filename to prevent overwriting manual edits on build.
+**ArcGIS Pro output** (`ArcGISProject`):
 
-**Exporting the print layout to PDF from the console:** open the Python console
-in QGIS (**Plugins → Python Console**) and run:
+- `output/project.aprx` — open in ArcGIS Pro 3.4+; a ZIP archive of CIM v3.4.0
+  JSON documents (feature layers, map, ground surface, metadata)
+- `output/<derived files>` — shapefiles, rasters from processing steps
+
+### Using the QGIS print template
+
+Open *Project → Layout Manager → From template* and select `output/print.qpt`.
+Adjust items interactively and export via the normal print menu. Export as a
+template to a new filename to preserve manual edits across builds.
+
+**Exporting to PDF from the QGIS console:** open *Plugins → Python Console* and run:
 
 ```python
 exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
 ```
 
-The script loads `output/print.qpt` into the Layout Manager if it is not
-already there, then writes `output/print.pdf`. To use a different template and output filename, set `print_prefix` before the
-`exec` call — it loads `<prefix>.qpt` and writes `<prefix>.pdf`:
+The script loads `output/print.qpt` and writes `output/print.pdf`. To use a
+different template, set `print_prefix` before the `exec` call.
 
-```python
-print_prefix = "overview"
-exec(open("/path/to/alidade/alidade/util/export_pdf.py").read())
-```
-
-
-#### Building your toolbox
+## Building your toolbox
 
 This project does not try to cover every use case. The models, renderers, and
-utilities here are a starting point, not a complete framework. The layout may not
-fit your mental model or workflow style.
+utilities here are a starting point, not a complete framework.
 
-Iterate to build and customize your own toolbox:
-
-1. **Craft the artifact the tedious way.** Do it manually in QGIS — click
-   through the dialogs, export the QPT, write the console script by hand. Get
-   the thing working before you think about abstraction.
+1. **Craft the artifact the tedious way.** Do it manually in the GIS app —
+   click through the dialogs, get the thing working before thinking about
+   abstraction.
 2. **Study it.** Read the file it produced. Understand which parts are fixed
-   structure and which parts are project-specific variables. Note what you had
-   to look up.
+   structure and which are project-specific variables.
 3. **Generalize it.** Extract the variables into a Pydantic model. Write the
    render function. Document what each field controls and what can be left at
-   its default. Add it to the toolbox so the next project starts further along.
+   its default.
 
-#### When generated artifacts don't work
+## When generated artifacts don't work
 
-If a generated layer or project file doesn't render correctly in QGIS, diagnose and fix the generator so it'll work next time.
+Copy the broken generated file to a separate path (e.g. `project_bad.qgs` or
+`project_bad.aprx`) so you can compare it later. Open the project in the GIS
+app, manually fix the layer, and save to the original path. You now have a
+working file the app produced and a broken file the generator produced.
 
-Copy the broken generated file to a separate path (e.g. `project_bad.qgs`)
-so you can compare it later. Open the project in QGIS, manually fix the layer
-(resetting the data source, adjusting the CRS, or restoring the style), and save the
-project to the original path (e.g. `project.qgs`). You now have a working file that
-QGIS produced and a broken file that the generator produced.
-
-Ask the LLM to compare the two files and explain what is different in the 
-XML. Once the
-differences are understood, apply updates so the generator produces
-correct output. Review the proposed changes, regenerate, and verify in QGIS before
-committing.
+Ask the LLM to compare the two files and explain what differs. Once the
+differences are understood, apply updates so the generator produces correct
+output. Regenerate and verify before committing.
 
 ## Example
 
