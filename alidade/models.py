@@ -366,3 +366,4 @@ class ArcGISProject(BaseProject):
     """ArcGIS Pro project; renders to output/project.aprx."""
 
     output_format: Literal["arcgispro"] = "arcgispro"
+    arcgispro_extra_cim: list[dict[str, Any]] = []

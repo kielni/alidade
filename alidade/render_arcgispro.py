@@ -1,7 +1,7 @@
 """Render project.py → output/project.aprx (ArcGIS Pro CIM v3.4.0 ZIP archive).
 
-DocumentInfo.xml and Metadata/*.xml remain XML; all other CIM documents are
-JSON serialized even when the filename ends in .xml (ArcGIS Pro 3.x convention).
+DocumentInfo.xml and Metadata/*.xml are real XML.
+All other CIM documents (map, layers, Ground) are JSON with .json extension.
 """
 
 import json
@@ -16,37 +16,67 @@ from pyproj import CRS as ProjCRS
 
 from alidade.models import (
     ArcGISProject,
+    GraduatedRenderer,
     Layer,
     SimpleFill,
     SimpleLine,
     SingleSymbol,
 )
 
-_XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
-_XSI_TYPE = f"{{{_XSI_NS}}}type"
-
-ET.register_namespace("xsi", _XSI_NS)
-
 # Esri legacy wkid aliases where wkid != latestWkid (latestWkid → wkid).
-_ESRI_WKID_ALIASES: dict[int, int] = {3857: 102100, 3785: 102113}
+_ESRI_WKID_ALIASES: dict[int, int] = {
+    2227: 102643,  # NAD83 / California zone 3 (US survey feet)
+    3857: 102100,  # Web Mercator
+    3785: 102113,  # Web Mercator (deprecated)
+}
 
+# Extended spatial reference fields for known wkids (from ArcGIS Pro CIM export).
+_SR_EXTRA: dict[int, dict[str, Any]] = {
+    102643: {
+        "xyTolerance": 0.0032808333333333331,
+        "zTolerance": 0.001,
+        "mTolerance": 0.001,
+        "falseX": -115860600,
+        "falseY": -93269500,
+        "xyUnits": 3048.00609601219185,
+        "falseZ": -100000,
+        "zUnits": 10000,
+        "falseM": -100000,
+        "mUnits": 10000,
+    },
+}
 
-def _xsi(type_name: str) -> dict[str, str]:
-    return {_XSI_TYPE: f"typens:{type_name}"}
-
-
-def _sub(
-    parent: ET.Element,
-    tag: str,
-    text: str | None = None,
-    xsi_type: str | None = None,
-) -> ET.Element:
-    el = ET.SubElement(parent, tag)
-    if xsi_type:
-        el.set(_XSI_TYPE, f"typens:{xsi_type}")
-    if text is not None:
-        el.text = text
-    return el
+# WGS84/NAD83 datum transforms added by ArcGIS Pro for projected CRS maps.
+_NAD83_DATUM_TRANSFORMS = [
+    {
+        "type": "CIMDatumTransform",
+        "forward": True,
+        "geoTransformation": {
+            "geoTransforms": [
+                {
+                    "wkid": 108190,
+                    "latestWkid": 108190,
+                    "transformForward": True,
+                    "name": "WGS_1984_(ITRF00)_To_NAD_1983",
+                }
+            ]
+        },
+    },
+    {
+        "type": "CIMDatumTransform",
+        "forward": False,
+        "geoTransformation": {
+            "geoTransforms": [
+                {
+                    "wkid": 108190,
+                    "latestWkid": 108190,
+                    "transformForward": True,
+                    "name": "WGS_1984_(ITRF00)_To_NAD_1983",
+                }
+            ]
+        },
+    },
+]
 
 
 def _rgb_color(color_str: str) -> dict[str, Any]:
@@ -67,7 +97,9 @@ def _sr_dict(crs_str: str) -> dict[str, Any]:
             "use an EPSG-registered CRS for ArcGIS Pro output."
         )
     wkid = _ESRI_WKID_ALIASES.get(epsg, epsg)
-    return {"wkid": wkid, "latestWkid": epsg}
+    result: dict[str, Any] = {"wkid": wkid, "latestWkid": epsg}
+    result.update(_SR_EXTRA.get(wkid, {}))
+    return result
 
 
 def _cim_source(layer: Layer, project_dir: Path) -> tuple[str, str, str] | None:
@@ -166,16 +198,67 @@ def _cim_simple_renderer(layer: Layer) -> dict[str, Any] | None:
     return None
 
 
-def _build_document_info() -> ET.Element:
-    root = ET.Element("CIMDocumentInfo", _xsi("CIMDocumentInfo"))
-    _sub(root, "Version", "3.4.0")
-    _sub(root, "Build", "55405")
-    _sub(root, "DocumentTitle", "alidade-generated.aprx")
-    _sub(root, "SavePreview", "false")
-    _sub(root, "UseRelativePath", "true")
-    _sub(root, "Antialiasing", "esriBGLAntialiasingNone")
-    _sub(root, "TextAntialiasing", "esriBGLTextAAliasForce")
-    return root
+def _cim_graduated_renderer(layer: Layer) -> dict[str, Any] | None:
+    """Build CIMClassBreaksRenderer for GraduatedRenderer; None otherwise."""
+    if not isinstance(layer.renderer, GraduatedRenderer):
+        return None
+    r = layer.renderer
+    breaks = []
+    for gr in r.ranges:
+        breaks.append(
+            {
+                "type": "CIMClassBreak",
+                "label": gr.label,
+                "patch": "Default",
+                "symbol": {
+                    "type": "CIMSymbolReference",
+                    "symbol": {
+                        "type": "CIMPolygonSymbol",
+                        "symbolLayers": [
+                            {
+                                "type": "CIMSolidFill",
+                                "enable": True,
+                                "color": _rgb_color(gr.color),
+                            },
+                            _solid_stroke(r.outline_color, r.outline_width),
+                        ],
+                    },
+                },
+                "upperBound": gr.upper,
+            }
+        )
+    return {
+        "type": "CIMClassBreaksRenderer",
+        "classBreakType": "GraduatedColor",
+        "field": r.attr,
+        "minimumBreak": r.ranges[0].lower,
+        "breaks": breaks,
+    }
+
+
+_CIM_TYPENS = "http://www.esri.com/schemas/ArcGIS/3.4.0"
+_CIM_VERSION = "3.4.0"
+_CIM_BUILD = "55405"
+
+
+def _build_document_info() -> bytes:
+    """Return DocumentInfo.xml bytes with full namespace declarations."""
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        "<CIMDocumentInfo"
+        " xsi:type='typens:CIMDocumentInfo'"
+        " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'"
+        " xmlns:xs='http://www.w3.org/2001/XMLSchema'"
+        f" xmlns:typens='{_CIM_TYPENS}'>"
+        f"<Version>{_CIM_VERSION}</Version>"
+        f"<Build>{_CIM_BUILD}</Build>"
+        "<DocumentTitle>alidade-generated.aprx</DocumentTitle>"
+        "<SavePreview>false</SavePreview>"
+        "<UseRelativePath>true</UseRelativePath>"
+        "<Antialiasing>esriBGLAntialiasingNone</Antialiasing>"
+        "<TextAntialiasing>esriBGLTextAAliasForce</TextAntialiasing>"
+        "</CIMDocumentInfo>"
+    ).encode("utf-8")
 
 
 def _build_gis_project(map_cimpath: str) -> dict[str, Any]:
@@ -222,18 +305,18 @@ def _build_ground_json() -> dict[str, Any]:
 def _build_cim_map(
     spec: ArcGISProject,
     layer_cimpaths: list[str],
-    tile_cimpaths: list[str],
+    extra_cim_cimpaths: list[str],
     metadata_cimpath: str,
 ) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "type": "CIMMap",
         "name": spec.title,
-        "uRI": "CIMPATH=map/map.xml",
+        "uRI": "CIMPATH=map/map.json",
         "sourceModifiedTime": {"type": "TimeInstant"},
         "metadataURI": metadata_cimpath,
         "useSourceMetadata": True,
-        "layers": layer_cimpaths + tile_cimpaths,
-        "standaloneTables": [],
+        "layers": layer_cimpaths + extra_cim_cimpaths,
+        "datumTransforms": _NAD83_DATUM_TRANSFORMS * 2,
         "defaultViewingMode": "Map",
         "mapType": "Map",
         "groundElevationSurfaceLayer": "CIMPATH=map/Ground.json",
@@ -254,7 +337,7 @@ def _build_cim_map(
 
 
 def _build_feature_layer(layer: Layer, project_dir: Path) -> dict[str, Any]:
-    cimpath = f"CIMPATH=map/{layer.id.lower()}.xml"
+    cimpath = f"CIMPATH=map/{layer.id.lower()}.json"
     doc: dict[str, Any] = {
         "type": "CIMFeatureLayer",
         "name": layer.name,
@@ -287,6 +370,8 @@ def _build_feature_layer(layer: Layer, project_dir: Path) -> dict[str, Any]:
         "featureBlendingMode": "Alpha",
         "layerEffectsMode": "Layer",
         "labelVisibility": False,
+        "scaleSymbols": True,
+        "snappable": True,
     }
 
     conn = _cim_source(layer, project_dir)
@@ -307,37 +392,11 @@ def _build_feature_layer(layer: Layer, project_dir: Path) -> dict[str, Any]:
             "searchOrder": "esriSearchOrderSpatial",
         }
 
-    renderer = _cim_simple_renderer(layer)
+    renderer = _cim_simple_renderer(layer) or _cim_graduated_renderer(layer)
     if renderer is not None:
         doc["renderer"] = renderer
 
     return doc
-
-
-def _build_tiled_layer(layer: Layer) -> tuple[str, dict[str, Any]]:
-    """Return (uuid_filename_stem, CIMTiledServiceLayer dict)."""
-    tile_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, layer.id).hex
-    cimpath = f"CIMPATH={tile_uuid}.xml"
-    doc: dict[str, Any] = {
-        "type": "CIMTiledServiceLayer",
-        "name": layer.name,
-        "uRI": cimpath,
-        "sourceModifiedTime": {"type": "TimeInstant"},
-        "useSourceMetadata": True,
-        "description": layer.name,
-        "layerType": "BasemapBackground",
-        "showLegends": True,
-        "visibility": layer.visible,
-        "displayCacheType": "Permanent",
-        "maxDisplayCacheAge": 5,
-        "showPopups": True,
-        "serviceLayerID": -1,
-        "refreshRate": -1,
-        "refreshRateUnit": "esriTimeUnitsSeconds",
-        "blendingMode": "Alpha",
-        "allowDrapingOnIntegratedMesh": True,
-    }
-    return tile_uuid, doc
 
 
 def _build_metadata() -> tuple[str, ET.Element]:
@@ -355,23 +414,27 @@ def _build_index(
     map_filename: str,
     ground_filename: str,
     feature_layer_filenames: list[str],
-    tile_layer_filenames: list[str],
+    extra_cim_filenames: list[str],
     metadata_filename: str,
 ) -> dict[str, Any]:
     """Build Index.json — node graph of all documents in the archive."""
     nodes: list[dict[str, Any]] = []
     node_id = 0
 
-    meta_id = node_id
-    nodes.append(
-        {
-            "NodeId": meta_id,
-            "NodeType": "BinaryReference",
-            "FileName": metadata_filename,
-            "ChildNodeIds": "",
-        }
-    )
-    node_id += 1
+    # Extra CIM (basemap tiles) come first, matching original ArcGIS Pro export order.
+    extra_ids: list[int] = []
+    for fn in extra_cim_filenames:
+        eid = node_id
+        extra_ids.append(eid)
+        nodes.append(
+            {
+                "NodeId": eid,
+                "NodeType": "Layer",
+                "FileName": fn,
+                "ChildNodeIds": "",
+            }
+        )
+        node_id += 1
 
     ground_id = node_id
     nodes.append(
@@ -398,28 +461,26 @@ def _build_index(
         )
         node_id += 1
 
-    tile_ids: list[int] = []
-    for fn in tile_layer_filenames:
-        tid = node_id
-        tile_ids.append(tid)
-        nodes.append(
-            {
-                "NodeId": tid,
-                "NodeType": "Layer",
-                "FileName": fn,
-                "ChildNodeIds": "",
-            }
-        )
-        node_id += 1
-
     map_id = node_id
-    all_child_ids = [meta_id] + feature_ids + [ground_id] + tile_ids
+    meta_id = node_id + 1
+    # Order matches ArcGIS Pro: Ground, Metadata, extra CIM, feature layers.
+    map_child_ids = [ground_id, meta_id] + extra_ids + feature_ids
     nodes.append(
         {
             "NodeId": map_id,
             "NodeType": "Map",
             "FileName": map_filename,
-            "ChildNodeIds": ",".join(str(i) for i in all_child_ids),
+            "ChildNodeIds": ",".join(str(i) for i in map_child_ids),
+        }
+    )
+    node_id += 1
+
+    nodes.append(
+        {
+            "NodeId": meta_id,
+            "NodeType": "BinaryReference",
+            "FileName": metadata_filename,
+            "ChildNodeIds": "",
         }
     )
     node_id += 1
@@ -449,28 +510,25 @@ def render_arcgispro(spec: ArcGISProject, project_dir: Path) -> None:
     output_dir.mkdir(exist_ok=True)
     out_path = output_dir / "project.aprx"
 
-    feature_layers = [la for la in spec.layers if la.provider != "wms"]
-    tile_layers = [la for la in spec.layers if la.provider == "wms"]
-
-    tile_files: dict[str, dict[str, Any]] = {}
-    tile_cimpaths: list[str] = []
-    tile_filenames: list[str] = []
-    for la in tile_layers:
-        tile_uuid, doc = _build_tiled_layer(la)
-        filename = f"{tile_uuid}.xml"
-        tile_files[filename] = doc
-        tile_cimpaths.append(f"CIMPATH={filename}")
-        tile_filenames.append(filename)
-
     feature_files: dict[str, dict[str, Any]] = {}
     layer_cimpaths: list[str] = []
     layer_filenames: list[str] = []
-    for la in feature_layers:
+    for la in spec.layers:
         doc = _build_feature_layer(la, project_dir)
-        filename = f"map/{la.id.lower()}.xml"
+        filename = f"map/{la.id.lower()}.json"
         feature_files[filename] = doc
         layer_cimpaths.append(f"CIMPATH={filename}")
         layer_filenames.append(filename)
+
+    extra_cim_files: dict[str, dict[str, Any]] = {}
+    extra_cim_cimpaths: list[str] = []
+    extra_cim_filenames: list[str] = []
+    for cim_doc in spec.arcgispro_extra_cim:
+        uri = cim_doc.get("uRI", "")
+        filename = uri[len("CIMPATH=") :] if uri.startswith("CIMPATH=") else uri
+        extra_cim_files[filename] = cim_doc
+        extra_cim_cimpaths.append(uri)
+        extra_cim_filenames.append(filename)
 
     meta_uuid, meta_el = _build_metadata()
     metadata_filename = f"Metadata/{meta_uuid}.xml"
@@ -479,29 +537,29 @@ def render_arcgispro(spec: ArcGISProject, project_dir: Path) -> None:
     map_doc = _build_cim_map(
         spec,
         layer_cimpaths=layer_cimpaths,
-        tile_cimpaths=tile_cimpaths,
+        extra_cim_cimpaths=extra_cim_cimpaths,
         metadata_cimpath=metadata_cimpath,
     )
-    gis_doc = _build_gis_project("CIMPATH=map/map.xml")
-    doc_el = _build_document_info()
+    gis_doc = _build_gis_project("CIMPATH=map/map.json")
+    doc_info_bytes = _build_document_info()
     ground_doc = _build_ground_json()
     index_doc = _build_index(
-        map_filename="map/map.xml",
+        map_filename="map/map.json",
         ground_filename="map/Ground.json",
         feature_layer_filenames=layer_filenames,
-        tile_layer_filenames=tile_filenames,
+        extra_cim_filenames=extra_cim_filenames,
         metadata_filename=metadata_filename,
     )
 
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("DocumentInfo.xml", _to_xml_bytes(doc_el))
+        zf.writestr("DocumentInfo.xml", doc_info_bytes)
         zf.writestr("GISProject.json", _to_json_bytes(gis_doc))
         zf.writestr("Index.json", _to_json_bytes(index_doc))
-        zf.writestr("map/map.xml", _to_json_bytes(map_doc))
+        zf.writestr("map/map.json", _to_json_bytes(map_doc))
         zf.writestr("map/Ground.json", _to_json_bytes(ground_doc))
         for filename, doc in feature_files.items():
             zf.writestr(filename, _to_json_bytes(doc))
-        for filename, doc in tile_files.items():
+        for filename, doc in extra_cim_files.items():
             zf.writestr(filename, _to_json_bytes(doc))
         zf.writestr(metadata_filename, _to_xml_bytes(meta_el))
 

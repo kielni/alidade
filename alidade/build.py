@@ -18,9 +18,7 @@ def _resolve_source_path(source: str, project_dir: Path) -> Path:
     path_part = source.split("|")[0].split("?")[0]
     if path_part.startswith("/") or ":" in path_part.split("/")[0]:
         return Path(path_part)
-    if path_part.startswith("./") or path_part.startswith("data/"):
-        return (project_dir / path_part).resolve()
-    return (HERE / path_part).resolve()
+    return (project_dir / path_part).resolve()
 
 
 def _visit(
@@ -146,6 +144,7 @@ def main() -> None:
     if isinstance(spec, ArcGISProject):
         from alidade.render_arcgispro import render_arcgispro
 
+        _run_processing_steps(spec, project_dir, force=force)
         render_arcgispro(spec, project_dir)
     else:
         assert isinstance(spec, QGISProject)
