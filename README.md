@@ -130,11 +130,11 @@ Plugins* — it watches data files and auto-reloads affected layers on change.
 ```
 alidade/
   alidade/
-    models.py               — Pydantic types: BaseProject/QGISProject/ArcGISProject,
-                              Layer, renderers, symbols, print layouts
-    dump.py                 — import a .qgz into a project directory (QGIS only)
-    render.py               — project.py → output/project.qgs + output/print.qpt
-    render_arcgispro.py     — project.py → output/project.aprx (CIM v3.4.0 JSON)
+    models.py               — Pydantic types: Project, Layer, renderers, symbols, print layouts
+    dump_qgis.py            — import a .qgz into a project directory (QGIS only)
+    render_qgis.py          — project.py → output/project.qgs + output/print.qpt
+    render_lyrx.py          — project.py → output/{layer.id}.lyrx (CIM v3.4.0 JSON)
+    lyrx/                   — CIM builder subpackage
     build.py                — entry point; dispatches on output_format
     util/
       qgis_startup.py       — QGIS startup script (Ctrl-R reload shortcut)
@@ -149,23 +149,23 @@ alidade/
 
 ## Project types
 
-`project.py` declares the output format by choosing the model class:
+`project.py` declares the output format via `output_format`:
 
 ```python
 # QGIS project
-from alidade.models import QGISProject as Project
+from alidade.models import Project
 
-spec = Project(title="My Map", crs="EPSG:3857", layers=[...])
+spec = Project(output_format="qgis", title="My Map", crs="EPSG:3857", layers=[...])
 ```
 
 ```python
-# ArcGIS Pro project
-from alidade.models import ArcGISProject
+# ArcGIS Pro project (.lyrx per layer)
+from alidade.models import Project
 
-spec = ArcGISProject(title="My Map", crs="EPSG:3857", layers=[...])
+spec = Project(output_format="lyrx", title="My Map", crs="EPSG:3857", layers=[...])
 ```
 
-`make build DIR=my_project` detects the type and routes to the right renderer.
+`make build DIR=my_project` detects the format and routes to the right renderer.
 
 ## Import an existing QGIS project
 
@@ -206,10 +206,10 @@ the spec. Steps whose output already exists are skipped.
 - `output/<derived files>` — shapefiles, rasters from processing steps
 - `README.md` — Layers and Data flow sections regenerated from the spec
 
-**ArcGIS Pro output** (`ArcGISProject`):
+**ArcGIS Pro output** (`output_format="lyrx"`):
 
-- `output/project.aprx` — open in ArcGIS Pro 3.4+; a ZIP archive of CIM v3.4.0
-  JSON documents (feature layers, map, ground surface, metadata)
+- `output/{layer.id}.lyrx` — one standalone CIM v3.4.0 JSON file per layer;
+  drag into ArcGIS Pro 3.4+ to add layers to any map
 - `output/<derived files>` — shapefiles, rasters from processing steps
 
 ### Using the QGIS print template

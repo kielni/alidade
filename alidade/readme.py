@@ -10,7 +10,7 @@ from alidade.models import (
     GraduatedRenderer,
     Layer,
     PalettedRenderer,
-    QGISProject,
+    Project,
     Renderer,
     RuleRenderer,
     ShellAction,
@@ -126,7 +126,7 @@ def _describe_style(layer: Layer) -> str:
     return "no style configured"
 
 
-def _auto_section(spec: QGISProject, project_dir: Path) -> str:
+def _auto_section(spec: Project, project_dir: Path) -> str:
     """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
@@ -174,7 +174,7 @@ def _auto_section(spec: QGISProject, project_dir: Path) -> str:
     return "\n".join(lines)
 
 
-def update_readme(spec: QGISProject, project_dir: Path) -> None:
+def update_readme(spec: Project, project_dir: Path) -> None:
     """Write or update the auto-generated section of project_dir/README.md."""
     readme_path = project_dir / "README.md"
     section = f"{_BEGIN}\n{_auto_section(spec, project_dir)}{_END}\n"

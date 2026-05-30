@@ -26,7 +26,7 @@ dependencies = [
 
 [project.scripts]
 alidade-build = "alidade.build:main"
-alidade-dump = "alidade.dump:main"
+alidade-dump = "alidade.dump_qgis:main"
 alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"
 

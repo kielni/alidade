@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from alidade.render import _abs_source, _load_spec
+from alidade.render_qgis import _abs_source, _load_spec
 
 
 def _is_file_source(source: str) -> bool:

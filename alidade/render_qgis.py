@@ -12,7 +12,6 @@ from pathlib import Path
 from pyproj import CRS as ProjCRS
 
 from alidade.models import (
-    BaseProject,
     GraduatedRenderer,
     Label,
     Layer,
@@ -22,7 +21,7 @@ from alidade.models import (
     PrintNorthArrow,
     PrintPage,
     PrintScaleBar,
-    QGISProject,
+    Project,
     Renderer,
     RuleRenderer,
     SimpleFill,
@@ -120,7 +119,7 @@ def _rel_source(source: str, project_dir: Path) -> str:
     return abs_src
 
 
-def _load_spec(project_dir: Path) -> BaseProject:
+def _load_spec(project_dir: Path) -> Project:
     """Load project.py from project_dir and return its spec attribute."""
     spec_path = project_dir / "project.py"
     if not spec_path.exists():
@@ -205,7 +204,7 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: QGISProject, project_dir: Path) -> None:
+def _rebuild_layer_tree(root: ET.Element, spec: Project, project_dir: Path) -> None:
     """Rebuild the <layer-tree-group> in root from spec layers."""
     ltg = root.find("layer-tree-group")
     if ltg is None:
@@ -235,7 +234,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: QGISProject, project_dir: Path) 
         item.text = layer.id
 
 
-def _rebuild_legend(root: ET.Element, spec: QGISProject) -> None:
+def _rebuild_legend(root: ET.Element, spec: Project) -> None:
     """Rebuild the <legend> in root from spec layers."""
     legend = root.find("legend")
     if legend is None:
@@ -259,7 +258,7 @@ def _rebuild_legend(root: ET.Element, spec: QGISProject) -> None:
         )
 
 
-def _rebuild_layerorder(root: ET.Element, spec: QGISProject) -> None:
+def _rebuild_layerorder(root: ET.Element, spec: Project) -> None:
     """Rebuild the <layerorder> in root from spec layers."""
     lo = root.find("layerorder")
     if lo is None:
@@ -1051,7 +1050,7 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     return ml
 
 
-def _inject_layers(root: ET.Element, spec: QGISProject, project_dir: Path) -> None:
+def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
     """Insert all spec layers as <maplayer> elements into <projectlayers>."""
     pl = root.find("projectlayers")
     if pl is None:
@@ -1092,7 +1091,7 @@ def _inject_layers(root: ET.Element, spec: QGISProject, project_dir: Path) -> No
         pl.append(ml)
 
 
-def render(spec: QGISProject, project_dir: Path) -> None:
+def render(spec: Project, project_dir: Path) -> None:
     """Render project spec to output/project.qgs inside project_dir."""
     base_path = project_dir / "styles" / "base.qgs"
     if not base_path.exists():
@@ -1641,9 +1640,7 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
     return el
 
 
-def _qpt_legend(
-    leg: PrintLegend, spec: QGISProject, map_uuid: str, z: int
-) -> ET.Element:
+def _qpt_legend(leg: PrintLegend, spec: Project, map_uuid: str, z: int) -> ET.Element:
     """Return a <LayoutItem> legend element linked to map_uuid."""
     item_uuid = _qpt_uuid()
     el = ET.Element(
@@ -1749,7 +1746,7 @@ def _qpt_legend(
 
 
 def _qpt_map_frame(
-    mf: PrintMapFrame, spec: QGISProject, map_uuid: str, z: int
+    mf: PrintMapFrame, spec: Project, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
     attrs: dict[str, str] = dict(
@@ -1823,7 +1820,7 @@ def _qpt_map_frame(
     return el
 
 
-def render_print_layout(spec: QGISProject, project_dir: Path) -> None:
+def render_print_layout(spec: Project, project_dir: Path) -> None:
     """Render spec's print_layout to output/print.qpt inside project_dir."""
     assert spec.print_layout is not None
     pl = spec.print_layout

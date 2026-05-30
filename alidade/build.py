@@ -6,9 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from alidade.models import ArcGISProject, BaseProject, Layer, QGISProject
+from alidade.models import Layer, Project
 from alidade.readme import update_readme
-from alidade.render import _load_spec, render
+from alidade.render_qgis import _load_spec, render
 
 HERE = Path(__file__).parent  # alidade/
 
@@ -39,7 +39,7 @@ def _visit(
         ordered.append(layer)
 
 
-def _topo_sort(spec: BaseProject) -> list[Layer]:
+def _topo_sort(spec: Project) -> list[Layer]:
     """Return layers-with-processing-steps in dependency order."""
     steps = {layer.id: layer for layer in spec.layers if layer.processing_step}
     ordered: list[Layer] = []
@@ -50,7 +50,7 @@ def _topo_sort(spec: BaseProject) -> list[Layer]:
     return ordered
 
 
-def _run_processing_steps(spec: BaseProject, project_dir: Path, force: bool) -> None:
+def _run_processing_steps(spec: Project, project_dir: Path, force: bool) -> None:
     """Run processing steps in dependency order for outputs that don't exist."""
     sources = {
         layer.id: _resolve_source_path(layer.source, project_dir)
@@ -95,10 +95,10 @@ def _source_hash(project_dir: Path) -> str:
     return h.hexdigest()
 
 
-def _needs_rebuild(project_dir: Path, output_file: str = "project.qgs") -> bool:
-    """Return True if the output file is absent or source files have changed."""
+def _needs_rebuild(project_dir: Path, output_format: str) -> bool:
+    """Return True if source files have changed or (for qgis) output is absent."""
     output_dir = project_dir / "output"
-    if not (output_dir / output_file).exists():
+    if output_format == "qgis" and not (output_dir / "project.qgs").exists():
         return True
     state_file = output_dir / ".state"
     if not state_file.exists():
@@ -107,9 +107,9 @@ def _needs_rebuild(project_dir: Path, output_file: str = "project.qgs") -> bool:
 
 
 def main() -> None:
-    """Build output/project.qgs or output/project.aprx from project_dir/project.py."""
+    """Build output/ from project_dir/project.py."""
     parser = argparse.ArgumentParser(
-        description="Build QGIS or ArcGIS Pro project file from project.py."
+        description="Build QGIS or ArcGIS Pro lyrx output from project.py."
     )
     parser.add_argument("project_dir", help="Path to project directory")
     parser.add_argument(
@@ -125,12 +125,10 @@ def main() -> None:
         print(f"project.py not found in {project_dir} — run 'make dump' first")
         sys.exit(1)
 
-    output_file = (
-        "project.aprx" if "ArcGISProject" in project_py.read_text() else "project.qgs"
-    )
+    spec = _load_spec(project_dir)
 
-    if not force and not _needs_rebuild(project_dir, output_file):
-        print(f"{output_file} is up to date")
+    if not force and not _needs_rebuild(project_dir, spec.output_format):
+        print("project is up to date")
         return
 
     fmt_targets = [str(project_py)]
@@ -139,18 +137,17 @@ def main() -> None:
         fmt_targets += [str(layers_dir)]
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
 
-    spec = _load_spec(project_dir)
-
-    if isinstance(spec, ArcGISProject):
-        from alidade.render_arcgispro import render_arcgispro
-
-        _run_processing_steps(spec, project_dir, force=force)
-        render_arcgispro(spec, project_dir)
-    else:
-        assert isinstance(spec, QGISProject)
+    if spec.output_format == "qgis":
         _run_processing_steps(spec, project_dir, force=force)
         render(spec, project_dir)
         update_readme(spec, project_dir)
+    elif spec.output_format == "lyrx":
+        from alidade.render_lyrx import render_lyrx
+
+        _run_processing_steps(spec, project_dir, force=force)
+        render_lyrx(spec, project_dir)
+    else:
+        raise NotImplementedError(f"Unknown output_format {spec.output_format!r}")
 
     output_dir = project_dir / "output"
     output_dir.mkdir(exist_ok=True)

@@ -40,11 +40,11 @@ Generalize after friction, not before.
 ```
 alidade/
   alidade/
-    models.py              # Pydantic: BaseProject/QGISProject/ArcGISProject,
-                           #   Layer, ProcessingStep, renderers, symbols
-    dump.py                # .qgz → layers/*.py + styles/*.xml  (QGIS only)
-    render.py              # project.py → output/project.qgs   (QGIS)
-    render_arcgispro.py    # project.py → output/project.aprx  (ArcGIS Pro)
+    models.py              # Pydantic: Project, Layer, ProcessingStep, renderers, symbols
+    dump_qgis.py           # .qgz → layers/*.py + styles/*.xml  (QGIS only)
+    render_qgis.py         # project.py → output/project.qgs   (QGIS)
+    render_lyrx.py         # project.py → output/{layer.id}.lyrx  (ArcGIS Pro)
+    lyrx/                  # CIM builder subpackage (data_connection, symbols, renderers, build)
     build.py               # entry point; dispatches on output_format
     readme.py              # auto-generates README from spec
   Makefile
@@ -53,18 +53,18 @@ alidade/
 
   projects/                # one subdirectory per project
     <project_dir>/
-      project.py           # assembles QGISProject or ArcGISProject from layers
+      project.py           # assembles Project (output_format="qgis" or "lyrx")
       layers/              # one .py file per layer, named by layer ID
-      styles/              # per-layer XML extracted from .qgz, committed
+      styles/              # per-layer XML extracted from .qgz, committed (QGIS only)
       output/              # gitignored; derived data and project files
 ```
 
 ### Dispatch
 
-`build.py` reads `project.py` to determine the output format:
+`build.py` reads `project.py` to determine the output format via `spec.output_format`:
 
-- `QGISProject` → `render.py` → `output/project.qgs` + optional `output/print.qpt`
-- `ArcGISProject` → `render_arcgispro.py` → `output/project.aprx`
+- `"qgis"` → `render_qgis.py` → `output/project.qgs` + optional `output/print.qpt`
+- `"lyrx"` → `render_lyrx.py` → `output/{layer.id}.lyrx` (one file per layer)
 
 Both share `_run_processing_steps` (format-agnostic).
 
@@ -93,36 +93,31 @@ class Layer(BaseModel):
     crs: str | None = None
     geometry_type: str | None = None  # "Polygon", "LineString", "Point"
     alpha_band: int | None = None     # QGIS raster alpha band
-    arcgispro_workspace: str | None = None  # explicit ArcGIS Pro WorkspaceConnectionString
     visible: bool = True
     renderer: Renderer | None = None
     label: Label | None = None
     processing_step: ProcessingStep | None = None
     extra: dict[str, Any] = {}
 
-class BaseProject(BaseModel):
+class Project(BaseModel):
     model_config = ConfigDict(extra="allow")
-    output_format: str   # overridden as Literal by subclasses
+    output_format: Literal["qgis", "lyrx"] = "qgis"
     title: str
     crs: str
     layers: list[Layer]
     extent: tuple[float, float, float, float] | None = None
+    print_layout: PrintLayout | None = None  # QGIS only
     extra: dict[str, Any] = {}
-
-class QGISProject(BaseProject):
-    output_format: Literal["qgis"] = "qgis"
-    print_layout: PrintLayout | None = None
-
-class ArcGISProject(BaseProject):
-    output_format: Literal["arcgispro"] = "arcgispro"
 ```
 
-**`project.py` pattern** — import `QGISProject as Project` or `ArcGISProject`:
+**`project.py` pattern** — import `Project` and set `output_format`:
 
 ```python
-from alidade.models import QGISProject as Project   # QGIS
+from alidade.models import Project
+
+spec = Project(output_format="qgis", title="My Map", crs="EPSG:3857", layers=[...])
 # or
-from alidade.models import ArcGISProject            # ArcGIS Pro
+spec = Project(output_format="lyrx", title="My Map", crs="EPSG:3857", layers=[...])
 ```
 
 ## Layer IDs and filenames
@@ -136,7 +131,7 @@ auto-pads short IDs to `{id}_{uuid[:8]}` and emits a warning.
 
 ## QGIS output
 
-No PyQGIS — generate XML directly. `render.py` builds a `.qgs` XML tree from the
+No PyQGIS — generate XML directly. `render_qgis.py` builds a `.qgs` XML tree from the
 `QGISProject` spec and writes `output/project.qgs`. Style is embedded from
 `styles/*.xml` or rendered from typed `Renderer` models.
 
@@ -146,48 +141,34 @@ Symbol layers: `SimpleFill`, `SimpleLine`, `SimpleMarker`, `SvgMarker`.
 
 ## ArcGIS Pro output
 
-`render_arcgispro.py` writes `output/project.aprx` — a ZIP archive of CIM
-(Cartographic Information Model) documents. Target version: **CIM v3.4.0**
-(ArcGIS Pro 3.4, build 55405).
+`render_lyrx.py` writes one `output/{layer.id}.lyrx` per layer — a standalone
+JSON file using the CIM (Cartographic Information Model) v3.4.0 format.
+Each `.lyrx` can be dragged directly into ArcGIS Pro without building a full
+project archive.
 
 ### CIM format
 
-In Pro 3.x, all CIM documents except `DocumentInfo.xml` and `Metadata/*.xml`
-are **JSON**, even when the filename ends in `.xml`. The type discriminator is
-a `"type"` field, not `xsi:type`. Keys are camelCase.
+CIM documents are **JSON** with a `"type"` discriminator field and camelCase keys.
 
 Primary CIM reference: **https://github.com/Esri/cim-spec**
-(use the `docs/v3/` tree; the repo is currently at v3.7 — check git history/tags
-for the v3.4 snapshot). The .NET SDK CIM namespace docs have better descriptions
-for terse spec pages.
+(use the `docs/v3/` tree). The .NET SDK CIM namespace docs have better
+descriptions than the terse spec markdown pages.
 
-### ZIP layout
+### .lyrx structure
 
-```
-DocumentInfo.xml             ← XML; version 3.4.0, build 55405
-GISProject.json              ← JSON; CIMGISProject with views array
-Index.json                   ← JSON; node graph of all documents
-map/map.xml                  ← JSON; CIMMap
-map/Ground.json              ← JSON; CIMElevationSurfaceLayer (required in 3.x)
-map/<layer_id>.xml           ← JSON; CIMFeatureLayer per operational layer
-<uuid>.xml                   ← JSON; CIMTiledServiceLayer (wms/tile provider)
-Metadata/<uuid>.xml          ← XML; stub metadata
-```
-
-`007Index.ind` (Esri positional object-store index) is regenerated by ArcGIS Pro
-on first save; we do not include it.
-
-### Spatial reference
-
-v2.x used WKT strings. v3.x uses WKID-based dicts:
+A `.lyrx` file is a flat `CIMLayerDocument` JSON object:
 
 ```json
-{"wkid": 102100, "latestWkid": 3857}
+{
+  "type": "CIMLayerDocument",
+  "version": "3.4.0",
+  "build": 55405,
+  "layers": ["CIMPATH=layers/<layer_id>.json"],
+  "layerDefinitions": [{ "type": "CIMFeatureLayer", "uRI": "CIMPATH=layers/<layer_id>.json", ... }]
+}
 ```
 
-`_sr_dict(crs_str)` resolves via pyproj `to_epsg()`. The Esri legacy wkid
-differs from the EPSG latestWkid only for Web Mercator (3857 → 102100) and a
-handful of others; `_ESRI_WKID_ALIASES` holds the mapping.
+The `layers[0]` CIMPATH must exactly match `layerDefinitions[0].uRI`.
 
 ### Colors
 
@@ -199,56 +180,50 @@ Alpha is 0–100 (percent), not 0–255. `_rgb_color("R,G,B,A")` converts.
 
 ### Data connections
 
-`_cim_source(layer, project_dir)` returns `(WorkspaceConnectionString, WorkspaceFactory, Dataset)`:
+`build_data_connection(layer, project_dir)` derives workspace and dataset from
+`layer.source` (uses the shapefile stem, not `layer.id`):
 
-| `layer.source` | WorkspaceFactory | WorkspaceConnectionString |
-|---|---|---|
-| ends with `.shp` | `Shapefile` | `DATABASE=.\<rel-dir>` |
-| inside `.gdb/` | `FileGDB` | `DATABASE=.\<name>.gdb` |
-| `arcgispro_workspace` set | use that string verbatim | that string |
-| `provider == "wms"` | — | → `CIMTiledServiceLayer` |
-| anything else | warn + skip | — |
+```json
+{
+  "type": "CIMStandardDataConnection",
+  "workspaceConnectionString": "DATABASE=<absolute folder path>",
+  "workspaceFactory": "Shapefile",
+  "dataset": "<stem>",
+  "datasetType": "esriDTFeatureClass"
+}
+```
 
-### Supported renderers (ArcGIS Pro path)
+Standalone `.lyrx` files require absolute paths. Set `ARCGIS_WORKSPACE_ROOT`
+in `local.env` (gitignored) to remap local paths to the ArcGIS machine path.
+The project directory name is appended automatically so the value is machine-level
+only — no per-project secrets committed.
+
+### Supported renderers (lyrx path)
 
 | alidade model | CIM type | Status |
 |---|---|---|
 | `SingleSymbol` + `SimpleFill` | `CIMSimpleRenderer` → `CIMPolygonSymbol` | ✓ |
 | `SingleSymbol` + `SimpleLine` | `CIMSimpleRenderer` → `CIMLineSymbol` | ✓ |
+| `GraduatedRenderer` | `CIMClassBreaksRenderer` (GraduatedColor) | ✓ |
 | `SingleSymbol` + `SimpleMarker` | `CIMSimpleRenderer` → `CIMPointSymbol` | deferred |
-| `GraduatedRenderer` | `CIMClassBreaksRenderer` | deferred |
 | `RuleRenderer` | `CIMUniqueValueRenderer` | deferred |
 | `PalettedRenderer` | `CIMRasterColorizer` | deferred |
 
 Layers with a deferred renderer type get no `"renderer"` key; ArcGIS Pro
 assigns a default. The CIM spec (`docs/v3/CIMRenderers.md`) documents all types.
 
-### Ground elevation surface
+### Symbol layer order
 
-Every CIM v3.x map requires a `CIMElevationSurfaceLayer` at `map/Ground.json`.
-Feature layers reference it via:
-
-```json
-"layerElevation": {
-  "type": "CIMLayerElevationSurface",
-  "elevationSurfaceLayerURI": "CIMPATH=map/Ground.json"
-}
-```
-
-### Index.json
-
-Lists every document in the archive as a node with `NodeId`, `NodeType`,
-`FileName`, `ChildNodeIds`. The Map node's `ChildNodeIds` lists metadata,
-all feature layers (which each reference Ground), and tile layers. `GISProject.json`
-and `DocumentInfo.xml` are not in the Index.
+In `CIMPolygonSymbol.symbolLayers`: `CIMSolidStroke` first (index 0),
+`CIMSolidFill` second. This is the opposite of QGIS QML layer order.
+`CIMSolidStroke` requires 3D fields: `anchor3D`, `height3D`, `lineStyle3D`.
 
 ## Makefile targets
 
 | Target | What it does |
 |---|---|
-| `make build DIR=...` | Builds `.qgs` or `.aprx` depending on project type |
-| `make build-arcgispro DIR=...` | Alias for `make build` for clarity |
-| `make build-all` | Builds all projects under `projects/` |
+| `make build DIR=...` | Builds `.qgs` or `.lyrx` files depending on project type |
+| `make build-all DIR=...` | Force rebuild even if up to date |
 | `make dump DIR=...` | Extracts layers from a `.qgz` (QGIS only) |
 | `make lint` | black + flake8 + mypy |
 | `make extent DIR=...` | Prints bounding box of project data |
@@ -304,6 +279,12 @@ work — not retroactively.
 | File Geodatabase API | github.com/Esri/file-geodatabase-api | C++/Java read+write |
 | GDAL OpenFileGDB driver | GDAL docs | Open-source .gdb read+write |
 | Shapefile spec | ESRI 1998 white paper | Still authoritative |
+
+## Update documentation
+
+Update DESIGN.md, README.md, Makefile to reflect the new layout.
+
+Add a section to README with a styled ArcGIS layer.
 
 ## Deferred
 

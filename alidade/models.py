@@ -193,10 +193,6 @@ class Layer(BaseModel):
     alpha_band: int | None = (
         None  # raster alpha band (e.g. 2 when created with gdalwarp -dstalpha)
     )
-    arcgispro_workspace: str | None = (
-        None  # explicit ArcGIS Pro WorkspaceConnectionString;
-        # overrides auto-translation of source
-    )
     visible: bool = True
     renderer: Renderer | None = None
     label: Label | None = None
@@ -343,27 +339,14 @@ class PrintLayout(BaseModel):
 # ── Project ───────────────────────────────────────────────────────────────────
 
 
-class BaseProject(BaseModel):
-    """Base class for all project types. Use QGISProject or ArcGISProject."""
+class Project(BaseModel):
+    """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
     model_config = ConfigDict(extra="allow")
-    output_format: str  # overridden by subclasses as a Literal
+    output_format: Literal["qgis", "lyrx"] = "qgis"
     title: str
     crs: str
     layers: list[Layer]
     extent: tuple[float, float, float, float] | None = None
-    extra: dict[str, Any] = {}
-
-
-class QGISProject(BaseProject):
-    """QGIS project; renders to output/project.qgs and optionally output/print.qpt."""
-
-    output_format: Literal["qgis"] = "qgis"
     print_layout: PrintLayout | None = None
-
-
-class ArcGISProject(BaseProject):
-    """ArcGIS Pro project; renders to output/project.aprx."""
-
-    output_format: Literal["arcgispro"] = "arcgispro"
-    arcgispro_extra_cim: list[dict[str, Any]] = []
+    extra: dict[str, Any] = {}

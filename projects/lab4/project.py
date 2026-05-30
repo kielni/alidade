@@ -2,7 +2,7 @@ from alidade.models import (
     PrintLayout,
     PrintMapFrame,
     PrintScaleBar,
-    QGISProject as Project,
+    Project,
 )
 
 from .layers.basemap import basemap

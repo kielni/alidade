@@ -8,14 +8,13 @@ SHELL := /bin/bash
 
 LOG ?= lint.log
 
-.PHONY: help dump build build-all build-arcgispro extent validate lint clean
+.PHONY: help dump build build-all extent validate lint clean
 
 help:
 	@echo "Targets:"
 	@echo "  make dump DIR=project_dir          # finds .qgs or .qgz under DIR"
-	@echo "  make build DIR=project_dir         # build .qgs or .aprx based on project type"
+	@echo "  make build DIR=project_dir         # build .qgs or .lyrx based on project type"
 	@echo "  make build-all DIR=project_dir     # force rebuild even if up to date"
-	@echo "  make build-arcgispro DIR=project_dir  # alias for make build (ArcGIS projects)"
 	@echo "  make extent DIR=project_dir        # print extent from QGIS-saved output/project.qgs"
 	@echo "  make validate DIR=project_dir      # check all source/style paths exist"
 	@echo "  make lint"
@@ -32,10 +31,6 @@ build:
 build-all:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make build-all DIR=project_dir"; exit 1; fi
 	uv run alidade-build $(DIR) --force
-
-build-arcgispro:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make build-arcgispro DIR=project_dir"; exit 1; fi
-	uv run alidade-build $(DIR)
 
 extent:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make extent DIR=project_dir"; exit 1; fi
