@@ -2,6 +2,7 @@
 # Copy local.env.example to local.env and set QGIS before use.
 
 -include local.env
+export ARCGIS_WORKSPACE_ROOT
 
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c

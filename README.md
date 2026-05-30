@@ -184,7 +184,8 @@ human-friendly names before committing.
 - Edit a layer file or describe the change to an LLM.
 - Run `make build DIR=my_project`.
 - **QGIS:** reload with Ctrl-R.
-- **ArcGIS Pro:** open `output/project.aprx` (or re-open if already open).
+- **ArcGIS Pro:** copy `output/*.lyrx` and shapefiles to Windows, then drag
+  into the map (see [Using .lyrx files in ArcGIS Pro](#using-lyrx-files-in-arcgis-pro)).
 - Commit `project.py` and updated layer files.
 
 For derived rasters, run `make build --force DIR=my_project` when source data
@@ -209,8 +210,42 @@ the spec. Steps whose output already exists are skipped.
 **ArcGIS Pro output** (`output_format="lyrx"`):
 
 - `output/{layer.id}.lyrx` — one standalone CIM v3.4.0 JSON file per layer;
-  drag into ArcGIS Pro 3.4+ to add layers to any map
+  each file embeds both the symbology and the path to its shapefile
 - `output/<derived files>` — shapefiles, rasters from processing steps
+
+### Using .lyrx files in ArcGIS Pro
+
+Each `.lyrx` is a self-contained `CIMLayerDocument` — it carries the full
+renderer (graduated colors, SVG markers, etc.) *and* a data connection that
+points to the shapefile on disk. The data connection uses an absolute path, so
+it must match where the files land on the ArcGIS Pro machine.
+
+**Setup (once):** add `ARCGIS_WORKSPACE_ROOT` to `local.env` so paths in the
+generated `.lyrx` files are written for the Windows machine rather than the Mac.
+`local.env` uses Makefile syntax; forward slashes work on Windows and avoid
+any backslash ambiguity:
+
+```makefile
+ARCGIS_WORKSPACE_ROOT := C:/Users/you/GIS
+```
+
+With this set, a source like `./output/census_tracts.shp` in a project at
+`projects/lab5/` becomes `DATABASE=C:/Users/you/GIS/lab5/output` in the
+`.lyrx`, which ArcGIS Pro resolves without any manual path repair.
+
+**Each build:**
+
+1. Run `make build DIR=my_project` on the Mac — `.lyrx` files appear in `output/`.
+2. Copy `output/*.lyrx` and the matching `output/*.shp` (plus `.dbf`, `.shx`,
+   `.prj`, `.cpg` sidecar files) to `C:\Users\you\GIS\my_project\output\` on
+   the Windows machine.
+3. In ArcGIS Pro, open the **Catalog** pane (*View → Catalog Pane*), navigate
+   to that folder, and drag one or more `.lyrx` files into the map — **or** use
+   *Map → Add Data → Add Layer From File*.
+4. Each layer opens with its symbology intact and data already connected.
+
+After rebuilding, remove the old layers from the Contents pane and drag the
+updated `.lyrx` files back in; ArcGIS Pro does not live-reload layer files.
 
 ### Using the QGIS print template
 
