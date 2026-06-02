@@ -34,6 +34,20 @@
 **Derived from:** `park_boundary`  
 **Processing:** Reproject and clip roads and trails to park boundary
 
+### Slope
+
+**Source:** `output/slope.tif`  
+**Style:** paletted raster (4 classes)  
+**Derived from:** `usgs_elevation`  
+**Processing:** Compute percentage slope from elevation DEM and classify into 4 categories
+
+### Elevation
+
+**Source:** `output/elevation.tif`  
+**Style:** no style configured  
+**Derived from:** `park_boundary`  
+**Processing:** Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary
+
 ### CartoDB Positron
 
 **Source:** `CartoDB Positron XYZ tile service`  
@@ -43,8 +57,10 @@
 
 ```mermaid
 flowchart LR
-    park_boundary --> riparian_637523c6
+    park_boundary --> riparian_zone
     park_boundary --> roads_trails
+    usgs_elevation --> slope_percent
+    park_boundary --> usgs_elevation
 ```
 
 ## Processing tools
@@ -53,6 +69,8 @@ flowchart LR
 | --- | --- | --- |
 | `staging_areas` | `geopandas` | Reproject staging area points to EPSG:26910 |
 | `developed_area` | `geopandas` | Simplify GPX track (10 m tolerance), close ring, convert to polygon, reproject to EPSG:26910 |
-| `riparian_637523c6` | `geopandas` | Reproject and clip streams to park boundary |
+| `riparian_zone` | `geopandas` | Reproject and clip streams to park boundary |
 | `roads_trails` | `geopandas` | Reproject and clip roads and trails to park boundary |
+| `slope_percent` | `gdaldem` (subprocess) | Compute percentage slope from elevation DEM and classify into 4 categories |
+| `usgs_elevation` | `gdalwarp` (subprocess) | Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary |
 <!-- auto:end -->

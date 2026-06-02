@@ -12,6 +12,27 @@ from alidade.models import (
 )
 from projects.goats.util import CRS
 
+"""
+Creeks from OpenStreetMap data,
+downloaded via Overpass Turbo: https://overpass-turbo.eu
+Use this to exclude areas within 100ft of creek to protect sensitive
+riparian vegetation.
+
+https://overpass-turbo.eu
+
+```
+[out:json][timeout:25];
+(
+  way["waterway"~"stream|river|canal|creek"]({{bbox}});
+  relation["waterway"~"stream|river|canal|creek"]({{bbox}});
+  way["natural"="water"]({{bbox}});
+  relation["natural"="water"]({{bbox}});
+  way["water"~"river|stream|lake|pond|reservoir"]({{bbox}});
+);
+out geom;
+```
+"""
+
 
 def clip_water(boundary: Path, output: Path) -> None:
     project_dir = boundary.parent.parent
@@ -21,7 +42,7 @@ def clip_water(boundary: Path, output: Path) -> None:
 
 
 water = Layer(
-    id="riparian",
+    id="riparian_zone",
     name="Riparian Areas",
     type="vector",
     source="./output/water.shp",

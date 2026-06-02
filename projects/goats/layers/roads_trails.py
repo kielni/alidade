@@ -12,6 +12,27 @@ from alidade.models import (
 )
 from projects.goats.util import CRS
 
+"""
+Roads and trails from OpenStreetMap data,
+downloaded via Overpass Turbo: https://overpass-turbo.eu
+Use this to identify priority areas "along roads, wide trails"
+
+[out:json][timeout:25];
+(
+  // Hiking trails
+  way["highway"="path"]({{bbox}});
+  way["highway"="footway"]({{bbox}});
+  way["highway"="track"]({{bbox}});
+  way["route"="hiking"]({{bbox}});
+  way["sac_scale"]({{bbox}});
+  relation["route"="hiking"]({{bbox}});
+
+  // Roads
+  way["highway"~"motorway|trunk|primary|secondary|tertiary|unclassified|residential|service"]({{bbox}});
+);
+out geom;
+"""
+
 
 def clip_roads_trails(boundary: Path, output: Path) -> None:
     project_dir = boundary.parent.parent

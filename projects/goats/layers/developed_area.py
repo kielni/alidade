@@ -17,6 +17,13 @@ from projects.goats.util import CRS
 
 _SIMPLIFY_TOLERANCE_M = 10
 
+"""
+Strava .gpx from walk around developed area (buildings, playgrounds, picnic areas,
+etc).
+
+Use this to identify priority "high human use" areas
+"""
+
 
 def convert_developed_area(output: Path) -> None:
     project_dir = output.parent.parent

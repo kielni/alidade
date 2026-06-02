@@ -1,7 +1,9 @@
 from alidade.models import Project
 from projects.goats.layers.basemap import basemap
 from projects.goats.layers.developed_area import developed_area
+from projects.goats.layers.elevation import elevation
 from projects.goats.layers.park_boundary import park_boundary
+from projects.goats.layers.slope import slope
 from projects.goats.layers.roads_trails import roads_trails
 from projects.goats.layers.staging import staging
 from projects.goats.layers.water import water
@@ -22,6 +24,8 @@ map_all = Project(
         developed_area,
         water,
         roads_trails,
+        slope,
+        elevation,
         basemap,
     ],
 )
@@ -41,6 +45,7 @@ map = Project(
         developed_area,
         water,
         roads_trails,
+        slope,
         basemap,
     ],
 )

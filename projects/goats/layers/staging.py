@@ -12,6 +12,10 @@ from alidade.models import (
 )
 from projects.goats.util import CRS
 
+"""
+Parking lots suitable for goat staging.
+"""
+
 
 def reproject_staging(output: Path) -> None:
     project_dir = output.parent.parent
