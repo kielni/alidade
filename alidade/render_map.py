@@ -1,19 +1,24 @@
 """Render a Project spec to a static PNG using matplotlib and geopandas."""
 
 import argparse
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 import geopandas as gpd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
+from PIL import Image
 
 from alidade.models import (
     GraduatedRenderer,
     Layer,
+    PalettedRenderer,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -22,6 +27,53 @@ from alidade.models import (
     SvgMarker,
 )
 from alidade.util.helpers import load_spec, resolve_source_path
+
+
+def _hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[float, float, float, float]:
+    """Convert '#rrggbb' palette hex to matplotlib RGBA tuple (0–1)."""
+    h = hex_color.lstrip("#")
+    return (
+        int(h[0:2], 16) / 255,
+        int(h[2:4], 16) / 255,
+        int(h[4:6], 16) / 255,
+        alpha / 255,
+    )
+
+
+def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
+    """Return (xmin, ymin, xmax, ymax) for a raster via gdalinfo, or None."""
+    try:
+        result = subprocess.run(
+            ["gdalinfo", "-json", str(source)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        cc = json.loads(result.stdout)["cornerCoordinates"]
+        ul, lr = cc["upperLeft"], cc["lowerRight"]
+        return ul[0], lr[1], lr[0], ul[1]
+    except Exception:
+        return None
+
+
+def _plot_paletted_raster(
+    ax: Axes, source: Path, renderer: PalettedRenderer
+) -> list[mpatches.Patch]:
+    """Render a PalettedRenderer raster onto ax; return legend patches."""
+    bounds = _raster_bounds(source)
+    if bounds is None:
+        return []
+    xmin, ymin, xmax, ymax = bounds
+    arr = np.array(Image.open(source))
+    rgba = np.zeros((*arr.shape, 4), dtype=np.float32)
+    handles: list[mpatches.Patch] = []
+    for entry in renderer.entries:
+        mask = arr == entry.value
+        r, g, b, a = _hex_to_rgba(entry.color, entry.alpha)
+        rgba[mask] = (r, g, b, a)
+        handles.append(mpatches.Patch(facecolor=(r, g, b, 1.0), label=entry.label))
+    ax.imshow(rgba, extent=(xmin, xmax, ymin, ymax), aspect="auto", origin="upper")
+    return handles
 
 
 def _rgba(color_str: str) -> tuple[float, float, float, float]:
@@ -149,28 +201,40 @@ def render(
     """
     spec = load_spec(project_dir)
 
-    # Read all visible vector layers first to compute the combined data extent.
-    layers_gdfs: list[tuple[Layer, gpd.GeoDataFrame]] = []
+    # Read all visible layers to compute the combined data extent.
+    # Each entry is (layer, gdf) for vector or (layer, Path) for raster.
+    layers_data: list[tuple[Layer, gpd.GeoDataFrame | Path]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
     for layer in reversed(spec.layers):
         if not layer.visible:
             continue
-        if layer.type == "raster" or layer.provider == "wms":
+        if layer.provider == "wms":
             continue
         source = resolve_source_path(layer.source, project_dir)
-        try:
-            gdf = gpd.read_file(source)
-        except Exception as exc:
-            print(f"  skip {layer.name!r}: {exc}")
-            continue
-        if gdf.crs is not None:
-            gdf = gdf.to_crs(spec.crs)
-        b = gdf.total_bounds  # [xmin, ymin, xmax, ymax]
-        xmins.append(b[0])
-        ymins.append(b[1])
-        xmaxs.append(b[2])
-        ymaxs.append(b[3])
-        layers_gdfs.append((layer, gdf))
+        if layer.type == "raster":
+            bounds = _raster_bounds(source)
+            if bounds is None:
+                print(f"  skip {layer.name!r}: could not read raster bounds")
+                continue
+            xmins.append(bounds[0])
+            ymins.append(bounds[1])
+            xmaxs.append(bounds[2])
+            ymaxs.append(bounds[3])
+            layers_data.append((layer, source))
+        else:
+            try:
+                gdf = gpd.read_file(source)
+            except Exception as exc:
+                print(f"  skip {layer.name!r}: {exc}")
+                continue
+            if gdf.crs is not None:
+                gdf = gdf.to_crs(spec.crs)
+            b = gdf.total_bounds  # [xmin, ymin, xmax, ymax]
+            xmins.append(b[0])
+            ymins.append(b[1])
+            xmaxs.append(b[2])
+            ymaxs.append(b[3])
+            layers_data.append((layer, gdf))
 
     if xmins:
         xmin, ymin = min(xmins), min(ymins)
@@ -197,8 +261,12 @@ def render(
     ax.patch.set_visible(True)
     legend_handles: list[mpatches.Patch] = []
 
-    for layer, gdf in layers_gdfs:
-        legend_handles.extend(_plot_layer(ax, gdf, layer))
+    for layer, data in layers_data:
+        if layer.type == "raster" and isinstance(layer.renderer, PalettedRenderer):
+            assert isinstance(data, Path)
+            legend_handles.extend(_plot_paletted_raster(ax, data, layer.renderer))
+        elif isinstance(data, gpd.GeoDataFrame):
+            legend_handles.extend(_plot_layer(ax, data, layer))
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
