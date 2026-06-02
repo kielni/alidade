@@ -1,16 +1,19 @@
 from alidade.models import Project
-
-from .layers.census_tracts import census_tracts
-from .layers.census_tracts_raw import census_tracts_raw
-from .layers.hotspots_census import hotspots_census
-from .layers.hotspots_income import hotspots_income
-from .layers.hotspots_census_arcgis import hotspots_census as hotspots_census_arcgis
-from .layers.hotspots_income_arcgis import hotspots_income as hotspots_income_arcgis
-from .layers.hotspots_overlap import hotspots_overlap
-from .layers.mall_buffers import mall_buffers
-from .layers.malls import malls
-from .layers.household_income import household_income
-from .layers.household_income_raw import household_income_raw
+from projects.lab5.layers.census_tracts import census_tracts
+from projects.lab5.layers.census_tracts_raw import census_tracts_raw
+from projects.lab5.layers.hotspots_census import hotspots_census
+from projects.lab5.layers.hotspots_income import hotspots_income
+from projects.lab5.layers.hotspots_census_arcgis import (
+    hotspots_census as hotspots_census_arcgis,
+)
+from projects.lab5.layers.hotspots_income_arcgis import (
+    hotspots_income as hotspots_income_arcgis,
+)
+from projects.lab5.layers.hotspots_overlap import hotspots_overlap
+from projects.lab5.layers.mall_buffers import mall_buffers
+from projects.lab5.layers.malls import malls
+from projects.lab5.layers.household_income import household_income
+from projects.lab5.layers.household_income_raw import household_income_raw
 
 EXTENT = (
     5460528.438,

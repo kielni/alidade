@@ -30,6 +30,7 @@ dependencies = [
 
 [project.scripts]
 alidade-build = "alidade.build:main"
+alidade-map = "alidade.render_map:main"
 alidade-dump = "alidade.dump_qgis:main"
 alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"

@@ -1,12 +1,11 @@
 from alidade.models import Project
-
-from .layers.libraries import libraries
-from .layers.paloalto_cityboundary import paloalto_cityboundary
-from .layers.carto_test_3 import carto_test_3
-from .layers.osm_gray_scale import osm_gray_scale
-from .layers.high_schools import high_schools
-from .layers.high_schools_2227 import high_schools_2227
-from .layers.high_schools_buffer import high_schools_buffer
+from projects.XY_projections.layers.libraries import libraries
+from projects.XY_projections.layers.paloalto_cityboundary import paloalto_cityboundary
+from projects.XY_projections.layers.carto_test_3 import carto_test_3
+from projects.XY_projections.layers.osm_gray_scale import osm_gray_scale
+from projects.XY_projections.layers.high_schools import high_schools
+from projects.XY_projections.layers.high_schools_2227 import high_schools_2227
+from projects.XY_projections.layers.high_schools_buffer import high_schools_buffer
 
 spec = Project(
     title="",

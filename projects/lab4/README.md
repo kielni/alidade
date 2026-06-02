@@ -9,6 +9,18 @@
 **Style:** single symbol — SVG marker mall.svg, 5.0 MM  
 **Processing:** Geocode mall_names.csv addresses with Nominatim; reproject to EPSG:2227. Fields: id, Street, mall_name, city.
 
+### Census Tracts (raw)
+
+**Source:** `data/M22_39yrs.shp`  
+**Style:** no style configured  
+
+### Census Tracts
+
+**Source:** `output/census_tracts.shp`  
+**Style:** graduated (5 classes on `M22_39`)  
+**Derived from:** `census_tracts_raw`  
+**Processing:** Filter census tracts to those with Total > 0.
+
 ### Mall 5-Mile Buffers
 
 **Source:** `output/mall_buffers.shp`  
@@ -46,6 +58,7 @@
 
 ```mermaid
 flowchart LR
+    census_tracts_raw --> census_tracts
     mall_points --> mall_buffers
     census_tracts --> target_tracts
     mall_buffers --> mall_target_intersect
@@ -59,6 +72,7 @@ flowchart LR
 | Layer | Tool | Description |
 | --- | --- | --- |
 | `mall_points` | `geopandas` | Geocode mall_names.csv addresses with Nominatim; reproject to EPSG:2227. Fields: id, Street, mall_name, city. |
+| `census_tracts` | `geopandas` | Filter census tracts to those with Total > 0. |
 | `mall_buffers` | `geopandas` | Buffer mall points by 5 miles (26,400 ft) in EPSG:2227 |
 | `target_tracts` | `geopandas` | Calculate pct_m22_39 = M22_39 / Total * 100; keep tracts where pct_m22_39 > 20. |
 | `mall_target_intersect` | `geopandas` | Spatial inner join (intersects) of mall 5-mile buffers with census tracts where pct_m22_39 > 20%; retains Total and M22_39. |

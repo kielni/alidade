@@ -8,17 +8,11 @@ from pathlib import Path
 
 from alidade.models import Layer, Project
 from alidade.readme import update_readme
-from alidade.render_qgis import _load_spec, render
+from alidade.render_map import render as render_map
+from alidade.render_qgis import render as render_qgis
+from alidade.util.helpers import load_spec, resolve_source_path
 
 HERE = Path(__file__).parent  # alidade/
-
-
-def _resolve_source_path(source: str, project_dir: Path) -> Path:
-    """Return the absolute filesystem path for a layer source string."""
-    path_part = source.split("|")[0].split("?")[0]
-    if path_part.startswith("/") or ":" in path_part.split("/")[0]:
-        return Path(path_part)
-    return (project_dir / path_part).resolve()
 
 
 def _visit(
@@ -53,7 +47,7 @@ def _topo_sort(spec: Project) -> list[Layer]:
 def _run_processing_steps(spec: Project, project_dir: Path, force: bool) -> None:
     """Run processing steps in dependency order for outputs that don't exist."""
     sources = {
-        layer.id: _resolve_source_path(layer.source, project_dir)
+        layer.id: resolve_source_path(layer.source, project_dir)
         for layer in spec.layers
     }
     for layer in _topo_sort(spec):
@@ -125,7 +119,7 @@ def main() -> None:
         print(f"project.py not found in {project_dir} — run 'make dump' first")
         sys.exit(1)
 
-    spec = _load_spec(project_dir)
+    spec = load_spec(project_dir)
 
     if not force and not _needs_rebuild(project_dir, spec.output_format):
         print("project is up to date")
@@ -139,13 +133,15 @@ def main() -> None:
 
     if spec.output_format == "qgis":
         _run_processing_steps(spec, project_dir, force=force)
-        render(spec, project_dir)
+        render_qgis(spec, project_dir)
+        render_map(project_dir)
         update_readme(spec, project_dir)
     elif spec.output_format == "lyrx":
         from alidade.render_lyrx import render_lyrx
 
         _run_processing_steps(spec, project_dir, force=force)
         render_lyrx(spec, project_dir)
+        render_map(project_dir)
     else:
         raise NotImplementedError(f"Unknown output_format {spec.output_format!r}")
 

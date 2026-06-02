@@ -1,6 +1,5 @@
 """Render project.py → output/project.qgs."""
 
-import importlib
 import os
 import re
 import uuid
@@ -11,6 +10,7 @@ from pathlib import Path
 
 from pyproj import CRS as ProjCRS
 
+from alidade.util.helpers import abs_source
 from alidade.models import (
     GraduatedRenderer,
     Label,
@@ -84,21 +84,6 @@ def _split_source_suffix(source: str) -> tuple[str, str]:
     return source, ""
 
 
-def _abs_source(source: str, project_dir: Path) -> str:
-    """Resolve a source path to absolute.
-
-    Paths starting with './' or 'data/' are project-dir-relative.
-    All other relative paths are HERE-relative (source data alongside the repo).
-    URIs and absolute paths are returned unchanged.
-    """
-    if source.startswith("/") or source.startswith("?") or ":" in source.split("/")[0]:
-        return source
-    path_part, geom_suffix = _split_source_suffix(source)
-    if path_part.startswith("./") or path_part.startswith("data/"):
-        return str((project_dir / path_part).resolve()) + geom_suffix
-    return str((HERE / path_part).resolve()) + geom_suffix
-
-
 def _rel_source(source: str, project_dir: Path) -> str:
     """Return datasource relative to project_dir/output/ for output/project.qgs.
 
@@ -107,7 +92,7 @@ def _rel_source(source: str, project_dir: Path) -> str:
     as required by the QGIS delimitedtext provider.
     Other URIs are returned unchanged.
     """
-    abs_src = _abs_source(source, project_dir)
+    abs_src = abs_source(source, project_dir)
     path_part, geom_suffix = _split_source_suffix(abs_src)
     if path_part.startswith("/"):
         output_dir = project_dir / "output"
@@ -117,18 +102,6 @@ def _rel_source(source: str, project_dir: Path) -> str:
         prefix = "file:" if geom_suffix.startswith("?") else ""
         return prefix + rel + geom_suffix
     return abs_src
-
-
-def _load_spec(project_dir: Path) -> Project:
-    """Load project.py from project_dir and return its spec attribute."""
-    spec_path = project_dir / "project.py"
-    if not spec_path.exists():
-        raise SystemExit(
-            f"project.py not found in {project_dir} — run 'make dump' first"
-        )
-    repo_root = Path(__file__).parent.parent
-    package = ".".join(project_dir.relative_to(repo_root).parts)
-    return importlib.import_module(f"{package}.project").spec
 
 
 def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) -> None:
@@ -830,7 +803,7 @@ def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
     ]:
         ET.SubElement(flags, flag).text = val
 
-    abs_path = _abs_source(layer.source, project_dir)
+    abs_path = abs_source(layer.source, project_dir)
     path_part, _ = _split_source_suffix(abs_path)
     dbf_path = Path(path_part).with_suffix(".dbf")
     dbf_fields: list[str] = _read_dbf_fields(dbf_path) if dbf_path.exists() else []

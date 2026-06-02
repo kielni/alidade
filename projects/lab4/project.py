@@ -4,18 +4,17 @@ from alidade.models import (
     PrintScaleBar,
     Project,
 )
-
-from .layers.basemap import basemap
-from .layers.census_tracts import census_tracts
-from .layers.census_tracts_raw import census_tracts_raw
-from .layers.major_roads import major_roads
-from .layers.mall_buffers import mall_buffers
-from .layers.mall_buffer_people import mall_buffer_people
-from .layers.mall_target_intersect import mall_target_intersect
-from .layers.mall_people_deduped import mall_people_deduped
-from .layers.malls import malls
-from .layers.roads import roads
-from .layers.target_tracts import target_tracts
+from projects.lab4.layers.basemap import basemap
+from projects.lab4.layers.census_tracts import census_tracts
+from projects.lab4.layers.census_tracts_raw import census_tracts_raw
+from projects.lab4.layers.major_roads import major_roads
+from projects.lab4.layers.mall_buffers import mall_buffers
+from projects.lab4.layers.mall_buffer_people import mall_buffer_people
+from projects.lab4.layers.mall_target_intersect import mall_target_intersect
+from projects.lab4.layers.mall_people_deduped import mall_people_deduped
+from projects.lab4.layers.malls import malls
+from projects.lab4.layers.roads import roads
+from projects.lab4.layers.target_tracts import target_tracts
 
 CREDITS = (
     "US Census Bureau, 2010 data · Big Bucks INC"
@@ -156,7 +155,9 @@ map4 = Project(
     extent=EXTENT_350k,
     layers=[
         malls,
-        # needed as depdendency for mall_people_deduped but not actually visible
+        # processing dependencies not shown in this map
+        census_tracts_raw.model_copy(update={"visible": False}),
+        census_tracts.model_copy(update={"visible": False}),
         mall_buffers.model_copy(update={"visible": False}),
         target_tracts.model_copy(update={"visible": False}),
         mall_target_intersect,
