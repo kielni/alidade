@@ -1,5 +1,16 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
 
+"""
+Alum Rock Park boundary layer, from OpenStreetMap data
+downloaded via Overpass Turbo: https://overpass-turbo.eu
+
+[out:json][timeout:25];
+(
+  relation["name"="Alum Rock Park"]["leisure"="park"]({{bbox}});
+  way["name"="Alum Rock Park"]["leisure"="park"]({{bbox}});
+);
+out geom;
+"""
 park_boundary = Layer(
     id="park_boundary",
     name="Park Boundary",

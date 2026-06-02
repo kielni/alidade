@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "staging",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.82563759317091, 37.395805524520405 ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.815458735129653, 37.393649228418731 ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.813444480056731, 37.394110835197424 ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.798247645832944, 37.397037699045548 ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.800576302263295, 37.396919639222077 ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.807861325052102, 37.392260306333945 ] } }
+]
+}
