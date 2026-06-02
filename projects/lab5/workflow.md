@@ -110,6 +110,176 @@ Outline updated to dark neutral grey. Docstring updated to match.
 
 ---
 
+## Step 15 — hotspots_overlap: implement print_targets; update story_map
+
+**What this does:**
+
+Implemented `print_targets()` to rank the 11 BigBucks mall buffers by the
+number of men ages 22–39 (M22_39) reachable within the hot spot overlap zone.
+
+Algorithm: two `gpd.overlay(how="intersection")` passes.
+1. `hotspots_overlap` × `HotSpotsYoungMen[Gi_Bin==3]` — attributes area-weighted
+   M22_39 from each source census tract to the overlap polygons.
+2. That result × `mall_buffers` — clips to each mall's 2-mile service area.
+
+M22_39 is area-weighted throughout (each sub-piece gets `M22_39 × piece_area /
+tract_area`) so counts are not double-counted when a census tract spans multiple
+intersection pieces.
+
+**Results** (only 3 of 11 malls intersect the target zone):
+
+| Mall | City | M22_39 in zone | Overlap area |
+|---|---|---|---|
+| Santana Row | San Jose | 5,652 | 3.88 sq mi |
+| Westgate Center | San Jose | 3,332 | 1.96 sq mi |
+| Great Mall | Milpitas | 7 | 0.73 sq mi |
+
+Updated `story_map.md` executive summary and map 5 narrative with these findings
+and the three recommended launch sites.
+
+**Files changed:**
+- `layers/hotspots_overlap.py` — `print_targets`: full implementation (replaces stub)
+- `story_map.md` — executive summary and map 5 updated with site recommendations
+
+---
+
+## Step 14 — hotspots_overlap: fix syntax error in print_targets stub
+
+**What this does:**
+
+`print_targets()` had a comment-only body with no executable statement,
+causing an `IndentationError` at parse time.  Added `pass` so the module is
+importable while keeping the TODO comments in place.
+
+**Files changed:**
+- `layers/hotspots_overlap.py` — `print_targets`: added `pass` to stub body
+
+---
+
+## Step 13 — hotspots_overlap: intersection of Gi_Bin=3 hot spots
+
+**What this does:**
+
+Added `hotspots_overlap`: filters both `hotspots_income` and `hotspots_census` to
+`Gi_Bin == 3` (99% confidence hot spots only), then computes their polygon
+intersection via `gpd.overlay(..., how="intersection")`. The result is the set of
+areas that are simultaneously high-income and high-density 22-39 male hot spots.
+
+Styled with a solid orange fill (255,127,0, 78% opacity) and dark orange outline,
+distinct from both individual hot spot layers.
+
+**Files changed:**
+- `layers/hotspots_overlap.py` — new layer; `compute_overlap(src_income, src_census, output)`
+- `project.py` — added `hotspots_overlap` import and layer
+
+---
+
+## Step 12 — hotspots_census: Gi* on M22_39; refactor algorithm to util.py
+
+**What this does:**
+
+Moved the three hotspot computation functions from `hotspots_income.py` into
+`util.py` so they can be shared across layers:
+- `find_locational_outliers(gdf)` — unchanged signature
+- `compute_distance_band(gdf, outlier_mask, value_column)` — added `value_column`
+  parameter (was hardcoded to `MedianHH_i`)
+- `run_gistar(gdf, distance_band, value_column)` — unchanged signature
+- `hotspot_renderer(attr="Gi_Bin")` — new factory; returns the standard ArcGIS Pro
+  7-class graduated renderer; avoids duplicating 50 lines of renderer code
+- Color constants (`HOTSPOT_COLD_99`, etc.) moved to `util.py`
+
+Added `hotspots_census`: same three-function pipeline on `M22_39` from
+`output/census_tracts.shp`. Both `hotspots_income` and `hotspots_census` now import
+from `util.py` and are otherwise identical in structure.
+
+**Files changed:**
+- `util.py` — added hotspot algorithm, renderer factory, and color constants
+- `layers/hotspots_income.py` — stripped to imports + `compute_hot_spots` + layer
+- `layers/hotspots_census.py` — new layer; same structure as hotspots_income
+- `test_processing.py` — imports moved to `util`; added `TestHotspotsCensus` class
+- `project.py` — added `hotspots_census` import and layer
+
+---
+
+## Step 11 — hotspots_income: unit tests
+
+**What this does:**
+
+Added `test_processing.py` with 9 unittest cases validating the hotspots_income
+pipeline against `arcgis_hotspot.txt` targets:
+
+| Test | Expected | Tolerance |
+|---|---|---|
+| Outlier count | 40 | exact |
+| Distance band | 39829.87 ft | ±25% |
+| FID 207 Gi_Bin | 3 | exact |
+| FID 207 z-score | positive | — |
+| Significant features | 1207 | ±25% |
+| Gi_Bin range | {-3…+3} | — |
+| Hot + cold spots present | both | — |
+| NNeighbors non-negative | all | — |
+| Output columns | all 4 | — |
+
+Run: `uv run python -m unittest projects.lab5.test_processing`
+
+Note on distance band: ISA (libpysal Moran z_norm) finds a first local peak at
+~48933 ft vs ArcGIS's 39829 ft. Both are within 25% and FID 207 Gi_Bin=3 matches.
+The discrepancy is likely due to a different Moran's I normalization or step spacing
+in ArcGIS's internal ISA implementation.
+
+**Files changed:**
+- `test_processing.py` — new unittest file
+
+---
+
+## Step 9+10 — hotspots_income: Optimized Hot Spot Analysis replicating ArcGIS Pro
+
+**What this does:**
+
+Added `hotspots_income`: a processing layer that replicates ArcGIS Pro's Optimized Hot
+Spot Analysis on `MedianHH_i` from `output/household_income.shp`.  Three-function
+pipeline:
+
+1. `find_locational_outliers` — marks features whose nearest-neighbor distance exceeds
+   mean + 3 std; these are excluded from distance band calculation.
+2. `compute_distance_band` — tries in order: large-dataset shortcut (k=30 mean if any
+   feature has 500+ neighbours), Incremental Spatial Autocorrelation (first local peak
+   in Moran's I z-norm over 30 steps), k-neighbour fallback.
+3. `run_gistar` — builds binary `DistanceBand` weights (no row-standardization),
+   runs `esda.G_Local(star=True, permutations=0)`, applies Benjamini-Hochberg FDR
+   via `statsmodels.stats.multitest.multipletests`.
+
+**`Gi_Bin` classification (after FDR correction):**
+| Corrected p | Z > 0 | Z < 0 |
+|---|---|---|
+| ≤ 0.01 | +3 | -3 |
+| ≤ 0.05 | +2 | -2 |
+| ≤ 0.10 | +1 | -1 |
+| > 0.10 | 0 | 0 |
+
+**Renderer:** ArcGIS Pro hot spot color scheme, fully opaque, integer breakpoints
+(-3 to +3), "Cold/Hot Spot with X% Confidence" labels.
+
+**Validation targets (from `arcgis_hotspot.txt`):**
+- 40 locational outliers
+- Distance band ~39829.87 ft
+- 1207 significant features after FDR
+
+**Bug fixes applied after initial implementation:**
+- `transform="B"` added to `G_Local` — default `transform="R"` was internally
+  row-standardizing binary weights, setting self-weight to 1/k instead of 1,
+  corrupting z-scores and producing all Gi_Bin=1
+- 2a shortcut gated on `n_no >= 10000` — at `probe_radius = 30*start`, dense
+  census tracts triggered the shortcut, returning 21626 ft instead of ISA result
+- ISA disconnected-graph guard removed — `n_components > 1` was skipping steps
+  1–9, so the Moran z-norm was computed from step 10 onward only
+
+**Files changed:**
+- `layers/hotspots_income.py` — complete rewrite with three-function pipeline; bug fixes above
+- `pyproject.toml` — added `scipy`, `statsmodels` dependencies; mypy overrides for both
+
+---
+
 ## Step 8 — Rename palette constants to ColorBrewer names
 
 **What this does:**

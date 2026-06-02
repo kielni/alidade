@@ -2,6 +2,11 @@ from alidade.models import Project
 
 from .layers.census_tracts import census_tracts
 from .layers.census_tracts_raw import census_tracts_raw
+from .layers.hotspots_census import hotspots_census
+from .layers.hotspots_income import hotspots_income
+from .layers.hotspots_census_arcgis import hotspots_census as hotspots_census_arcgis
+from .layers.hotspots_income_arcgis import hotspots_income as hotspots_income_arcgis
+from .layers.hotspots_overlap import hotspots_overlap
 from .layers.mall_buffers import mall_buffers
 from .layers.malls import malls
 from .layers.household_income import household_income
@@ -26,5 +31,10 @@ spec = Project(
         census_tracts_raw,
         household_income,
         household_income_raw,
+        hotspots_income,
+        hotspots_census,
+        hotspots_income_arcgis,
+        hotspots_census_arcgis,
+        hotspots_overlap,
     ],
 )
