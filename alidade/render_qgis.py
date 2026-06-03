@@ -584,6 +584,14 @@ def _read_dbf_fields(dbf_path: Path) -> list[str]:
     return fields
 
 
+def _read_gpkg_fields(gpkg_path: Path, layername: str) -> list[str]:
+    """Return attribute field names from a GeoPackage layer via pyogrio."""
+    import pyogrio  # type: ignore[import-untyped]
+
+    info = pyogrio.read_info(str(gpkg_path), layer=layername)
+    return list(info["fields"])
+
+
 def _build_labeling(label: Label) -> ET.Element:
     """Build a <labeling type='simple'> element from a Label spec."""
     named_style = "Bold" if label.bold else "Regular"
@@ -804,9 +812,18 @@ def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
         ET.SubElement(flags, flag).text = val
 
     abs_path = abs_source(layer.source, project_dir)
-    path_part, _ = _split_source_suffix(abs_path)
-    dbf_path = Path(path_part).with_suffix(".dbf")
-    dbf_fields: list[str] = _read_dbf_fields(dbf_path) if dbf_path.exists() else []
+    path_part, suffix = _split_source_suffix(abs_path)
+    p = Path(path_part)
+    if p.suffix.lower() == ".gpkg" and p.exists():
+        layername = ""
+        if suffix.startswith("|layername="):
+            layername = suffix[len("|layername=") :]
+        if not layername:
+            layername = p.stem
+        dbf_fields: list[str] = _read_gpkg_fields(p, layername)
+    else:
+        dbf_path = p.with_suffix(".dbf")
+        dbf_fields = _read_dbf_fields(dbf_path) if dbf_path.exists() else []
 
     fc = ET.SubElement(ml, "fieldConfiguration")
     for field_name in dbf_fields:

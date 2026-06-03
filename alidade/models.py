@@ -342,6 +342,7 @@ class PrintLayout(BaseModel):
 class Project(BaseModel):
     """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     model_config = ConfigDict(extra="allow")
     output_format: Literal["qgis", "lyrx"] = "qgis"
     title: str

@@ -3,12 +3,6 @@
 <!-- auto:begin -->
 ## Layers
 
-### Staging Areas
-
-**Source:** `output/staging.shp`  
-**Style:** single symbol — SVG marker goat.svg, 6.0 MM  
-**Processing:** Reproject staging area points to EPSG:26910
-
 ### Park Boundary
 
 **Source:** `data/park_boundary.geojson`  
@@ -34,19 +28,12 @@
 **Derived from:** `park_boundary`  
 **Processing:** Reproject and clip roads and trails to park boundary
 
-### Slope
+### Fine-Scale Vegetation (2020)
 
-**Source:** `output/slope.tif`  
-**Style:** paletted raster (4 classes)  
-**Derived from:** `usgs_elevation`  
-**Processing:** Compute percentage slope from elevation DEM and classify into 4 categories
-
-### Elevation
-
-**Source:** `output/elevation.tif`  
-**Style:** no style configured  
+**Source:** `output/vegetation.gpkg`  
+**Style:** rule-based (6 rules)  
 **Derived from:** `park_boundary`  
-**Processing:** Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary
+**Processing:** Reproject and clip Santa Cruz/Santa Clara fine-scale vegetation to park boundary
 
 ### CartoDB Positron
 
@@ -59,18 +46,15 @@
 flowchart LR
     park_boundary --> riparian_zone
     park_boundary --> roads_trails
-    usgs_elevation --> slope_percent
-    park_boundary --> usgs_elevation
+    park_boundary --> vegetation_15f989a8
 ```
 
 ## Processing tools
 
 | Layer | Tool | Description |
 | --- | --- | --- |
-| `staging_areas` | `geopandas` | Reproject staging area points to EPSG:26910 |
 | `developed_area` | `geopandas` | Simplify GPX track (10 m tolerance), close ring, convert to polygon, reproject to EPSG:26910 |
 | `riparian_zone` | `geopandas` | Reproject and clip streams to park boundary |
 | `roads_trails` | `geopandas` | Reproject and clip roads and trails to park boundary |
-| `slope_percent` | `gdaldem` (subprocess) | Compute percentage slope from elevation DEM and classify into 4 categories |
-| `usgs_elevation` | `gdalwarp` (subprocess) | Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary |
+| `vegetation_15f989a8` | `geopandas` | Reproject and clip Santa Cruz/Santa Clara fine-scale vegetation to park boundary |
 <!-- auto:end -->

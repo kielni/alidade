@@ -19,6 +19,7 @@ from alidade.models import (
     GraduatedRenderer,
     Layer,
     PalettedRenderer,
+    Project,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -189,6 +190,7 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
 
 def render(
     project_dir: Path,
+    spec: Project | None = None,
     name: str = "map",
     dpi: int = 150,
 ) -> None:
@@ -199,7 +201,8 @@ def render(
     Extent and figsize are derived from the data bounds so all visible features
     fit without clipping.
     """
-    spec = load_spec(project_dir)
+    if not spec:
+        spec = load_spec(project_dir)
 
     # Read all visible layers to compute the combined data extent.
     # Each entry is (layer, gdf) for vector or (layer, Path) for raster.
