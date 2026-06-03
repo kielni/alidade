@@ -275,7 +275,7 @@ def render(
     ax.set_ylim(ymin, ymax)
     ax.set_title(spec.title, fontsize=14, pad=10)
     if legend_handles:
-        ax.legend(handles=legend_handles, loc="lower left", fontsize=8)
+        ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
 
     output_path = project_dir / "output" / f"{name}.png"
     output_path.parent.mkdir(exist_ok=True, parents=True)

@@ -56,6 +56,10 @@ ignore_missing_imports = true
 module = ["scipy", "scipy.*", "statsmodels", "statsmodels.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["pyogrio"]
+ignore_missing_imports = true
+
 
 [tool.black]
 line-length = 88

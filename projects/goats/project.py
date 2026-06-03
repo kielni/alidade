@@ -1,5 +1,6 @@
 from alidade.models import Project
 from projects.goats.layers.basemap import basemap
+from projects.goats.layers.border import border
 from projects.goats.layers.developed_area import developed_area
 from projects.goats.layers.elevation import elevation
 from projects.goats.layers.park_boundary import park_boundary
@@ -24,6 +25,7 @@ map_all = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -45,6 +47,7 @@ map_park = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -62,6 +65,7 @@ map_slope = Project(
     extent=EXTENT,
     layers=[
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -71,7 +75,7 @@ map_slope = Project(
 )
 
 """
-Vegetation classification map, clipped to park; vegetation classes combined to 4-6 classes
+Vegetation classification map, clipped to park; classes combined to 4-6 zones
 """
 map_veg = Project(
     title="Alum Rock Goat Grazing",
@@ -80,6 +84,7 @@ map_veg = Project(
     extent=EXTENT,
     layers=[
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -99,6 +104,7 @@ map_zones = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -117,6 +123,7 @@ map_suitability = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -135,6 +142,7 @@ map_targets = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,
@@ -153,6 +161,7 @@ map_detail = Project(
     layers=[
         staging,
         park_boundary,
+        border,
         developed_area,
         water,
         roads_trails,

@@ -11,7 +11,7 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.goats.util import CRS
+from projects.goats.util import CRS, clip_border
 
 _GDB_LAYER = "CRUZ_CLARA_FINESCALE_VEG_6_15_2023"
 
@@ -77,12 +77,11 @@ def _hex_to_rgba(hex_color: str, alpha: int = 200) -> str:
     return f"{r},{g},{b},{alpha}"
 
 
-def clip_vegetation(boundary: Path, output: Path) -> None:
-    project_dir = boundary.parent.parent
+def clip_vegetation(border: Path, output: Path) -> None:
+    project_dir = border.parent.parent
     gdb = project_dir / "data" / "fine_scale_vegetation.gdb"
     gdf = gpd.read_file(gdb, layer=_GDB_LAYER).to_crs(CRS)
-    mask = gpd.read_file(boundary).to_crs(CRS)
-    gpd.clip(gdf, mask).to_file(output, driver="GPKG")
+    clip_border(gdf, output).to_file(output, driver="GPKG")
 
 
 _rules = [
@@ -130,7 +129,7 @@ vegetation = Layer(
             " to park boundary"
         ),
         action=PythonAction(fn=clip_vegetation),
-        depends_on=["park_boundary"],
+        depends_on=["clip_border"],
         output=Path("output/vegetation.gpkg"),
     ),
 )

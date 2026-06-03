@@ -10,7 +10,7 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.util import CRS
+from projects.goats.util import CRS, clip_border
 
 """
 Creeks from OpenStreetMap data,
@@ -34,11 +34,10 @@ out geom;
 """
 
 
-def clip_water(boundary: Path, output: Path) -> None:
-    project_dir = boundary.parent.parent
+def clip_water(border: Path, output: Path) -> None:
+    project_dir = border.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "water.geojson").to_crs(CRS)
-    mask = gpd.read_file(boundary).to_crs(CRS)
-    gpd.clip(gdf, mask).to_file(output)
+    clip_border(gdf, output).to_file(output)
 
 
 water = Layer(
@@ -64,7 +63,7 @@ water = Layer(
     processing_step=ProcessingStep(
         description="Reproject and clip streams to park boundary",
         action=PythonAction(fn=clip_water),
-        depends_on=["park_boundary"],
+        depends_on=["clip_border"],
         output=Path("output/water.shp"),
     ),
 )

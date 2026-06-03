@@ -10,7 +10,7 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.util import CRS
+from projects.goats.util import CRS, clip_border
 
 """
 Roads and trails from OpenStreetMap data,
@@ -34,13 +34,11 @@ out geom;
 """
 
 
-def clip_roads_trails(boundary: Path, output: Path) -> None:
-    project_dir = boundary.parent.parent
+def clip_roads_trails(border: Path, output: Path) -> None:
+    project_dir = border.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "roads_trails.geojson")
-    gdf = gdf[gdf.geom_type.isin(["LineString", "MultiLineString"])].copy()
-    gdf = gdf.to_crs(CRS)
-    mask = gpd.read_file(boundary).to_crs(CRS)
-    gpd.clip(gdf, mask).to_file(output)
+    gdf = gdf[gdf.geom_type.isin(["LineString", "MultiLineString"])].to_crs(CRS)
+    clip_border(gdf, output).to_file(output)
 
 
 roads_trails = Layer(
@@ -66,7 +64,7 @@ roads_trails = Layer(
     processing_step=ProcessingStep(
         description="Reproject and clip roads and trails to park boundary",
         action=PythonAction(fn=clip_roads_trails),
-        depends_on=["park_boundary"],
+        depends_on=["clip_border"],
         output=Path("output/roads_trails.shp"),
     ),
 )

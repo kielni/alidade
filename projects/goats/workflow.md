@@ -6,12 +6,13 @@
 |---|---|---|---|
 | Staging Areas | `output/staging.shp` | Target icon (`data/goat.svg`), 6 mm, bright yellow (#ffdc00) | Reproject `data/staging.geojson` → EPSG:26910 |
 | Park Boundary | `data/park_boundary.geojson` | Hollow polygon, 1.5 mm thick purple (#800080) outline, no fill | — |
+| Clip Border | `output/border.gpkg` | Invisible (processing output only) | Buffer park boundary by 100 ft (30.48 m); dissolve → single polygon; used as clip mask for water, roads/trails, vegetation |
 | Developed Area | `output/developed_area.shp` | Light gray fill (50% transparent) + medium gray outline, 1.0 mm | Merge GPX `tracks` → simplify 10 m (Douglas-Peucker) → close ring → Polygon → EPSG:26910 |
-| Streams | `output/water.shp` | Blue (#446677) lines, 0.6 mm | Reproject + clip `data/water.geojson` to park boundary → EPSG:26910 |
-| Roads & Trails | `output/roads_trails.shp` | Brown (#785028) lines, 0.5 mm | Reproject + clip `data/roads_trails.geojson` to park boundary → EPSG:26910; polygons excluded |
+| Streams | `output/water.shp` | Blue (#446677) lines, 0.6 mm | Reproject + clip `data/water.geojson` to clip border → EPSG:26910 |
+| Roads & Trails | `output/roads_trails.shp` | Brown (#785028) lines, 0.5 mm | Reproject + clip `data/roads_trails.geojson` to clip border → EPSG:26910; polygons excluded |
 | Slope | `output/slope.tif` | Paletted: Flat to gentle #1a9641 · Moderate #ffffbf · Steep #fdae61 · Too steep #d7191c | `gdaldem slope -p` on elevation → `gdal_calc.py` reclassify to Byte (1–4); breaks at 15/27/58% |
 | Elevation | `output/elevation.tif` | Grayscale (black → white) | Reproject DEM `data/USGS_13_n38w122_20250826.tif` EPSG:4269 → EPSG:26910, crop to park boundary, bilinear resampling |
-| Fine-Scale Vegetation | `output/vegetation.gpkg` | Rule-based: 6 grazing zones (alpha=200) — Primary targets/shrub #d4851e · Invasive/non-native #9b6fa0 · Native woodland #3a6a24 · Riparian Forest #2a7a6a · Herbaceous #d4e882 · Developed #c0c0c0 | Reproject `data/fine_scale_vegetation.gdb` (EPSG:6420) → EPSG:26910, clip to park boundary; 343 polygons, 23 MAP_CLASS values |
+| Fine-Scale Vegetation | `output/vegetation.gpkg` | Rule-based: 6 grazing zones (alpha=200) — Primary targets/shrub #d4851e · Invasive/non-native #9b6fa0 · Native woodland #3a6a24 · Riparian Forest #2a7a6a · Herbaceous #d4e882 · Developed #c0c0c0 | Reproject `data/fine_scale_vegetation.gdb` (EPSG:6420) → EPSG:26910, clip to clip border; 343 polygons, 23 MAP_CLASS values |
 | CartoDB Positron | XYZ tile basemap | `styles/cartodb_positron.xml` | — |
 
 ## Project
