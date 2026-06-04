@@ -12,6 +12,8 @@ from alidade.render_map import render as render_map
 from alidade.render_qgis import render as render_qgis
 from alidade.util.helpers import bind_project
 
+_LAYER_STATE_DIR = ".layer_state"
+
 
 def _visit(
     layer_id: str,
@@ -55,16 +57,49 @@ def _bind(layer: Layer, project_path: Path) -> BoundLayer:
     return BoundLayer(**fields, project_path=project_path, inputs=bound_inputs)
 
 
-def _run_processing_steps(spec: BoundProject, force: bool) -> None:
-    """Run processing steps in dependency order for outputs that don't exist."""
+def _find_layer_source(layer_id: str, layers_dir: Path) -> Path | None:
+    """Find the layers/*.py file that defines layer_id."""
+    needle = f'id="{layer_id}"'
+    for f in sorted(layers_dir.glob("*.py")):
+        if needle in f.read_text():
+            return f
+    return None
+
+
+def _layer_source_hash(layer: Layer, spec: BoundProject) -> str:
+    """Hash the source files most likely to affect this layer's output.
+
+    Includes util.py (shared helpers) and the layer's own layers/*.py file.
+    """
     assert spec.project_path is not None
+    h = hashlib.sha256()
+    util_py = spec.project_path / "util.py"
+    if util_py.exists():
+        h.update(util_py.read_bytes())
+    layers_dir = spec.project_path / "layers"
+    src = _find_layer_source(layer.id, layers_dir)
+    if src is not None:
+        h.update(src.read_bytes())
+    return h.hexdigest()
+
+
+def _run_processing_steps(spec: BoundProject, force: bool) -> None:
+    """Run processing steps for layers whose output is missing or stale."""
+    assert spec.project_path is not None
+    state_dir = spec.output_path / _LAYER_STATE_DIR
     for layer in _topo_sort(spec):
         bound = _bind(layer, spec.project_path)
         output = bound.path
-        if not force and output.exists():
-            print(f"  [skip] {layer.name!r} output exists")
+        current_hash = _layer_source_hash(layer, spec)
+        state_file = state_dir / layer.id
+        stored_hash = state_file.read_text().strip() if state_file.exists() else ""
+
+        if not force and output.exists() and stored_hash == current_hash:
+            print(f"  [skip] {layer.name!r} up to date")
             continue
+
         spec.output_path.mkdir(parents=True, exist_ok=True)
+        state_dir.mkdir(parents=True, exist_ok=True)
         action = layer.action
         assert action is not None
         if hasattr(action, "fn"):
@@ -82,28 +117,25 @@ def _run_processing_steps(spec: BoundProject, force: bool) -> None:
             print(f"  [shell] {cmd}")
             subprocess.run(cmd, shell=True, check=True)
 
-
-def _source_hash(spec: BoundProject) -> str:
-    """Return a SHA-256 hex digest of project.py and all layers/*.py files."""
-    h = hashlib.sha256()
-    project_py = spec.project_path / "project.py"
-    if project_py.exists():
-        h.update(project_py.read_bytes())
-    layers_dir = spec.project_path / "layers"
-    if layers_dir.exists():
-        for f in sorted(layers_dir.glob("*.py")):
-            h.update(f.read_bytes())
-    return h.hexdigest()
+        state_file.write_text(current_hash)
 
 
 def _needs_rebuild(spec: BoundProject) -> bool:
-    """Return True if source files have changed or (for qgis) output is absent."""
+    """Return True if any layer output is missing or its source hash has changed."""
+    assert spec.project_path is not None
     if spec.output_format == "qgis" and not (spec.output_path / "project.qgs").exists():
         return True
-    state_file = spec.output_path / ".state"
-    if not state_file.exists():
-        return True
-    return state_file.read_text().strip() != _source_hash(spec)
+    state_dir = spec.output_path / _LAYER_STATE_DIR
+    for layer in _topo_sort(spec):
+        bound = _bind(layer, spec.project_path)
+        if not bound.path.exists():
+            return True
+        state_file = state_dir / layer.id
+        if not state_file.exists():
+            return True
+        if state_file.read_text().strip() != _layer_source_hash(layer, spec):
+            return True
+    return False
 
 
 def main() -> None:
@@ -142,10 +174,6 @@ def main() -> None:
         render_map(spec)
     else:
         raise NotImplementedError(f"Unknown output_format {spec.output_format!r}")
-
-    output_path = spec.output_path
-    output_path.mkdir(exist_ok=True)
-    (output_path / ".state").write_text(_source_hash(spec))
 
 
 if __name__ == "__main__":
