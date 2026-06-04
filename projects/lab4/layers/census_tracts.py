@@ -1,14 +1,13 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     GraduatedRange,
     GraduatedRenderer,
     Layer,
-    ProcessingStep,
     PythonAction,
 )
+from projects.lab4.layers.census_tracts_raw import census_tracts_raw
 from projects.lab4.util import CENSUS_BUCKETS, CENSUS_OUTLINE
 
 # Jenks natural breaks on M22_39 (tracts with Total > 0, n=1,617):
@@ -21,16 +20,18 @@ _B4 = 2003.0
 _MAX = 2973.0
 
 
-def filter_nonzero_population(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
-    gdf[gdf["Total"] > 0].to_file(output)
+def filter_nonzero_population(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
+    gdf[gdf["Total"] > 0].to_file(layer.path)
 
 
 census_tracts = Layer(
     id="census_tracts",
     name="Census Tracts",
     type="vector",
-    source="./output/census_tracts.shp",
+    inputs=[census_tracts_raw],
+    datasource="output/census_tracts.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -72,10 +73,5 @@ census_tracts = Layer(
         outline_color=CENSUS_OUTLINE,
         outline_width=0.1,
     ),
-    processing_step=ProcessingStep(
-        description="Filter census tracts to those with Total > 0.",
-        action=PythonAction(fn=filter_nonzero_population),
-        depends_on=["census_tracts_raw"],
-        output=Path("output/census_tracts.shp"),
-    ),
+    action=PythonAction(fn=filter_nonzero_population),
 )

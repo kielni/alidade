@@ -7,17 +7,16 @@ Jenks natural breaks on MedianHH_i (n=1610):
   counts: 399, 520, 382, 231, 78
 """
 
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     GraduatedRange,
     GraduatedRenderer,
     Layer,
-    ProcessingStep,
     PythonAction,
 )
+from projects.lab5.layers.household_income_raw import household_income_raw
 from projects.lab5.util import RDBU_R, RDBU_R_OUTLINE
 
 _MIN = 0.0
@@ -28,16 +27,18 @@ _B4 = 149750.0
 _MAX = 233917.0
 
 
-def filter_nonzero_income(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
-    gdf[gdf["MedianHH_i"] > 0].to_file(output)
+def filter_nonzero_income(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
+    gdf[gdf["MedianHH_i"] > 0].to_file(layer.path)
 
 
 household_income = Layer(
     id="household_income",
     name="Household Income",
     type="vector",
-    source="./output/household_income.shp",
+    inputs=[household_income_raw],
+    datasource="output/household_income.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -79,10 +80,5 @@ household_income = Layer(
         outline_color=RDBU_R_OUTLINE,
         outline_width=0.1,
     ),
-    processing_step=ProcessingStep(
-        description="Filter income tracts to those with MedianHH_i > 0.",
-        action=PythonAction(fn=filter_nonzero_income),
-        depends_on=["household_income_raw"],
-        output=Path("output/household_income.shp"),
-    ),
+    action=PythonAction(fn=filter_nonzero_income),
 )

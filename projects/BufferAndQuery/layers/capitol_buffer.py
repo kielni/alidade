@@ -1,30 +1,31 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
     Symbol,
 )
+from projects.BufferAndQuery.layers.state_capitol_bldgs import state_capitol_bldgs
 
 BUFFER_METERS = 25 * 1_609.344  # 25 miles, in EPSG:3857 meters
 
 
-def buffer_capitol_buildings(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
+def buffer_capitol_buildings(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
     gdf["geometry"] = gdf.geometry.buffer(BUFFER_METERS)
-    gdf.to_file(output)
+    gdf.to_file(layer.path)
 
 
 capitol_buffer = Layer(
     id="capitol_buffer",
     name="State Capitol 25-Mile Buffer",
     type="vector",
-    source="./output/capitol_buffer.shp",
+    inputs=[state_capitol_bldgs],
+    datasource="output/capitol_buffer.shp",
     provider="ogr",
     crs="EPSG:3857",
     visible=True,
@@ -41,13 +42,5 @@ capitol_buffer = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Buffer each State Capitol building point by 25 miles (40,233.6 m in"
-            " EPSG:3857) using geopandas."
-        ),
-        action=PythonAction(fn=buffer_capitol_buildings),
-        depends_on=["state_capitol_bldgs"],
-        output=Path("output/capitol_buffer.shp"),
-    ),
+    action=PythonAction(fn=buffer_capitol_buildings),
 )

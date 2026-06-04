@@ -4,7 +4,7 @@ high_schools = Layer(
     id="high_schools",
     name="High Schools",
     type="vector",
-    source=(
+    datasource=(
         "data/high_schools.csv"
         "?type=csv&xField=Longitude&yField=Latitude&crs=EPSG:4326"
     ),

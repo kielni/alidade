@@ -1,16 +1,15 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     Rule,
     RuleRenderer,
     SimpleFill,
     Symbol,
 )
+from projects.lab4.layers.census_tracts import census_tracts
 from projects.lab4.util import CENSUS_BUCKETS, CENSUS_OUTLINE
 
 # Jenks natural breaks on pct_m22_39 (tracts > 20%, n=176):
@@ -32,20 +31,22 @@ def _symbol(color: str) -> Symbol:
     )
 
 
-def filter_males_22_39_pct(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
+def filter_males_22_39_pct(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
     gdf = gdf[gdf["Total"] > 0].copy()
     gdf["pct_m22_39"] = gdf["M22_39"] / gdf["Total"] * 100
     gdf[gdf["pct_m22_39"] > _MIN][
         ["geometry", "GEOID", "NAMELSAD", "M22_39", "pct_m22_39"]
-    ].to_file(output)
+    ].to_file(layer.path)
 
 
 target_tracts = Layer(
     id="target_tracts",
     name="Target Census Tracts",
     type="vector",
-    source="./output/target_tracts.shp",
+    inputs=[census_tracts],
+    datasource="output/target_tracts.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -86,13 +87,5 @@ target_tracts = Layer(
         ],
         symbols=[_symbol(c) for c in CENSUS_BUCKETS],
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Calculate pct_m22_39 = M22_39 / Total * 100; "
-            "keep tracts where pct_m22_39 > 20."
-        ),
-        action=PythonAction(fn=filter_males_22_39_pct),
-        depends_on=["census_tracts"],
-        output=Path("output/target_tracts.shp"),
-    ),
+    action=PythonAction(fn=filter_males_22_39_pct),
 )

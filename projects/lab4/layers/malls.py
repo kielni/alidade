@@ -1,16 +1,14 @@
 import csv
 import time
-from pathlib import Path
 
 import geopandas as gpd
 from geopy.geocoders import Nominatim  # type: ignore[import-untyped]
 from shapely.geometry import Point
 
-from alidade import project_data_dir
 from alidade.models import (
+    BoundLayer,
     Label,
     Layer,
-    ProcessingStep,
     PythonAction,
     SingleSymbol,
     SvgMarker,
@@ -20,13 +18,12 @@ from alidade.models import (
 # output/malls.shp: 11 Bay Area shopping mall points, EPSG:2227.
 # Fields: id (str), Street (street address), mall_name (str), city (str).
 # Extent: x=5,990,284–6,175,052 ft  y=1,932,559–2,189,415 ft.
-_CSV = project_data_dir(__file__) / "mall_names.csv"
 
 
-def geocode_malls(output: Path) -> None:
+def geocode_malls(layer: BoundLayer) -> None:
     geocoder = Nominatim(user_agent="alidade-lab4-geocode")
     rows = []
-    with open(_CSV, newline="", encoding="utf-8-sig") as f:
+    with open(layer.raw_path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             address = (
                 f"{row['Street'].strip()}, {row['City'].strip()}, "
@@ -48,14 +45,15 @@ def geocode_malls(output: Path) -> None:
 
     gdf = gpd.GeoDataFrame(rows, crs="EPSG:4326")
     gdf = gdf[gdf.geometry.notna()].to_crs("EPSG:2227")
-    gdf.to_file(output)
+    gdf.to_file(layer.path)
 
 
 malls = Layer(
     id="mall_points",
     name="Big Bucks Malls",
     type="vector",
-    source="./output/malls.shp",
+    raw_file="data/mall_names.csv",
+    datasource="output/malls.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -75,13 +73,5 @@ malls = Layer(
         )
     ),
     label=Label(field="mall_name"),
-    processing_step=ProcessingStep(
-        description=(
-            "Geocode mall_names.csv addresses with Nominatim; "
-            "reproject to EPSG:2227. Fields: id, Street, mall_name, city."
-        ),
-        action=PythonAction(fn=geocode_malls),
-        depends_on=[],
-        output=Path("output/malls.shp"),
-    ),
+    action=PythonAction(fn=geocode_malls),
 )

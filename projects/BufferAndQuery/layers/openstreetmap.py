@@ -6,7 +6,7 @@ openstreetmap = Layer(
     id="openstreetmap",
     name="OpenStreetMap",
     type="raster",
-    source=(
+    datasource=(
         "<GDAL_WMS>\n"
         '  <Service name="TMS">\n'
         "    <ServerUrl>"

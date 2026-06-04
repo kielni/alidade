@@ -1,28 +1,29 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
     Symbol,
 )
+from projects.XY_projections.layers.high_schools_2227 import high_schools_2227
 
 
-def _buffer(shp_path: Path, output: Path) -> None:
-    gdf = gpd.read_file(shp_path)
+def _buffer(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
     gdf.geometry = gdf.geometry.buffer(5280)
-    gdf.to_file(output)
+    gdf.to_file(layer.path)
 
 
 high_schools_buffer = Layer(
     id="high_schools_buffer",
     name="High Schools Buffer",
     type="vector",
-    source="data/high_schools_buffer.shp|layername=high_schools_buffer",
+    inputs=[high_schools_2227],
+    datasource="data/high_schools_buffer.shp|layername=high_schools_buffer",
     provider="ogr",
     crs="EPSG:2227",
     geometry_type="Polygon",
@@ -35,10 +36,5 @@ high_schools_buffer = Layer(
             layers=[SimpleFill(color="64,128,255,255")],
         )
     ),
-    processing_step=ProcessingStep(
-        description="1-mile buffer around each high school point (EPSG:2227 ft)",
-        action=PythonAction(fn=_buffer),
-        depends_on=["high_schools_2227"],
-        output=Path("data/high_schools_buffer.shp"),
-    ),
+    action=PythonAction(fn=_buffer),
 )

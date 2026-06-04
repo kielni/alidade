@@ -1,27 +1,26 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
     Symbol,
 )
+from projects.BufferAndQuery.layers.capitol_buffer import capitol_buffer
+from projects.BufferAndQuery.layers.national_parks import national_parks
 
 
-def filter_capitol_buffers_near_parks(
-    buffers_path: Path, parks_path: Path, output: Path
-) -> None:
-    buffers = gpd.read_file(buffers_path)
-    parks = gpd.read_file(parks_path)
+def filter_capitol_buffers_near_parks(layer: BoundLayer) -> None:
+    buffers_layer, parks_layer = layer.inputs
+    buffers = gpd.read_file(buffers_layer.path)
+    parks = gpd.read_file(parks_layer.path)
     joined = gpd.sjoin(
         buffers, parks[["geometry"]], how="inner", predicate="intersects"
     )
     result = buffers.loc[joined.index.unique()]
-    result.to_file(output)
+    result.to_file(layer.path)
     print(
         f"State capitols with 25-mile buffer intersecting a national park:"
         f" {len(result)}"
@@ -32,7 +31,8 @@ capitol_parks_intersect = Layer(
     id="capitol_parks_intersect",
     name="Capitol Buffers Intersecting National Parks",
     type="vector",
-    source="./output/capitol_parks_intersect.shp",
+    inputs=[capitol_buffer, national_parks],
+    datasource="output/capitol_parks_intersect.shp",
     provider="ogr",
     crs="EPSG:3857",
     visible=True,
@@ -49,13 +49,5 @@ capitol_parks_intersect = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Filter 25-mile capitol buffers to those intersecting at least one"
-            " national park polygon; print count to stdout."
-        ),
-        action=PythonAction(fn=filter_capitol_buffers_near_parks),
-        depends_on=["capitol_buffer", "national_parks"],
-        output=Path("output/capitol_parks_intersect.shp"),
-    ),
+    action=PythonAction(fn=filter_capitol_buffers_near_parks),
 )

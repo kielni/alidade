@@ -1,15 +1,14 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleLine,
     SingleSymbol,
     Symbol,
 )
+from projects.lab4.layers.roads import roads
 
 # Census TIGER FCC codes for primary/major highways (limited and unlimited access).
 # A14, A17, A18 are included per spec but absent from this dataset.
@@ -28,16 +27,18 @@ _FCC_MAJOR = {
 }
 
 
-def filter_major_roads(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
-    gdf[gdf["FCC"].isin(_FCC_MAJOR)].to_file(output)
+def filter_major_roads(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path)
+    gdf[gdf["FCC"].isin(_FCC_MAJOR)].to_file(layer.path)
 
 
 major_roads = Layer(
     id="major_roads",
     name="Major Roads",
     type="vector",
-    source="./output/major_roads.shp",
+    inputs=[roads],
+    datasource="output/major_roads.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -53,10 +54,5 @@ major_roads = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description="Filter roads to primary/major highway FCC codes A10–A21.",
-        action=PythonAction(fn=filter_major_roads),
-        depends_on=["roads_lines"],
-        output=Path("output/major_roads.shp"),
-    ),
+    action=PythonAction(fn=filter_major_roads),
 )

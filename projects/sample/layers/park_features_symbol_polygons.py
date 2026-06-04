@@ -6,7 +6,7 @@ park_features_symbol_polygons = Layer(
     id="park_features_symbol_polygons",
     name="park_features_symbol",
     type="vector",
-    source="./data/park_features_symbol.geojson|geometrytype=Polygon",
+    datasource="data/park_features_symbol.geojson|geometrytype=Polygon",
     provider="ogr",
     crs="EPSG:4326",
     visible=True,

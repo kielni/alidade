@@ -1,40 +1,34 @@
-from pathlib import Path
+"""Voronoi draw zones clipped to each mall's 5-mile buffer.
+
+One row per mall. Population is area-weighted from target census tracts
+(pct_m22_39 > 20%), so each person is counted toward exactly one mall —
+the nearest one within 5 miles.
+
+Voronoi cells: for each pair of mall points, the perpendicular bisector of
+the segment between them divides space into two half-planes; every location
+on one side is closer to one mall, the other side to the other. The full set
+of bisectors intersects to form one convex polygon (cell) per mall point.
+Each cell is clipped to its own 5-mile buffer so remote areas don't inflate
+the count.
+"""
 
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import MultiPoint
 from shapely.ops import voronoi_diagram
 
-from projects.lab4.util import MALL_BUCKET_COLORS
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     Rule,
     RuleRenderer,
     SimpleFill,
     Symbol,
 )
-
-"""
-Create output/mall_buffer_people.shp with one row per mall. Geometry is
-the Voronoi cell (draw zone) clipped to each mall's 5-mile buffer.
-Population is area-weighted from target census tracts (pct_m22_39 > 20%),
-so each person is counted toward exactly one mall, the nearest one within 5 miles.
-
-Fields: mall_id, mall_name, m22_39, bucket, geometry.
-bucket is 0/1/2 (good/better/best) via equal-count breaks.
-
-A Voronoi diagram partitions space based on proximity to a set of points. Given mall
-locations, draw boundaries so that every spot on the map gets assigned to its nearest
-store.
-For any two stores, draw the perpendicular bisector of the line connecting them: the
-line where every point is exactly equidistant from both stores. On one side, you're
-closer to store A; on the other, closer to store B.
-Do this for every pair of stores, and the bisectors intersect to form polygons.
-Each polygon (a "Voronoi cell") contains exactly one store, and every point inside that
-cell is closer to that store than to any other.
-"""
+from projects.lab4.layers.mall_buffers import mall_buffers
+from projects.lab4.layers.target_tracts import target_tracts
+from projects.lab4.util import MALL_BUCKET_COLORS
 
 
 def _symbol(rgb: str, outline_width: float) -> Symbol:
@@ -72,14 +66,12 @@ def _build_draw_zones(buffers_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     regions = voronoi_diagram(points, envelope=envelope)
 
     voronoi_gdf = gpd.GeoDataFrame(geometry=list(regions.geoms), crs=buffers_gdf.crs)
-    # Assign each Voronoi polygon to its nearest mall centroid.
     assigned = gpd.sjoin_nearest(
         voronoi_gdf,
         centroids_gdf,
         how="left",
     ).drop(columns=["index_right"])
 
-    # Clip each Voronoi cell to its own 5-mile buffer.
     buf_geom = buffers_gdf.set_index("mall_id")["geometry"]
     clipped_geoms = [
         row.geometry.intersection(buf_geom[row.mall_id])
@@ -91,20 +83,18 @@ def _build_draw_zones(buffers_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return result[["mall_id", "mall_name", "geometry"]]
 
 
-def aggregate_deduped(buffers: Path, tracts: Path, output: Path) -> None:
-    # load buffer zones for malls
-    buffers_gdf = gpd.read_file(buffers)[["id", "mall_name", "geometry"]].rename(
-        columns={"id": "mall_id"}
-    )
-    # load target tracts with M22_39 population
-    tracts_gdf = gpd.read_file(tracts)[["GEOID", "M22_39", "geometry"]]
+def aggregate_deduped(layer: BoundLayer) -> None:
+    buffers_layer, tracts_layer = layer.inputs
+    buffers_gdf = gpd.read_file(buffers_layer.path)[
+        ["id", "mall_name", "geometry"]
+    ].rename(columns={"id": "mall_id"})
+    tracts_gdf = gpd.read_file(tracts_layer.path)[["GEOID", "M22_39", "geometry"]]
     print(f"  buffers: {len(buffers_gdf)} rows, CRS={buffers_gdf.crs}")
     print(f"  tracts: {len(tracts_gdf)} rows")
 
     draw_zones = _build_draw_zones(buffers_gdf)
     print(f"  draw zones: {len(draw_zones)} rows")
 
-    # Area-weighted overlay: split tracts by draw zone, prorate M22_39 by area.
     tracts_gdf["tract_area"] = tracts_gdf.geometry.area
     fragments = gpd.overlay(draw_zones, tracts_gdf, how="intersection")
     fragments["target_population"] = (
@@ -127,14 +117,15 @@ def aggregate_deduped(buffers: Path, tracts: Path, output: Path) -> None:
     print(f"  deduped_people breaks: good ≤ {p33:,.0f}, better ≤ {p67:,.0f}")
 
     result = draw_zones.merge(totals, on="mall_id", how="inner")
-    result[["mall_id", "mall_name", "m22_39", "bucket", "geometry"]].to_file(output)
+    result[["mall_id", "mall_name", "m22_39", "bucket", "geometry"]].to_file(layer.path)
 
 
 mall_people_deduped = Layer(
     id="mall_people_deduped",
     name="Mall Draw Zones",
     type="vector",
-    source="./output/mall_people_deduped.shp",
+    inputs=[mall_buffers, target_tracts],
+    datasource="output/mall_people_deduped.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -148,22 +139,5 @@ mall_people_deduped = Layer(
         ],
         symbols=_SYMBOLS,
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Build Voronoi draw zones (Voronoi cell ∩ 5-mile buffer) for each"
-            " mall; area-weight M22_39 from target tracts across zone boundaries;"
-            " assign equal-count bucket (0/1/2)."
-        ),
-        action=PythonAction(fn=aggregate_deduped),
-        depends_on=["mall_buffers", "target_tracts"],
-        output=Path("output/mall_people_deduped.shp"),
-    ),
+    action=PythonAction(fn=aggregate_deduped),
 )
-
-if __name__ == "__main__":
-    _proj = Path(__file__).parent.parent / "output"
-    aggregate_deduped(
-        _proj / "mall_buffers.shp",
-        _proj / "target_tracts.shp",
-        _proj / "mall_people_deduped.shp",
-    )

@@ -1,18 +1,18 @@
-from pathlib import Path
-
 import geopandas as gpd
 import numpy as np
 
-from projects.lab4.util import MALL_BUCKET_COLORS
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     Rule,
     RuleRenderer,
     SimpleFill,
     Symbol,
 )
+from projects.lab4.layers.mall_buffers import mall_buffers
+from projects.lab4.layers.target_tracts import target_tracts
+from projects.lab4.util import MALL_BUCKET_COLORS
 
 # output/mall_buffer_people.shp: one row per mall buffer, with M22_39 summed
 # across all target census tracts (pct_m22_39 > 20%) that spatially intersect
@@ -40,9 +40,10 @@ _SYMBOLS = [
 ]
 
 
-def aggregate_mall_m22_39(tracts: Path, buffers: Path, output: Path) -> None:
-    tr = gpd.read_file(tracts)[["M22_39", "geometry"]]
-    buf = gpd.read_file(buffers)[["id", "mall_name", "geometry"]].rename(
+def aggregate_mall_m22_39(layer: BoundLayer) -> None:
+    tracts_layer, buffers_layer = layer.inputs
+    tr = gpd.read_file(tracts_layer.path)[["M22_39", "geometry"]]
+    buf = gpd.read_file(buffers_layer.path)[["id", "mall_name", "geometry"]].rename(
         columns={"id": "mall_id"}
     )
     print(f"  tracts: {len(tr)} rows, CRS={tr.crs}")
@@ -70,7 +71,7 @@ def aggregate_mall_m22_39(tracts: Path, buffers: Path, output: Path) -> None:
 
     result = buf.merge(totals, on="mall_id", how="inner")
     result[["mall_id", "mall_name", "m22_39_total", "bucket", "geometry"]].to_file(
-        output
+        layer.path
     )
 
 
@@ -78,7 +79,8 @@ mall_buffer_people = Layer(
     id="mall_buffer_people",
     name="Mall Buffer People",
     type="vector",
-    source="./output/mall_buffer_people.shp",
+    inputs=[target_tracts, mall_buffers],
+    datasource="output/mall_buffer_people.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -92,21 +94,5 @@ mall_buffer_people = Layer(
         ],
         symbols=_SYMBOLS,
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Spatial join target tracts (pct_m22_39 > 20%) with mall 5-mile"
-            " buffers; sum M22_39 per mall; assign equal-count bucket (0/1/2)."
-        ),
-        action=PythonAction(fn=aggregate_mall_m22_39),
-        depends_on=["target_tracts", "mall_buffers"],
-        output=Path("output/mall_buffer_people.shp"),
-    ),
+    action=PythonAction(fn=aggregate_mall_m22_39),
 )
-
-if __name__ == "__main__":
-    _proj = Path(__file__).parent.parent / "output"
-    aggregate_mall_m22_39(
-        _proj / "target_tracts.shp",
-        _proj / "mall_buffers.shp",
-        _proj / "mall_buffer_people.shp",
-    )

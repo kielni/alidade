@@ -1,15 +1,15 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
     Symbol,
 )
+from projects.lab4.layers.census_tracts_raw import census_tracts_raw
+from projects.lab4.layers.mall_buffers import mall_buffers
 
 # output/mall_buffer_tracts.shp: census tracts (pct_m22_39 > 20%) that
 # spatially intersect a mall 5-mile buffer. One row per (tract × mall) pair.
@@ -17,12 +17,13 @@ from alidade.models import (
 _PCT_THRESHOLD = 20.0
 
 
-def intersect_mall_buffer_tracts(buffers: Path, tracts: Path, output: Path) -> None:
-    buf = gpd.read_file(buffers)[["id", "mall_name", "geometry"]].rename(
+def intersect_mall_buffer_tracts(layer: BoundLayer) -> None:
+    buffers_layer, tracts_layer = layer.inputs
+    buf = gpd.read_file(buffers_layer.path)[["id", "mall_name", "geometry"]].rename(
         columns={"id": "mall_id"}
     )
 
-    tr = gpd.read_file(tracts)
+    tr = gpd.read_file(tracts_layer.path)
     tr = tr[tr["Total"] > 0].copy()
     tr["pct_m22_39"] = tr["M22_39"] / tr["Total"] * 100
     tr = tr[tr["pct_m22_39"] > _PCT_THRESHOLD][
@@ -42,14 +43,15 @@ def intersect_mall_buffer_tracts(buffers: Path, tracts: Path, output: Path) -> N
             "mall_name",
             "geometry",
         ]
-    ].to_file(output)
+    ].to_file(layer.path)
 
 
 mall_buffer_tracts = Layer(
     id="mall_buffer_tracts",
     name="Mall Buffer Census Tracts",
     type="vector",
-    source="./output/mall_buffer_tracts.shp",
+    inputs=[mall_buffers, census_tracts_raw],
+    datasource="output/mall_buffer_tracts.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -66,13 +68,5 @@ mall_buffer_tracts = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Spatial inner join (intersects) of mall 5-mile buffers with"
-            " census tracts where pct_m22_39 > 20%; retains Total and M22_39."
-        ),
-        action=PythonAction(fn=intersect_mall_buffer_tracts),
-        depends_on=["mall_buffers", "census_tracts_males_22_39"],
-        output=Path("output/mall_buffer_tracts.shp"),
-    ),
+    action=PythonAction(fn=intersect_mall_buffer_tracts),
 )

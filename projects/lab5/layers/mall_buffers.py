@@ -5,34 +5,34 @@ EPSG:2227 uses US survey feet; 2 miles = 10,560 ft.
 Fields: id, Street, mall_name, city (inherited from malls.shp).
 """
 
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
     Symbol,
 )
+from projects.lab5.layers.malls import malls
 
 _BUFFER_FT = 2 * 5280
 
 
-def buffer_malls(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
-    gdf = gdf.copy()
+def buffer_malls(layer: BoundLayer) -> None:
+    (src,) = layer.inputs
+    gdf = gpd.read_file(src.path).copy()
     gdf["geometry"] = gdf.geometry.buffer(_BUFFER_FT)
-    gdf.to_file(output)
+    gdf.to_file(layer.path)
 
 
 mall_buffers = Layer(
     id="mall_buffers",
     name="Mall 2-Mile Buffers",
     type="vector",
-    source="./output/mall_buffers.shp",
+    inputs=[malls],
+    datasource="output/mall_buffers.shp",
     provider="ogr",
     crs="EPSG:2227",
     visible=True,
@@ -49,10 +49,5 @@ mall_buffers = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description="Buffer mall points by 2 miles (10,560 ft) in EPSG:2227.",
-        action=PythonAction(fn=buffer_malls),
-        depends_on=["mall_points"],
-        output=Path("output/mall_buffers.shp"),
-    ),
+    action=PythonAction(fn=buffer_malls),
 )
