@@ -27,8 +27,8 @@ park_boundary = Layer(
                 SimpleFill(
                     color="0,0,0,0",
                     style="no",
-                    outline_color="128,0,128,255",
-                    outline_width=1.5,
+                    outline_color="128,128,128,255",
+                    outline_width=1,
                 )
             ],
         )

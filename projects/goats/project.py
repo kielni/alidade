@@ -56,11 +56,11 @@ map_park = Project(
 )
 
 """
-Slope analysis derived from DEM, clipped to park
+Slope analysis derived from DEM, clipped to park + 100ft buffer
 """
 map_slope = Project(
     id="slope",
-    title="Alum Rock Park Slope",
+    title="Alum Rock Park: Slopes",
     crs=CRS,
     extent=EXTENT,
     layers=[
@@ -70,6 +70,7 @@ map_slope = Project(
         water,
         roads_trails,
         slope,
+        elevation,
         basemap,
     ],
 )
@@ -78,7 +79,7 @@ map_slope = Project(
 Vegetation classification map, clipped to park; classes combined to 4-6 zones
 """
 map_veg = Project(
-    title="Alum Rock Goat Grazing",
+    title="Alum Rock: Vegetation",
     id="vegetation",
     crs=CRS,
     extent=EXTENT,
@@ -97,7 +98,7 @@ map_veg = Project(
 Exclusion and priority zones (riparian buffer, road/trail buffer, staging range)
 """
 map_zones = Project(
-    title="Alum Rock Goat Grazing",
+    title="Alum Rock Goat Grazing Zones",
     id="zones",
     crs=CRS,
     extent=EXTENT,
@@ -116,7 +117,7 @@ map_zones = Project(
 Weighted overlay suitability raster
 """
 map_suitability = Project(
-    title="Alum Rock Goat Grazing",
+    title="Alum Rock Goat Grazing Suitability",
     id="suitability",
     crs=CRS,
     extent=EXTENT,
@@ -135,7 +136,7 @@ map_suitability = Project(
 Recommended goat grazing zones (park-wide overview)
 """
 map_targets = Project(
-    title="Alum Rock Goat Grazing",
+    title="Alum Rock Goat Grazing Targets",
     id="targets",
     crs=CRS,
     extent=EXTENT,
@@ -154,7 +155,7 @@ map_targets = Project(
 Detail map(s) of highest-priority zones at large scale
 """
 map_detail = Project(
-    title="Alum Rock Goat Grazing",
+    title="Alum Rock Goat Grazing Detail",
     id="detail",
     crs=CRS,
     extent=EXTENT,
@@ -178,4 +179,4 @@ maps = [
     map_targets,
     map_detail,
 ]
-spec = map_veg
+spec = map_slope

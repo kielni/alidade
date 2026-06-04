@@ -5,6 +5,13 @@ import geopandas as gpd
 CRS = "EPSG:26910"
 
 
+def hex_to_rgba(hex_color: str, alpha: int = 255) -> str:
+    """Convert a CSS hex color to a QGIS-format 'R,G,B,A' string."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"{r},{g},{b},{alpha}"
+
+
 def clip_border(gdf: gpd.GeoDataFrame, output: Path) -> gpd.GeoDataFrame:
     """Clip gdf to the buffered park border.
 

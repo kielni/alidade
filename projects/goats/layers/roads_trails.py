@@ -35,6 +35,10 @@ out geom;
 
 
 def clip_roads_trails(border: Path, output: Path) -> None:
+    """Reproject and clip OSM road/trail data to the park clip border.
+
+    Excludes Polygon geometry types; retains LineString and MultiLineString only.
+    """
     project_dir = border.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "roads_trails.geojson")
     gdf = gdf[gdf.geom_type.isin(["LineString", "MultiLineString"])].to_crs(CRS)

@@ -18,6 +18,7 @@ Parking lots suitable for goat staging.
 
 
 def reproject_staging(output: Path) -> None:
+    """Reproject staging area points from GeoJSON to project CRS."""
     project_dir = output.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "staging.geojson").to_crs(CRS)
     gdf.to_file(output)

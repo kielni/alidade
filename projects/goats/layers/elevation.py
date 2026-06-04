@@ -5,6 +5,7 @@ from alidade.models import Layer, ProcessingStep, PythonAction
 from projects.goats.util import CRS
 
 _DEM_FILENAME = "USGS_13_n38w122_20250826.tif"
+# TODO: read from file instead of hardcoding
 _SRC_CRS = "EPSG:4269"
 _NODATA = "-999999"
 
@@ -16,6 +17,7 @@ https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38
 
 
 def crop_elevation(boundary: Path, output: Path) -> None:
+    """Reproject and crop the USGS DEM to the clip border extent."""
     project_dir = boundary.parent.parent
     src = str(project_dir / "data" / _DEM_FILENAME)
     subprocess.run(
@@ -57,7 +59,7 @@ elevation = Layer(
             "Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary"
         ),
         action=PythonAction(fn=crop_elevation),
-        depends_on=["park_boundary"],
+        depends_on=["clip_border"],
         output=Path("output/elevation.tif"),
     ),
 )

@@ -27,6 +27,11 @@ _CALC_EXPR = " + ".join(
 
 
 def build_slope(elevation_tif: Path, output: Path) -> None:
+    """Derive a classified slope raster from the elevation DEM.
+
+    Runs gdaldem to compute percentage slope, then gdal_calc.py to reclassify
+    into 4 categories: flat/gentle, moderate, steep, too steep.
+    """
     with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
         slope_pct = tmp.name
     try:
@@ -46,7 +51,7 @@ def build_slope(elevation_tif: Path, output: Path) -> None:
         )
         subprocess.run(
             [
-                "gdal_calc.py",
+                "gdal_calc.py",  # TODO: what is this?
                 "-A",
                 slope_pct,
                 "--outfile",

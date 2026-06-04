@@ -11,8 +11,8 @@
 | Streams | `output/water.shp` | Blue (#446677) lines, 0.6 mm | Reproject + clip `data/water.geojson` to clip border → EPSG:26910 |
 | Roads & Trails | `output/roads_trails.shp` | Brown (#785028) lines, 0.5 mm | Reproject + clip `data/roads_trails.geojson` to clip border → EPSG:26910; polygons excluded |
 | Slope | `output/slope.tif` | Paletted: Flat to gentle #1a9641 · Moderate #ffffbf · Steep #fdae61 · Too steep #d7191c | `gdaldem slope -p` on elevation → `gdal_calc.py` reclassify to Byte (1–4); breaks at 15/27/58% |
-| Elevation | `output/elevation.tif` | Grayscale (black → white) | Reproject DEM `data/USGS_13_n38w122_20250826.tif` EPSG:4269 → EPSG:26910, crop to park boundary, bilinear resampling |
-| Fine-Scale Vegetation | `output/vegetation.gpkg` | Rule-based: 6 grazing zones (alpha=200) — Primary targets/shrub #d4851e · Invasive/non-native #9b6fa0 · Native woodland #3a6a24 · Riparian Forest #2a7a6a · Herbaceous #d4e882 · Developed #c0c0c0 | Reproject `data/fine_scale_vegetation.gdb` (EPSG:6420) → EPSG:26910, clip to clip border; 343 polygons, 23 MAP_CLASS values |
+| Elevation | `output/elevation.tif` | Grayscale (black → white) | Reproject DEM `data/USGS_13_n38w122_20250826.tif` EPSG:4269 → EPSG:26910, crop to clip border, bilinear resampling |
+| Fine-Scale Vegetation | `output/vegetation.gpkg` | Rule-based: 7 VMP suitability zones (alpha=200) — Shrub #1a9850 · Herbaceous #a6d96a · Non-native herbaceous #fee08b · Non-native woodland #bf812d · Native woodland #dfc27d · Riparian forest #8c510a · Developed #d9d9d9 | Reproject `data/fine_scale_vegetation.gdb` (EPSG:6420) → EPSG:26910, clip to clip border; 343 polygons, 23 MAP_CLASS values |
 | CartoDB Positron | XYZ tile basemap | `styles/cartodb_positron.xml` | — |
 
 ## Project

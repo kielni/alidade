@@ -26,6 +26,11 @@ Use this to identify priority "high human use" areas
 
 
 def convert_developed_area(output: Path) -> None:
+    """Convert the GPX developed-area track to a closed polygon in project CRS.
+
+    Merges track lines, simplifies to 10 m tolerance (Douglas-Peucker),
+    closes the ring, and reprojects to project CRS.
+    """
     project_dir = output.parent.parent
     src = project_dir / "data" / "Alum_Rock_developed_area.gpx"
     gdf = gpd.read_file(src, layer="tracks").to_crs(CRS)

@@ -11,73 +11,73 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.goats.util import CRS, clip_border
+from projects.goats.util import CRS, clip_border, hex_to_rgba
 
 _GDB_LAYER = "CRUZ_CLARA_FINESCALE_VEG_6_15_2023"
 
-# Grazing zone reclassification of the 11 ENHANCED_LIFEFORM classes into
-# 5 decision zones (plus Developed) for goat management.  Colors chosen to
-# read naturally against the CartoDB Positron basemap; alpha=200 lets
-# slope/elevation show through.
+# Vegetation suitability for goat grazing, based on Alum Rock VMP.
+# Colors: green → yellow for suitable tiers; grays for poorly suited / excluded.
 #
-# Group 1 – Primary targets: Shrub/chaparral (Artemisia californica,
-#   Ceanothus, Baccharis) — main fire-fuel-reduction use case.
-# Group 2 – Invasive/non-native: secondary browsing targets.  Pine/Cypress
-#   is native (Pinus sabiniana, P. attenuata) so it goes in Group 3, not here.
-# Group 3 – Native woodland: avoid; unsupervised goats damage native oaks.
-# Group 4 – Riparian Forest: exclude via 100-ft stream buffer; sensitive habitat.
-# Group 5 – Low-priority / neutral: native grassland.
-# Developed – irrelevant to management; rendered neutral gray.
+# Suitable:
+#   Shrub — primary target
+#   Non-native Herbaceous — invasive but not preferred by goats
+#   Herbaceous — native grassland
+#
+# Poorly suited or excluded:
+#   Eucalyptus + Non-native Forest — not suitable for goats
+#   Forest + native hardwoods + Pine/Cypress — not suitable for goats
+#   Riparian Forest — excluded by regulatory restrictions
+#   Developed — not applicable
 _ZONES = [
     (
-        "Primary targets (shrub/chaparral)",
+        "Shrub",
         "\"ENHANCED_LIFEFORM\" = 'Shrub'",
-        "#d4851e",
+        "#1a9850",
     ),
     (
-        "Invasive / non-native",
+        "Non-native herbaceous",
+        "\"ENHANCED_LIFEFORM\" = 'Non-native Herbaceous'",
+        "#a6d96a",
+    ),
+    (
+        "Herbaceous",
+        "\"ENHANCED_LIFEFORM\" = 'Herbaceous'",
+        "#fee08b",
+    ),
+    # TODO: rewrite as list of lifeforms and build query later
+    (
+        "Non-native woodland",
         (
             "\"ENHANCED_LIFEFORM\" = 'Eucalyptus'"
             " OR \"ENHANCED_LIFEFORM\" = 'Non-native Forest'"
-            " OR \"ENHANCED_LIFEFORM\" = 'Non-native Herbaceous'"
         ),
-        "#9b6fa0",
+        "#cccccc",
     ),
     (
-        "Native woodland (avoid or buffer)",
+        "Native woodland",
         (
-            "\"ENHANCED_LIFEFORM\" = 'Evergreen Hardwood'"
+            "\"ENHANCED_LIFEFORM\" = 'Forest'"
             " OR \"ENHANCED_LIFEFORM\" = 'Deciduous Hardwood'"
-            " OR \"ENHANCED_LIFEFORM\" = 'Forest'"
+            " OR \"ENHANCED_LIFEFORM\" = 'Evergreen Hardwood'"
             " OR \"ENHANCED_LIFEFORM\" = 'Pine/Cypress'"
         ),
-        "#3a6a24",
+        "#969696",
     ),
     (
-        "Riparian Forest (exclude)",
+        "Riparian forest",
         "\"ENHANCED_LIFEFORM\" = 'Riparian Forest'",
-        "#2a7a6a",
-    ),
-    (
-        "Herbaceous (low priority)",
-        "\"ENHANCED_LIFEFORM\" = 'Herbaceous'",
-        "#d4e882",
+        "#bdd7e7",
     ),
     (
         "Developed",
         "\"ENHANCED_LIFEFORM\" = 'Developed'",
-        "#c0c0c0",
+        "#636363",
     ),
 ]
 
 
-def _hex_to_rgba(hex_color: str, alpha: int = 200) -> str:
-    h = hex_color.lstrip("#")
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f"{r},{g},{b},{alpha}"
-
-
 def clip_vegetation(border: Path, output: Path) -> None:
+    """Reproject and clip the fine-scale vegetation GDB to the park clip border."""
     project_dir = border.parent.parent
     gdb = project_dir / "data" / "fine_scale_vegetation.gdb"
     gdf = gpd.read_file(gdb, layer=_GDB_LAYER).to_crs(CRS)
@@ -99,10 +99,10 @@ _symbols = [
         type="fill",
         layers=[
             SimpleFill(
-                color=_hex_to_rgba(color),
+                color=hex_to_rgba(color, 200),
                 style="solid",
                 outline_color="80,80,80,120",
-                outline_width=0.1,
+                outline_width=0,
             )
         ],
     )

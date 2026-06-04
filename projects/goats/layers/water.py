@@ -35,6 +35,7 @@ out geom;
 
 
 def clip_water(border: Path, output: Path) -> None:
+    """Reproject and clip OSM stream data to the park clip border."""
     project_dir = border.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "water.geojson").to_crs(CRS)
     clip_border(gdf, output).to_file(output)
