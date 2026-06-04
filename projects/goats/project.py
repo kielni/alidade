@@ -9,6 +9,9 @@ from projects.goats.layers.roads_trails import roads_trails
 from projects.goats.layers.staging import staging
 from projects.goats.layers.vegetation import vegetation
 from projects.goats.layers.water import water
+from projects.goats.layers.priority_developed import priority_developed
+from projects.goats.layers.priority_roads_trails import priority_roads_trails
+from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
 from projects.goats.util import CRS
 
 EXTENT = (
@@ -26,6 +29,9 @@ map_all = Project(
         staging,
         park_boundary,
         border,
+        exclude_water_vegetation,
+        priority_roads_trails,
+        priority_developed,
         developed_area,
         water,
         roads_trails,
@@ -91,16 +97,18 @@ map_veg = Project(
 )
 
 """
-Exclusion and priority zones (riparian buffer, road/trail buffer, staging range)
+Exclusion and priority zones (riparian buffer, road/trail buffer)
 """
 map_zones = Project(
-    title="Alum Rock Goat Grazing Zones",
+    title="Alum Rock Goat Priority and Exclusion Zones",
     id="zones",
     crs=CRS,
     extent=EXTENT,
     layers=[
         park_boundary,
-        staging,
+        exclude_water_vegetation,
+        priority_roads_trails,
+        priority_developed,
         developed_area,
         water,
         roads_trails,

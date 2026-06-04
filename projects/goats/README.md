@@ -19,6 +19,24 @@
 **Style:** single symbol — fill #000000 at 0% opacity, #6464c8 outline  
 **Derived from:** `park_boundary`  
 
+### Exclusion: Riparian Buffer
+
+**Source:** `output/exclude_water_vegetation.gpkg`  
+**Style:** single symbol — fill #4477aa at 50% opacity, #285078 outline  
+**Derived from:** `park_boundary`, `riparian_zone`  
+
+### Priority: Roads & Trails Buffer
+
+**Source:** `output/priority_roads_trails.gpkg`  
+**Style:** single symbol — fill #ffc800 at 50% opacity, #b48c00 outline  
+**Derived from:** `park_boundary`, `roads_trails`  
+
+### Priority: Developed Area Buffer
+
+**Source:** `output/priority_developed.gpkg`  
+**Style:** single symbol — fill #ff8c00 at 50% opacity, #c86400 outline  
+**Derived from:** `park_boundary`, `developed_area`  
+
 ### Developed Area
 
 **Source:** `output/developed_area.shp`  
@@ -64,6 +82,12 @@
 ```mermaid
 flowchart LR
     park_boundary --> clip_border
+    park_boundary --> exclude_water_vegetation
+    riparian_zone --> exclude_water_vegetation
+    park_boundary --> priority_roads_trails
+    roads_trails --> priority_roads_trails
+    park_boundary --> priority_developed
+    developed_area --> priority_developed
     clip_border --> riparian_zone
     clip_border --> roads_trails
     usgs_elevation --> slope_percent

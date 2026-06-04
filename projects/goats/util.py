@@ -19,3 +19,12 @@ def clip_border(gdf: gpd.GeoDataFrame, output: Path) -> gpd.GeoDataFrame:
     """
     mask = gpd.read_file(output.parent / "border.gpkg")
     return gpd.clip(gdf, mask)
+
+
+def clip_park(gdf: gpd.GeoDataFrame, boundary_path: Path) -> gpd.GeoDataFrame:
+    """Clip gdf to the exact park boundary (no buffer).
+
+    gdf must already be in project CRS (EPSG:26910).
+    """
+    mask = gpd.read_file(boundary_path).to_crs(CRS).dissolve()
+    return gpd.clip(gdf, mask)
