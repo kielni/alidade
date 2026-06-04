@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import ProjectSpec
 from projects.sample.layers.arp_areas import arp_areas
 from projects.sample.layers.arp_slope import arp_slope
 from projects.sample.layers.cartodb_positron import cartodb_positron
@@ -16,7 +16,7 @@ from projects.sample.layers.park_polygon import park_polygon
 from projects.sample.layers.slope import slope
 from projects.sample.layers.unique_values_table import unique_values_table
 
-spec = Project(
+spec = ProjectSpec(
     title="",
     crs="EPSG:26910",
     extent=(

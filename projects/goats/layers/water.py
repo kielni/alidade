@@ -38,6 +38,11 @@ def clip_water(border: Path, output: Path) -> None:
     """Reproject and clip OSM stream data to the park clip border."""
     project_dir = border.parent.parent
     gdf = gpd.read_file(project_dir / "data" / "water.geojson").to_crs(CRS)
+    # TODO: drop long column names (tags?)
+    """
+    /Users/kimberly/home/alidade/.venv/lib/python3.14/site-packages/pyogrio/raw.py:733: RuntimeWarning: Normalized/laundered field name: 'scvwd:FACILITY' to 'scvwd_FACI'
+  ogr_write(
+    """
     clip_border(gdf, output).to_file(output)
 
 

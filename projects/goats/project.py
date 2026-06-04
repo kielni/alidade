@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import ProjectSpec
 from projects.goats.layers.basemap import basemap
 from projects.goats.layers.border import border
 from projects.goats.layers.developed_area import developed_area
@@ -18,7 +18,7 @@ EXTENT = (
     4140758.2218029452,
 )
 
-map_all = Project(
+map_all = ProjectSpec(
     title="Alum Rock Goat Grazing",
     crs=CRS,
     extent=EXTENT,
@@ -39,7 +39,7 @@ map_all = Project(
 """
 Park boundary with data layers (staging areas, creek, roads/trails, developed zone)
 """
-map_park = Project(
+map_park = ProjectSpec(
     id="park",
     title="Alum Rock Park",
     crs=CRS,
@@ -58,7 +58,7 @@ map_park = Project(
 """
 Slope analysis derived from DEM, clipped to park + 100ft buffer
 """
-map_slope = Project(
+map_slope = ProjectSpec(
     id="slope",
     title="Alum Rock Park: Slopes",
     crs=CRS,
@@ -78,7 +78,7 @@ map_slope = Project(
 """
 Vegetation classification map, clipped to park; classes combined to 4-6 zones
 """
-map_veg = Project(
+map_veg = ProjectSpec(
     title="Alum Rock: Vegetation",
     id="vegetation",
     crs=CRS,
@@ -97,7 +97,7 @@ map_veg = Project(
 """
 Exclusion and priority zones (riparian buffer, road/trail buffer, staging range)
 """
-map_zones = Project(
+map_zones = ProjectSpec(
     title="Alum Rock Goat Grazing Zones",
     id="zones",
     crs=CRS,
@@ -116,7 +116,7 @@ map_zones = Project(
 """
 Weighted overlay suitability raster
 """
-map_suitability = Project(
+map_suitability = ProjectSpec(
     title="Alum Rock Goat Grazing Suitability",
     id="suitability",
     crs=CRS,
@@ -135,7 +135,7 @@ map_suitability = Project(
 """
 Recommended goat grazing zones (park-wide overview)
 """
-map_targets = Project(
+map_targets = ProjectSpec(
     title="Alum Rock Goat Grazing Targets",
     id="targets",
     crs=CRS,
@@ -154,7 +154,7 @@ map_targets = Project(
 """
 Detail map(s) of highest-priority zones at large scale
 """
-map_detail = Project(
+map_detail = ProjectSpec(
     title="Alum Rock Goat Grazing Detail",
     id="detail",
     crs=CRS,
@@ -179,4 +179,4 @@ maps = [
     map_targets,
     map_detail,
 ]
-spec = map_slope
+spec = map_veg

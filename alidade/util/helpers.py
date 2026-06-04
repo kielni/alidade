@@ -3,22 +3,23 @@
 import importlib
 from pathlib import Path
 
-from alidade.models import Project
+from alidade.models import Project, ProjectSpec
 
 # alidade/ package root — the base for HERE-relative source path resolution.
 _HERE = Path(__file__).parent.parent
 
 
-def load_spec(project_dir: Path) -> Project:
+def load_spec(project_path: Path) -> Project:
     """Load project.py from project_dir and return its spec attribute."""
-    spec_path = project_dir / "project.py"
+    spec_path = project_path / "project.py"
     if not spec_path.exists():
         raise SystemExit(
-            f"project.py not found in {project_dir} — run 'make dump' first"
+            f"project.py not found in {project_path} — run 'make dump' first"
         )
     repo_root = _HERE.parent
-    package = ".".join(project_dir.relative_to(repo_root).parts)
-    return importlib.import_module(f"{package}.project").spec
+    package = ".".join(project_path.relative_to(repo_root).parts)
+    spec: ProjectSpec = importlib.import_module(f"{package}.project").spec
+    return Project(**spec.model_dump(), project_path=project_path)
 
 
 def resolve_source_path(source: str, project_dir: Path) -> Path:

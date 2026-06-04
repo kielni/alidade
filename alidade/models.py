@@ -162,6 +162,19 @@ class ProcessingStep(BaseModel):
     output: Path
 
 
+class BoundProcessingStep(ProcessingStep):
+    project_path: Path
+
+    @property
+    def input_paths(self) -> list[Path]:
+        """Resolve depends_on layer sources against project_path."""
+        return [self.project_path / dep for dep in self.depends_on]
+
+    @property
+    def output_path(self) -> Path:
+        return (self.project_path / self.output).resolve()
+
+
 # ── Label ─────────────────────────────────────────────────────────────────────
 
 
@@ -212,6 +225,22 @@ class Layer(BaseModel):
             stacklevel=2,
         )
         return padded
+
+
+class BoundLayer(Layer):
+    project_path: Path
+
+    @property
+    def path(self) -> Path:
+        """Path to datasource that this layer represents."""
+        return (self.project_path / self.source).resolve()
+    
+    @property
+    def data_path(self) -> Path:
+        """Path to the raw source data."""
+        # TODO: like path but with new self.data_file once it exists
+        pass
+    
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────
@@ -339,7 +368,7 @@ class PrintLayout(BaseModel):
 # ── Project ───────────────────────────────────────────────────────────────────
 
 
-class Project(BaseModel):
+class ProjectSpec(BaseModel):
     """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
@@ -351,3 +380,7 @@ class Project(BaseModel):
     extent: tuple[float, float, float, float] | None = None
     print_layout: PrintLayout | None = None
     extra: dict[str, Any] = {}
+
+
+class Project(ProjectSpec):
+    project_path: Path

@@ -76,11 +76,12 @@ _ZONES = [
 ]
 
 
-def clip_vegetation(border: Path, output: Path) -> None:
+def clip_vegetation(border: Path, source: Path, output: Path) -> None:
     """Reproject and clip the fine-scale vegetation GDB to the park clip border."""
-    project_dir = border.parent.parent
-    gdb = project_dir / "data" / "fine_scale_vegetation.gdb"
-    gdf = gpd.read_file(gdb, layer=_GDB_LAYER).to_crs(CRS)
+    # gdb = project_dir / "data" / "fine_scale_vegetation.gdb"
+    # source="./output/vegetation.gpkg|layername=vegetation",
+    # TODO: what happens between these files?
+    gdf = gpd.read_file(source, layer=_GDB_LAYER).to_crs(CRS)
     clip_border(gdf, output).to_file(output, driver="GPKG")
 
 
@@ -109,10 +110,17 @@ _symbols = [
     for _, _, color in _ZONES
 ]
 
+"""
+raw source data: data/fine_scale_vegetation.gdb
+dependency : clip_border.source
+creates: output/vegetation.gpkg
+
+"""
 vegetation = Layer(
     id="vegetation",
     name="Fine-Scale Vegetation (2020)",
     type="vector",
+    # TODO: why is layername here? does it need to be or is there another way to specify it?
     source="./output/vegetation.gpkg|layername=vegetation",
     provider="ogr",
     crs=CRS,

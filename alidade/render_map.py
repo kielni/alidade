@@ -19,7 +19,7 @@ from alidade.models import (
     GraduatedRenderer,
     Layer,
     PalettedRenderer,
-    Project,
+    ProjectSpec,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -190,7 +190,7 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
 
 def render(
     project_dir: Path,
-    spec: Project | None = None,
+    spec: ProjectSpec | None = None,
     name: str = "map",
     dpi: int = 150,
 ) -> None:

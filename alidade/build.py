@@ -1,9 +1,8 @@
-"""Entry point: render <project_dir>/project.py → <project_dir>/output/project.qgs."""
+"""Entry point: render <project_path>/project.py → <project_path>/output/project.qgs."""
 
 import argparse
 import hashlib
 import subprocess
-import sys
 from pathlib import Path
 
 from alidade.models import Layer, Project
@@ -11,8 +10,6 @@ from alidade.readme import update_readme
 from alidade.render_map import render as render_map
 from alidade.render_qgis import render as render_qgis
 from alidade.util.helpers import load_spec, resolve_source_path
-
-HERE = Path(__file__).parent  # alidade/
 
 
 def _visit(
@@ -44,16 +41,17 @@ def _topo_sort(spec: Project) -> list[Layer]:
     return ordered
 
 
-def _run_processing_steps(spec: Project, project_dir: Path, force: bool) -> None:
+def _run_processing_steps(spec: Project, force: bool) -> None:
     """Run processing steps in dependency order for outputs that don't exist."""
     sources = {
-        layer.id: resolve_source_path(layer.source, project_dir)
+        # TODO: verify path usage
+        layer.id: resolve_source_path(layer.source, spec.project_path)
         for layer in spec.layers
     }
     for layer in _topo_sort(spec):
         step = layer.processing_step
         assert step is not None
-        output = (project_dir / step.output).resolve()
+        output = (spec.project_path / step.output).resolve()
         if not force and output.exists():
             print(f"  [skip] {layer.name!r} output exists")
             continue
@@ -76,32 +74,35 @@ def _run_processing_steps(spec: Project, project_dir: Path, force: bool) -> None
             subprocess.run(cmd, shell=True, check=True)
 
 
-def _source_hash(project_dir: Path) -> str:
+def _source_hash(spec: Project) -> str:
     """Return a SHA-256 hex digest of project.py and all layers/*.py files."""
+    # TODO: what is this? replace with id from ProjectSpec?
+    assert spec.project_path is not None
     h = hashlib.sha256()
-    project_py = project_dir / "project.py"
+    project_py = spec.project_path / "project.py"
     if project_py.exists():
         h.update(project_py.read_bytes())
-    layers_dir = project_dir / "layers"
+    layers_dir = spec.project_path / "layers"
     if layers_dir.exists():
         for f in sorted(layers_dir.glob("*.py")):
             h.update(f.read_bytes())
     return h.hexdigest()
 
 
-def _needs_rebuild(project_dir: Path, output_format: str) -> bool:
+def _needs_rebuild(spec: Project) -> bool:
     """Return True if source files have changed or (for qgis) output is absent."""
-    output_dir = project_dir / "output"
-    if output_format == "qgis" and not (output_dir / "project.qgs").exists():
+    assert spec.project_path is not None
+    output_dir = spec.project_path / "output"
+    if spec.output_format == "qgis" and not (output_dir / "project.qgs").exists():
         return True
     state_file = output_dir / ".state"
     if not state_file.exists():
         return True
-    return state_file.read_text().strip() != _source_hash(project_dir)
+    return state_file.read_text().strip() != _source_hash(spec)
 
 
 def main() -> None:
-    """Build output/ from project_dir/project.py."""
+    """Build output/ from project_path/project.py."""
     parser = argparse.ArgumentParser(
         description="Build QGIS or ArcGIS Pro lyrx output from project.py."
     )
@@ -112,42 +113,37 @@ def main() -> None:
     args = parser.parse_args()
     force = args.force
 
-    project_dir = (Path.cwd() / args.project_dir).resolve()
-    project_py = project_dir / "project.py"
+    project_path = (Path.cwd() / args.project_dir).resolve()
+    spec = load_spec(project_path)
+    assert spec.project_path is not None
 
-    if not project_py.exists():
-        print(f"project.py not found in {project_dir} — run 'make dump' first")
-        sys.exit(1)
-
-    spec = load_spec(project_dir)
-
-    if not force and not _needs_rebuild(project_dir, spec.output_format):
+    if not force and not _needs_rebuild(spec):
         print("project is up to date")
         return
 
-    fmt_targets = [str(project_py)]
-    layers_dir = project_dir / "layers"
+    fmt_targets = [str(spec.project_path / "project.py")]
+    layers_dir = spec.project_path / "layers"
     if layers_dir.exists():
         fmt_targets += [str(layers_dir)]
     subprocess.run(["uv", "run", "black"] + fmt_targets, check=True)
 
     if spec.output_format == "qgis":
-        _run_processing_steps(spec, project_dir, force=force)
-        render_qgis(spec, project_dir)
-        render_map(project_dir)
-        update_readme(spec, project_dir)
+        _run_processing_steps(spec, force=force)
+        render_qgis(spec)
+        render_map(spec.project_path)  # TODO: update render_map to take spec
+        update_readme(spec)
     elif spec.output_format == "lyrx":
         from alidade.render_lyrx import render_lyrx
 
-        _run_processing_steps(spec, project_dir, force=force)
-        render_lyrx(spec, project_dir)
-        render_map(project_dir)
+        _run_processing_steps(spec, force=force)
+        render_lyrx(spec)
+        render_map(spec.project_path)  # TODO: update render_map to take spec
     else:
         raise NotImplementedError(f"Unknown output_format {spec.output_format!r}")
 
-    output_dir = project_dir / "output"
+    output_dir = spec.project_path / "output"
     output_dir.mkdir(exist_ok=True)
-    (output_dir / ".state").write_text(_source_hash(project_dir))
+    (output_dir / ".state").write_text(_source_hash(spec))
 
 
 if __name__ == "__main__":

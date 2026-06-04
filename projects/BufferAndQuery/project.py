@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import ProjectSpec
 from projects.BufferAndQuery.layers.capitol_buffer import capitol_buffer
 from projects.BufferAndQuery.layers.capitol_parks_intersect import (
     capitol_parks_intersect,
@@ -7,7 +7,7 @@ from projects.BufferAndQuery.layers.cartodb_positron import cartodb_positron
 from projects.BufferAndQuery.layers.national_parks import national_parks
 from projects.BufferAndQuery.layers.state_capitol_bldgs import state_capitol_bldgs
 
-spec = Project(
+spec = ProjectSpec(
     title="Buffer and Query Practice",
     crs="EPSG:3857",
     extent=(

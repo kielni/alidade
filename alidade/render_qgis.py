@@ -177,8 +177,9 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: Project, project_dir: Path) -> None:
+def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
     """Rebuild the <layer-tree-group> in root from spec layers."""
+    assert spec.project_path is not None
     ltg = root.find("layer-tree-group")
     if ltg is None:
         return
@@ -194,7 +195,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: Project, project_dir: Path) -> N
             providerKey=layer.provider,
             patch_size="-1,-1",
             id=layer.id,
-            source=_rel_source(layer.source, project_dir),
+            source=_rel_source(layer.source, spec.project_path),
             expanded="1",
             name=layer.name,
         )
@@ -1040,8 +1041,9 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     return ml
 
 
-def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
+def _inject_layers(root: ET.Element, spec: Project) -> None:
     """Insert all spec layers as <maplayer> elements into <projectlayers>."""
+    assert spec.project_path is not None
     pl = root.find("projectlayers")
     if pl is None:
         pl = ET.SubElement(root, "projectlayers")
@@ -1049,13 +1051,13 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
     for layer in spec.layers:
         if layer.style_xml is None:
             if layer.type == "vector" and layer.geometry_type:
-                ml = _build_vector_maplayer(layer, project_dir)
+                ml = _build_vector_maplayer(layer, spec.project_path)
             elif layer.type == "raster":
                 ml = _build_raster_maplayer(layer)
             else:
                 continue
         else:
-            xml_path = project_dir / layer.style_xml
+            xml_path = spec.project_path / layer.style_xml
             if not xml_path.exists():
                 print(f"  warning: {xml_path} not found, skipping {layer.name!r}")
                 continue
@@ -1065,13 +1067,13 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
             id_el.text = layer.id
         ds = ml.find("datasource")
         if ds is not None:
-            ds.text = _rel_source(layer.source, project_dir)
+            ds.text = _rel_source(layer.source, spec.project_path)
         nm = ml.find("layername")
         if nm is not None:
             nm.text = layer.name
         if layer.renderer is not None and layer.type == "vector":
             old = ml.find("renderer-v2")
-            new = _render_renderer(layer.renderer, project_dir)
+            new = _render_renderer(layer.renderer, spec.project_path)
             if old is not None:
                 children = list(ml)
                 ml.remove(old)
@@ -1081,9 +1083,10 @@ def _inject_layers(root: ET.Element, spec: Project, project_dir: Path) -> None:
         pl.append(ml)
 
 
-def render(spec: Project, project_dir: Path) -> None:
-    """Render project spec to output/project.qgs inside project_dir."""
-    base_path = project_dir / "styles" / "base.qgs"
+def render(spec: Project) -> None:
+    """Render project spec to output/project.qgs inside spec.project_path."""
+    assert spec.project_path is not None
+    base_path = spec.project_path / "styles" / "base.qgs"
     if not base_path.exists():
         base_path = HERE / "util" / "base.qgs"
 
@@ -1097,19 +1100,19 @@ def render(spec: Project, project_dir: Path) -> None:
         _update_extent(root, spec.extent)
     _update_crs(root, spec.crs)
     _update_title(root, spec.title)
-    _inject_layers(root, spec, project_dir)
-    _rebuild_layer_tree(root, spec, project_dir)
+    _inject_layers(root, spec)
+    _rebuild_layer_tree(root, spec)
     _rebuild_legend(root, spec)
     _rebuild_layerorder(root, spec)
 
-    output_dir = project_dir / "output"
+    output_dir = spec.project_path / "output"
     output_dir.mkdir(exist_ok=True)
     out = output_dir / "project.qgs"
     out.write_text(_QGS_DOCTYPE + ET.tostring(root, encoding="unicode"))
     print(f"Wrote {out}")
 
     if spec.print_layout is not None:
-        render_print_layout(spec, project_dir)
+        render_print_layout(spec)
 
 
 # ── QPT print layout rendering ────────────────────────────────────────────────
@@ -1810,8 +1813,9 @@ def _qpt_map_frame(
     return el
 
 
-def render_print_layout(spec: Project, project_dir: Path) -> None:
-    """Render spec's print_layout to output/print.qpt inside project_dir."""
+def render_print_layout(spec: Project) -> None:
+    """Render spec's print_layout to output/print.qpt inside spec.project_path."""
+    assert spec.project_path is not None
     assert spec.print_layout is not None
     pl = spec.print_layout
     map_uuid = _qpt_uuid()
@@ -1948,7 +1952,7 @@ def render_print_layout(spec: Project, project_dir: Path) -> None:
     )
 
     ET.indent(root, space=" ")
-    output_dir = project_dir / "output"
+    output_dir = spec.project_path / "output"
     output_dir.mkdir(exist_ok=True)
     out = output_dir / f"{pl.name}.qpt"
     out.write_text(ET.tostring(root, encoding="unicode"))

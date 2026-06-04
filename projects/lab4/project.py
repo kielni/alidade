@@ -2,7 +2,7 @@ from alidade.models import (
     PrintLayout,
     PrintMapFrame,
     PrintScaleBar,
-    Project,
+    ProjectSpec,
 )
 from projects.lab4.layers.basemap import basemap
 from projects.lab4.layers.census_tracts import census_tracts
@@ -40,7 +40,7 @@ EXTENT_350k = (
     2224236.5574957547,
 )
 
-spec_all = Project(
+spec_all = ProjectSpec(
     title="Lab 4",
     crs="EPSG:2227",
     extent=EXTENT_600k,
@@ -66,7 +66,7 @@ distribution of 22-39 year old males (census_tracts)
 mall locations (malls)
 major roads (major_roads)
 """
-map1 = Project(
+map1 = ProjectSpec(
     title="Map 1: Overview",
     crs="EPSG:2227",
     extent=(
@@ -103,7 +103,7 @@ map1 = Project(
 Census tracts with greater than 20% 22-39 year old males (target_tracts)
 mall locations (malls)
 """
-map2 = Project(
+map2 = ProjectSpec(
     title="Map 2: Target Census Tracts and Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
@@ -128,7 +128,7 @@ Census tracts with >20% 22-39 year old males near malls (mall_target_intersect)
 mall locations (malls)
 5 mile buffers of malls (mall_buffers) ; unfilled or transparent polygons
 """
-map3 = Project(
+map3 = ProjectSpec(
     title="Map 3: Malls and Target Tracts Near Malls",
     crs="EPSG:2227",
     extent=EXTENT_350k,
@@ -149,7 +149,7 @@ map3 = Project(
 )
 
 
-map4 = Project(
+map4 = ProjectSpec(
     title="Map 4: Deduplicated Target Population by Mall Draw Zone",
     crs="EPSG:2227",
     extent=EXTENT_350k,

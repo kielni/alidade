@@ -126,7 +126,7 @@ def _describe_style(layer: Layer) -> str:
     return "no style configured"
 
 
-def _auto_section(spec: Project, project_dir: Path) -> str:
+def _auto_section(spec: Project) -> str:
     """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
@@ -174,10 +174,11 @@ def _auto_section(spec: Project, project_dir: Path) -> str:
     return "\n".join(lines)
 
 
-def update_readme(spec: Project, project_dir: Path) -> None:
-    """Write or update the auto-generated section of project_dir/README.md."""
-    readme_path = project_dir / "README.md"
-    section = f"{_BEGIN}\n{_auto_section(spec, project_dir)}{_END}\n"
+def update_readme(spec: Project) -> None:
+    """Write or update the auto-generated section of README.md."""
+    assert spec.project_path is not None
+    readme_path = spec.project_path / "README.md"
+    section = f"{_BEGIN}\n{_auto_section(spec)}{_END}\n"
 
     if not readme_path.exists():
         readme_path.write_text(f"# {spec.title}\n\n{section}")
