@@ -1,5 +1,17 @@
 # Goats — workflow
 
+## Layer model conventions (post-refactor)
+
+Layer files now use the flat `Layer` model directly — no `ProcessingStep` wrapper.
+Processing functions have a PEP-257 docstring describing what they do. They take a `BoundLayer` and use:
+- `(dep,) = layer.inputs` — unpack single input; raises if count ≠ 1
+- `dep.path` — absolute path to a dependency layer's output
+- `layer.raw_path` — absolute path to the layer's `raw_file` (raw source data)
+- `layer.path` — absolute path to this layer's output (derived from `datasource`)
+
+Layer parameter order: `id`, `name`, `type`, then `inputs=[…]` and `raw_file=` (if present) immediately before `datasource=`. `datasource` paths have no `./` prefix.
+The `action=` field replaces `processing_step=ProcessingStep(…)`.
+
 ## Layers
 
 | Layer | File | Style | Processing |
@@ -8,7 +20,7 @@
 | Park Boundary | `data/park_boundary.geojson` | Hollow polygon, 1.5 mm thick purple (#800080) outline, no fill | — |
 | Clip Border | `output/border.gpkg` | Invisible (processing output only) | Buffer park boundary by 100 ft (30.48 m); dissolve → single polygon; used as clip mask for water, roads/trails, vegetation |
 | Developed Area | `output/developed_area.shp` | Light gray fill (50% transparent) + medium gray outline, 1.0 mm | Merge GPX `tracks` → simplify 10 m (Douglas-Peucker) → close ring → Polygon → EPSG:26910 |
-| Streams | `output/water.shp` | Blue (#446677) lines, 0.6 mm | Reproject + clip `data/water.geojson` to clip border → EPSG:26910 |
+| Streams | `output/water.shp` | Blue (#446677) lines, 0.6 mm | Reproject + clip `data/water.geojson` to clip border → EPSG:26910; keep only `@id` and `name` columns |
 | Roads & Trails | `output/roads_trails.shp` | Brown (#785028) lines, 0.5 mm | Reproject + clip `data/roads_trails.geojson` to clip border → EPSG:26910; polygons excluded |
 | Slope | `output/slope.tif` | Paletted: Flat to gentle #1a9641 · Moderate #ffffbf · Steep #fdae61 · Too steep #d7191c | `gdaldem slope -p` on elevation → `gdal_calc.py` reclassify to Byte (1–4); breaks at 15/27/58% |
 | Elevation | `output/elevation.tif` | Grayscale (black → white) | Reproject DEM `data/USGS_13_n38w122_20250826.tif` EPSG:4269 → EPSG:26910, crop to clip border, bilinear resampling |

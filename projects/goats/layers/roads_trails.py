@@ -1,15 +1,14 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleLine,
     SingleSymbol,
     Symbol,
 )
+from projects.goats.layers.border import border
 from projects.goats.util import CRS, clip_border
 
 """
@@ -34,22 +33,23 @@ out geom;
 """
 
 
-def clip_roads_trails(border: Path, output: Path) -> None:
-    """Reproject and clip OSM road/trail data to the park clip border.
-
-    Excludes Polygon geometry types; retains LineString and MultiLineString only.
-    """
-    project_dir = border.parent.parent
-    gdf = gpd.read_file(project_dir / "data" / "roads_trails.geojson")
+def clip_roads_trails(layer: BoundLayer) -> None:
+    """Reproject and clip roads and trails to park boundary."""
+    (border,) = layer.inputs
+    gdf = gpd.read_file(layer.raw_path)
+    keep = {"@id", "name", gdf.geometry.name}
+    gdf = gdf[[c for c in gdf.columns if c in keep]]
     gdf = gdf[gdf.geom_type.isin(["LineString", "MultiLineString"])].to_crs(CRS)
-    clip_border(gdf, output).to_file(output)
+    clip_border(gdf, border.path).to_file(layer.path)
 
 
 roads_trails = Layer(
     id="roads_trails",
     name="Roads & Trails",
     type="vector",
-    source="./output/roads_trails.shp",
+    inputs=[border],
+    raw_file="data/roads_trails.geojson",
+    datasource="output/roads_trails.shp",
     provider="ogr",
     crs=CRS,
     visible=True,
@@ -65,10 +65,5 @@ roads_trails = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description="Reproject and clip roads and trails to park boundary",
-        action=PythonAction(fn=clip_roads_trails),
-        depends_on=["clip_border"],
-        output=Path("output/roads_trails.shp"),
-    ),
+    action=PythonAction(fn=clip_roads_trails),
 )

@@ -16,10 +16,11 @@ from matplotlib.axes import Axes
 from PIL import Image
 
 from alidade.models import (
+    BoundLayer,
+    BoundProject,
     GraduatedRenderer,
     Layer,
     PalettedRenderer,
-    ProjectSpec,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -27,7 +28,7 @@ from alidade.models import (
     SingleSymbol,
     SvgMarker,
 )
-from alidade.util.helpers import load_spec, resolve_source_path
+from alidade.util.helpers import bind_project
 
 
 def _hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[float, float, float, float]:
@@ -189,31 +190,26 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
 
 
 def render(
-    project_dir: Path,
-    spec: ProjectSpec | None = None,
+    spec: BoundProject,
     name: str = "map",
     dpi: int = 150,
 ) -> None:
-    """Render project_dir's spec to project_dir/output/<name>.png.
+    """Render spec to spec.output_path/<name>.png.
 
-    Loads the spec from project_dir/project.py. Layers are drawn bottom-to-top
-    (spec.layers reversed). WMS/raster layers and PrintLayout are ignored.
-    Extent and figsize are derived from the data bounds so all visible features
-    fit without clipping.
+    Layers are drawn bottom-to-top (spec.layers reversed). WMS/raster layers
+    and PrintLayout are ignored. Extent and figsize are derived from the data
+    bounds so all visible features fit without clipping.
     """
-    if not spec:
-        spec = load_spec(project_dir)
-
     # Read all visible layers to compute the combined data extent.
     # Each entry is (layer, gdf) for vector or (layer, Path) for raster.
-    layers_data: list[tuple[Layer, gpd.GeoDataFrame | Path]] = []
+    layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
-    for layer in reversed(spec.layers):
+    for layer in reversed(spec.bound_layers):
         if not layer.visible:
             continue
         if layer.provider == "wms":
             continue
-        source = resolve_source_path(layer.source, project_dir)
+        source = layer.path
         if layer.type == "raster":
             bounds = _raster_bounds(source)
             if bounds is None:
@@ -277,7 +273,7 @@ def render(
     if legend_handles:
         ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
 
-    output_path = project_dir / "output" / f"{name}.png"
+    output_path = spec.output_path / f"{name}.png"
     output_path.parent.mkdir(exist_ok=True, parents=True)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -293,4 +289,4 @@ def main() -> None:
     if not (project_dir / "project.py").exists():
         print(f"project.py not found in {project_dir}")
         sys.exit(1)
-    render(project_dir)
+    render(bind_project(project_dir))

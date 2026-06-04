@@ -10,8 +10,9 @@ from pathlib import Path
 
 from pyproj import CRS as ProjCRS
 
-from alidade.util.helpers import abs_source
 from alidade.models import (
+    BoundLayer,
+    BoundProject,
     GraduatedRenderer,
     Label,
     Layer,
@@ -21,7 +22,6 @@ from alidade.models import (
     PrintNorthArrow,
     PrintPage,
     PrintScaleBar,
-    Project,
     Renderer,
     RuleRenderer,
     SimpleFill,
@@ -84,24 +84,28 @@ def _split_source_suffix(source: str) -> tuple[str, str]:
     return source, ""
 
 
-def _rel_source(source: str, project_dir: Path) -> str:
-    """Return datasource relative to project_dir/output/ for output/project.qgs.
+def _qgs_datasource(layer: BoundLayer) -> str:
+    """Return datasource relative to output/ for output/project.qgs.
 
-    Local file paths are made relative to the output directory.
-    Delimited-text sources (suffix starts with '?') get a 'file:' prefix,
-    as required by the QGIS delimitedtext provider.
-    Other URIs are returned unchanged.
+    File paths are made relative to the output directory using layer.path.
+    Delimited-text sources (suffix starts with '?') get a 'file:' prefix.
+    URIs (wms:, http-header:, etc.) are returned unchanged.
     """
-    abs_src = abs_source(source, project_dir)
-    path_part, geom_suffix = _split_source_suffix(abs_src)
-    if path_part.startswith("/"):
-        output_dir = project_dir / "output"
-        rel = os.path.relpath(path_part, output_dir)
-        if not rel.startswith(".."):
-            rel = "./" + rel
-        prefix = "file:" if geom_suffix.startswith("?") else ""
-        return prefix + rel + geom_suffix
-    return abs_src
+    path_part, suffix = _split_source_suffix(layer.datasource)
+    if ":" in path_part.split("/")[0]:  # URI — return unchanged
+        return layer.datasource
+    output_dir = layer.output_path
+    rel = os.path.relpath(str(layer.path), str(output_dir))
+    if not rel.startswith(".."):
+        rel = "./" + rel
+    prefix = "file:" if suffix.startswith("?") else ""
+    return prefix + rel + suffix
+
+
+def _bind_for_render(layer: Layer, project_path: Path) -> BoundLayer:
+    """Bind a layer to a project_path for rendering (inputs not needed)."""
+    fields = {f: getattr(layer, f) for f in Layer.model_fields if f != "inputs"}
+    return BoundLayer(**fields, project_path=project_path)
 
 
 def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) -> None:
@@ -177,14 +181,14 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
+def _rebuild_layer_tree(root: ET.Element, spec: BoundProject) -> None:
     """Rebuild the <layer-tree-group> in root from spec layers."""
-    assert spec.project_path is not None
     ltg = root.find("layer-tree-group")
     if ltg is None:
         return
 
     for layer in spec.layers:
+        bound = _bind_for_render(layer, spec.project_path)
         checked = "Qt::Checked" if layer.visible else "Qt::Unchecked"
         ltl = ET.SubElement(
             ltg,
@@ -195,7 +199,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
             providerKey=layer.provider,
             patch_size="-1,-1",
             id=layer.id,
-            source=_rel_source(layer.source, spec.project_path),
+            source=_qgs_datasource(bound),
             expanded="1",
             name=layer.name,
         )
@@ -208,7 +212,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: Project) -> None:
         item.text = layer.id
 
 
-def _rebuild_legend(root: ET.Element, spec: Project) -> None:
+def _rebuild_legend(root: ET.Element, spec: BoundProject) -> None:
     """Rebuild the <legend> in root from spec layers."""
     legend = root.find("legend")
     if legend is None:
@@ -232,7 +236,7 @@ def _rebuild_legend(root: ET.Element, spec: Project) -> None:
         )
 
 
-def _rebuild_layerorder(root: ET.Element, spec: Project) -> None:
+def _rebuild_layerorder(root: ET.Element, spec: BoundProject) -> None:
     """Rebuild the <layerorder> in root from spec layers."""
     lo = root.find("layerorder")
     if lo is None:
@@ -289,9 +293,15 @@ def _opt_map(props: Mapping[str, str]) -> ET.Element:
 
 
 def _render_symbol_layer(
-    symbol_layer: SymbolLayer, project_dir: Path | None = None
+    symbol_layer: SymbolLayer,
+    project_path: Path | None = None,
 ) -> ET.Element:
-    """Serialize a SymbolLayer model to its QGS <layer> element."""
+    """Serialize a SymbolLayer model to its QGS <layer> element.
+
+    project_path is None when the symbol cannot contain an SvgMarker — specifically
+    when called via _render_graduated_renderer, which builds only SimpleFill symbols
+    and never holds a project_path. When None, SVG path relativisation is skipped.
+    """
     el = ET.Element(
         "layer",
         locked="0",
@@ -337,10 +347,12 @@ def _render_symbol_layer(
         }
     elif isinstance(symbol_layer, SvgMarker):
         svg_name = symbol_layer.name
-        if project_dir is not None and (
+        if project_path is not None and (
             svg_name.startswith("data/") or svg_name.startswith("./")
         ):
-            svg_name = _rel_source(svg_name, project_dir)
+            abs_svg = (project_path / svg_name).resolve()
+            output_dir = project_path / "output"
+            svg_name = os.path.relpath(str(abs_svg), str(output_dir))
         props = {
             "angle": f"{symbol_layer.angle:g}",
             "color": _color(symbol_layer.color),
@@ -403,9 +415,14 @@ def _render_symbol_layer(
 
 
 def _render_symbol(
-    sym: Symbol, name: str, project_dir: Path | None = None
+    sym: Symbol, name: str, project_path: Path | None = None
 ) -> ET.Element:
-    """Serialize a Symbol model to its QGS <symbol> element."""
+    """Serialize a Symbol model to its QGS <symbol> element.
+
+    project_path is None when called from _render_graduated_renderer (SimpleFill only,
+    no SVG). Non-None when called from _render_renderer for SingleSymbol/RuleRenderer,
+    which may contain SvgMarker layers requiring path relativisation.
+    """
     el = ET.Element(
         "symbol",
         clip_to_extent="1",
@@ -418,7 +435,7 @@ def _render_symbol(
     )
     el.append(_data_defined_properties())
     for sl in sym.layers:
-        el.append(_render_symbol_layer(sl, project_dir))
+        el.append(_render_symbol_layer(sl, project_path))
     return el
 
 
@@ -502,8 +519,15 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     return el
 
 
-def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.Element:
-    """Serialize a Renderer model to its QGS <renderer-v2> element."""
+def _render_renderer(
+    renderer: Renderer, project_path: Path | None = None
+) -> ET.Element:
+    """Serialize a Renderer model to its QGS <renderer-v2> element.
+
+    project_path is always non-None here (caller is _inject_layers with spec.project_path).
+    GraduatedRenderer is dispatched to _render_graduated_renderer, which does not receive
+    project_path and calls _render_symbol without it — that is where None enters the chain.
+    """
     base = dict(
         forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
     )
@@ -512,7 +536,7 @@ def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.
             "renderer-v2", type="singleSymbol", **base  # type: ignore[arg-type]
         )
         syms = ET.SubElement(el, "symbols")
-        syms.append(_render_symbol(renderer.symbol, "0", project_dir))
+        syms.append(_render_symbol(renderer.symbol, "0", project_path))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
         el.append(_renderer_data_defined_properties())
@@ -534,7 +558,7 @@ def _render_renderer(renderer: Renderer, project_dir: Path | None = None) -> ET.
             ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
-            syms.append(_render_symbol(sym, str(i), project_dir))
+            syms.append(_render_symbol(sym, str(i), project_path))
         el.append(_renderer_data_defined_properties())
         return el
     if isinstance(renderer, GraduatedRenderer):
@@ -767,7 +791,7 @@ def _build_labeling(label: Label) -> ET.Element:
     return labeling
 
 
-def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
+def _build_vector_maplayer(layer: BoundLayer) -> ET.Element:
     """Build a <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
     geom_attr = _GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
@@ -812,9 +836,8 @@ def _build_vector_maplayer(layer: Layer, project_dir: Path) -> ET.Element:
     ]:
         ET.SubElement(flags, flag).text = val
 
-    abs_path = abs_source(layer.source, project_dir)
-    path_part, suffix = _split_source_suffix(abs_path)
-    p = Path(path_part)
+    p = layer.path
+    _, suffix = _split_source_suffix(layer.datasource)
     if p.suffix.lower() == ".gpkg" and p.exists():
         layername = ""
         if suffix.startswith("|layername="):
@@ -1041,7 +1064,7 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     return ml
 
 
-def _inject_layers(root: ET.Element, spec: Project) -> None:
+def _inject_layers(root: ET.Element, spec: BoundProject) -> None:
     """Insert all spec layers as <maplayer> elements into <projectlayers>."""
     assert spec.project_path is not None
     pl = root.find("projectlayers")
@@ -1049,9 +1072,10 @@ def _inject_layers(root: ET.Element, spec: Project) -> None:
         pl = ET.SubElement(root, "projectlayers")
 
     for layer in spec.layers:
+        bound = _bind_for_render(layer, spec.project_path)
         if layer.style_xml is None:
             if layer.type == "vector" and layer.geometry_type:
-                ml = _build_vector_maplayer(layer, spec.project_path)
+                ml = _build_vector_maplayer(bound)
             elif layer.type == "raster":
                 ml = _build_raster_maplayer(layer)
             else:
@@ -1067,7 +1091,7 @@ def _inject_layers(root: ET.Element, spec: Project) -> None:
             id_el.text = layer.id
         ds = ml.find("datasource")
         if ds is not None:
-            ds.text = _rel_source(layer.source, spec.project_path)
+            ds.text = _qgs_datasource(bound)
         nm = ml.find("layername")
         if nm is not None:
             nm.text = layer.name
@@ -1083,7 +1107,7 @@ def _inject_layers(root: ET.Element, spec: Project) -> None:
         pl.append(ml)
 
 
-def render(spec: Project) -> None:
+def render(spec: BoundProject) -> None:
     """Render project spec to output/project.qgs inside spec.project_path."""
     assert spec.project_path is not None
     base_path = spec.project_path / "styles" / "base.qgs"
@@ -1633,7 +1657,9 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
     return el
 
 
-def _qpt_legend(leg: PrintLegend, spec: Project, map_uuid: str, z: int) -> ET.Element:
+def _qpt_legend(
+    leg: PrintLegend, spec: BoundProject, map_uuid: str, z: int
+) -> ET.Element:
     """Return a <LayoutItem> legend element linked to map_uuid."""
     item_uuid = _qpt_uuid()
     el = ET.Element(
@@ -1715,7 +1741,7 @@ def _qpt_legend(leg: PrintLegend, spec: Project, map_uuid: str, z: int) -> ET.El
             checked="Qt::Checked",
             patch_size="-1,-1",
             name=layer.name,
-            source=layer.source,
+            source=layer.datasource,
             expanded="1",
             id=layer.id,
             legend_exp="",
@@ -1739,7 +1765,7 @@ def _qpt_legend(leg: PrintLegend, spec: Project, map_uuid: str, z: int) -> ET.El
 
 
 def _qpt_map_frame(
-    mf: PrintMapFrame, spec: Project, map_uuid: str, z: int
+    mf: PrintMapFrame, spec: BoundProject, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
     attrs: dict[str, str] = dict(
@@ -1813,7 +1839,7 @@ def _qpt_map_frame(
     return el
 
 
-def render_print_layout(spec: Project) -> None:
+def render_print_layout(spec: BoundProject) -> None:
     """Render spec's print_layout to output/print.qpt inside spec.project_path."""
     assert spec.project_path is not None
     assert spec.print_layout is not None

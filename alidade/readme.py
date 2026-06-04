@@ -2,23 +2,19 @@
 # Called by build.py after render(). Replaces the section between the
 # <!-- auto:begin --> / <!-- auto:end --> markers; everything outside is preserved.
 
-import inspect
-import re
 from pathlib import Path
 
 from alidade.models import (
+    BoundProject,
     GraduatedRenderer,
     Layer,
     PalettedRenderer,
-    Project,
     Renderer,
     RuleRenderer,
-    ShellAction,
     SimpleFill,
     SimpleLine,
     SimpleMarker,
     SingleSymbol,
-    StepAction,
     SvgMarker,
     SymbolLayer,
 )
@@ -36,24 +32,6 @@ _SOURCE_LABELS: list[tuple[str, str]] = [
     ("http-header", "WMS/XYZ tile service"),
     ("wms", "WMS/XYZ tile service"),
 ]
-
-
-def _describe_action_tool(action: StepAction) -> str:
-    """Return a short tool label for a processing step action."""
-    if isinstance(action, ShellAction):
-        words = action.command.split()
-        # "gdal <verb> <noun> ..." → include verb and noun as the full command name
-        n = 3 if len(words) >= 3 and words[0] == "gdal" else 1
-        return f"`{' '.join(words[:n])}`"
-    # PythonAction: inspect source for the library doing the heavy lifting
-    src = inspect.getsource(action.fn)
-    if "subprocess.run" in src or "subprocess.call" in src:
-        m = re.search(r'\[\s*["\']([^"\']+)["\']', src)
-        exe = m.group(1) if m else "subprocess"
-        return f"`{exe}` (subprocess)"
-    if "gpd." in src or "geopandas" in src:
-        return "`geopandas`"
-    return "Python"
 
 
 def _color(rgba: str) -> tuple[str, int]:
@@ -126,7 +104,7 @@ def _describe_style(layer: Layer) -> str:
     return "no style configured"
 
 
-def _auto_section(spec: Project) -> str:
+def _auto_section(spec: BoundProject) -> str:
     """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
@@ -135,46 +113,30 @@ def _auto_section(spec: Project) -> str:
     for layer in spec.layers:
         lines.append(f"### {layer.name}")
         lines.append("")
-        source = _source_label(layer.source)
+        source = _source_label(layer.datasource)
         lines.append(f"**Source:** `{source}`  ")
         lines.append(f"**Style:** {_describe_style(layer)}  ")
-        if layer.processing_step is not None:
-            ps = layer.processing_step
-            if ps.depends_on:
-                deps = ", ".join(f"`{d}`" for d in ps.depends_on)
-                lines.append(f"**Derived from:** {deps}  ")
-            lines.append(f"**Processing:** {ps.description}")
+        if layer.action is not None and layer.inputs:
+            deps = ", ".join(f"`{inp.id}`" for inp in layer.inputs)
+            lines.append(f"**Derived from:** {deps}  ")
         lines.append("")
 
-    derived = [la for la in spec.layers if la.processing_step is not None]
+    derived = [la for la in spec.layers if la.action is not None]
     if derived:
         lines.append("## Data flow")
         lines.append("")
         lines.append("```mermaid")
         lines.append("flowchart LR")
         for layer in derived:
-            step = layer.processing_step
-            assert step is not None
-            for dep in step.depends_on:
-                lines.append(f"    {dep} --> {layer.id}")
+            for inp in layer.inputs:
+                lines.append(f"    {inp.id} --> {layer.id}")
         lines.append("```")
-        lines.append("")
-
-        lines.append("## Processing tools")
-        lines.append("")
-        lines.append("| Layer | Tool | Description |")
-        lines.append("| --- | --- | --- |")
-        for layer in derived:
-            step = layer.processing_step
-            assert step is not None
-            tool = _describe_action_tool(step.action)
-            lines.append(f"| `{layer.id}` | {tool} | {step.description} |")
         lines.append("")
 
     return "\n".join(lines)
 
 
-def update_readme(spec: Project) -> None:
+def update_readme(spec: BoundProject) -> None:
     """Write or update the auto-generated section of README.md."""
     assert spec.project_path is not None
     readme_path = spec.project_path / "README.md"

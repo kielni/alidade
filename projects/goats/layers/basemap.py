@@ -6,7 +6,7 @@ basemap = Layer(
     id="cartodb_positron",
     name="CartoDB Positron",
     type="raster",
-    source=(
+    datasource=(
         "http-header:referer=&type=xyz&url=https://basemaps.cartocdn.com/light_all/"
         "%7Bz%7D/%7Bx%7D/%7By%7D.png&zmax=19&zmin=0"
     ),

@@ -1,10 +1,8 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SingleSymbol,
     SvgMarker,
@@ -17,18 +15,18 @@ Parking lots suitable for goat staging.
 """
 
 
-def reproject_staging(output: Path) -> None:
-    """Reproject staging area points from GeoJSON to project CRS."""
-    project_dir = output.parent.parent
-    gdf = gpd.read_file(project_dir / "data" / "staging.geojson").to_crs(CRS)
-    gdf.to_file(output)
+def reproject_staging(layer: BoundLayer) -> None:
+    """Reproject staging area points to project CRS."""
+    gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
+    gdf.to_file(layer.path)
 
 
 staging = Layer(
     id="staging_areas",
     name="Staging Areas",
     type="vector",
-    source="./output/staging.shp",
+    raw_file="data/staging.geojson",
+    datasource="output/staging.shp",
     provider="ogr",
     crs=CRS,
     visible=True,
@@ -45,10 +43,5 @@ staging = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description="Reproject staging area points to EPSG:26910",
-        action=PythonAction(fn=reproject_staging),
-        depends_on=[],
-        output=Path("output/staging.shp"),
-    ),
+    action=PythonAction(fn=reproject_staging),
 )

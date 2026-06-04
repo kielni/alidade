@@ -1,15 +1,14 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleLine,
     SingleSymbol,
     Symbol,
 )
+from projects.goats.layers.border import border
 from projects.goats.util import CRS, clip_border
 
 """
@@ -34,23 +33,22 @@ out geom;
 """
 
 
-def clip_water(border: Path, output: Path) -> None:
-    """Reproject and clip OSM stream data to the park clip border."""
-    project_dir = border.parent.parent
-    gdf = gpd.read_file(project_dir / "data" / "water.geojson").to_crs(CRS)
-    # TODO: drop long column names (tags?)
-    """
-    /Users/kimberly/home/alidade/.venv/lib/python3.14/site-packages/pyogrio/raw.py:733: RuntimeWarning: Normalized/laundered field name: 'scvwd:FACILITY' to 'scvwd_FACI'
-  ogr_write(
-    """
-    clip_border(gdf, output).to_file(output)
+def clip_water(layer: BoundLayer) -> None:
+    """Reproject and clip streams to park boundary."""
+    (border,) = layer.inputs
+    gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
+    keep = {"@id", "name", gdf.geometry.name}
+    gdf = gdf[[c for c in gdf.columns if c in keep]]
+    clip_border(gdf, border.path).to_file(layer.path)
 
 
 water = Layer(
     id="riparian_zone",
     name="Riparian Areas",
     type="vector",
-    source="./output/water.shp",
+    inputs=[border],
+    raw_file="data/water.geojson",
+    datasource="output/water.shp",
     provider="ogr",
     crs=CRS,
     visible=True,
@@ -66,10 +64,5 @@ water = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description="Reproject and clip streams to park boundary",
-        action=PythonAction(fn=clip_water),
-        depends_on=["clip_border"],
-        output=Path("output/water.shp"),
-    ),
+    action=PythonAction(fn=clip_water),
 )

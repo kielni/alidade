@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import cast
 
 import geopandas as gpd
@@ -6,8 +5,8 @@ from shapely.geometry import MultiLineString, Polygon
 from shapely.ops import linemerge
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     SimpleFill,
     SingleSymbol,
@@ -25,15 +24,13 @@ Use this to identify priority "high human use" areas
 """
 
 
-def convert_developed_area(output: Path) -> None:
-    """Convert the GPX developed-area track to a closed polygon in project CRS.
+def convert_developed_area(layer: BoundLayer) -> None:
+    """Convert GPX to .shp for developed area layer.
 
-    Merges track lines, simplifies to 10 m tolerance (Douglas-Peucker),
-    closes the ring, and reprojects to project CRS.
+    Simplify GPX track (10 m tolerance), close ring, convert to polygon,
+    reproject to EPSG:26910.
     """
-    project_dir = output.parent.parent
-    src = project_dir / "data" / "Alum_Rock_developed_area.gpx"
-    gdf = gpd.read_file(src, layer="tracks").to_crs(CRS)
+    gdf = gpd.read_file(layer.raw_path, layer="tracks").to_crs(CRS)
     line = linemerge(cast(MultiLineString, gdf.geometry.iloc[0]))
     simplified = line.simplify(_SIMPLIFY_TOLERANCE_M, preserve_topology=True)
     poly = Polygon(list(simplified.coords))
@@ -42,14 +39,15 @@ def convert_developed_area(output: Path) -> None:
         geometry=[poly],
         crs=CRS,
     )
-    result.to_file(output)
+    result.to_file(layer.path)
 
 
 developed_area = Layer(
     id="developed_area",
     name="Developed Area",
     type="vector",
-    source="./output/developed_area.shp",
+    raw_file="data/Alum_Rock_developed_area.gpx",
+    datasource="output/developed_area.shp",
     provider="ogr",
     crs=CRS,
     visible=True,
@@ -66,13 +64,5 @@ developed_area = Layer(
             ],
         )
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Simplify GPX track (10 m tolerance), close ring, convert to"
-            " polygon, reproject to EPSG:26910"
-        ),
-        action=PythonAction(fn=convert_developed_area),
-        depends_on=[],
-        output=Path("output/developed_area.shp"),
-    ),
+    action=PythonAction(fn=convert_developed_area),
 )

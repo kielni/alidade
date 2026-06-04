@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from alidade import colors
 from alidade.models import (
     Layer,
-    ProjectSpec,
+    Project,
     Renderer,
     Rule,
     RuleRenderer,
@@ -325,7 +325,7 @@ def _collect_classes(val: Any) -> set[str]:
 
 def _source_lines(source: str) -> list[str]:
     """Return source= assignment lines, splitting strings over 88 chars."""
-    single = f"    source={source!r},"
+    single = f"    datasource={source!r},"
     if len(single) <= 88:
         return [single]
     if "\n" in source:
@@ -336,14 +336,14 @@ def _source_lines(source: str) -> list[str]:
             if val:
                 chunks.append(repr(val))
         return [
-            "    source=(",
+            "    datasource=(",
             *[f"        {c}" for c in chunks],
             "    ),",
         ]
     max_chunk = 78  # 88 - 8 spaces indent - 2 quotes
     parts = [source[i : i + max_chunk] for i in range(0, len(source), max_chunk)]
     return [
-        "    source=(",
+        "    datasource=(",
         *[f"        {p!r}" for p in parts],
         "    ),",
     ]
@@ -365,7 +365,7 @@ def _write_layer_py(
     if layer.renderer is not None:
         model_names |= _collect_classes(layer.renderer)
     imports = ", ".join(n for n in _MODEL_IMPORT_ORDER if n in model_names)
-    source_stem = Path(layer.source.split("|")[0]).name if layer.source else ""
+    source_stem = Path(layer.datasource.split("|")[0]).name if layer.datasource else ""
     docstring = f'"""{layer.name} — {layer.type} layer'
     if source_stem:
         docstring += f" from {source_stem}"
@@ -390,7 +390,7 @@ def _write_layer_py(
         f"    id={layer.id!r},",
         f"    name={layer.name!r},",
         f"    type={layer.type!r},",
-        *_source_lines(layer.source),
+        *_source_lines(layer.datasource),
         f"    provider={layer.provider!r},",
         f"    crs={layer.crs!r},",
         f"    visible={layer.visible!r},",
@@ -406,19 +406,17 @@ def _write_layer_py(
     return True
 
 
-def _write_project_py(
-    spec: ProjectSpec, human_ids: list[str], project_dir: Path
-) -> None:
-    """Write slim project.py that imports from layers/ and assembles ProjectSpec."""
+def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) -> None:
+    """Write slim project.py that imports from layers/ and assembles Project."""
     import_lines = [f"from .layers.{hid} import {hid}" for hid in human_ids]
     lines = [
         "from pathlib import Path",
         "",
-        "from alidade.models import ProjectSpec",
+        "from alidade.models import Project",
         "",
         *import_lines,
         "",
-        "spec = ProjectSpec(",
+        "spec = Project(",
         f"    title={spec.title!r},",
         f"    crs={spec.crs!r},",
         f"    extent={spec.extent!r},",
@@ -498,7 +496,7 @@ def _parse_layers(
                     id=layer_id,
                     name=layer_name,
                     type=_layer_type(ml),
-                    source=source,
+                    datasource=source,
                     provider=provider,
                     crs=crs,
                     visible=visibility.get(lid, True),
@@ -573,7 +571,7 @@ def _load_xml(project_file: Path) -> bytes:
 # ── Terminal summary ──────────────────────────────────────────────────────────
 
 
-def _print_summary(spec: ProjectSpec, pairs: list[tuple[str, Layer]]) -> None:
+def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
     """Print a human-readable summary of the parsed project to stdout."""
     print()
     print(f"Project : {spec.title!r}")
@@ -633,7 +631,7 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
                     pass
             break
 
-    spec = ProjectSpec(
+    spec = Project(
         title=title,
         crs=project_crs,
         extent=extent,

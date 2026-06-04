@@ -28,11 +28,11 @@ def build_data_connection(layer: Layer, project_dir: Path) -> dict[str, Any]:
     """Return a CIMStandardDataConnection dict for a shapefile layer.
 
     workspace (DATABASE=<folder>) and dataset (stem) are derived from
-    layer.source. If ARCGIS_WORKSPACE_ROOT is set, paths relative to
+    layer.datasource. If ARCGIS_WORKSPACE_ROOT is set, paths relative to
     project_dir are remapped to that root so the .lyrx resolves on the
     ArcGIS machine. Path must be absolute on the ArcGIS machine.
     """
-    path_part = layer.source.split("|")[0].split("?")[0]
+    path_part = layer.datasource.split("|")[0].split("?")[0]
     local_path = Path(path_part)
     if not local_path.is_absolute():
         local_path = (project_dir / local_path).resolve()

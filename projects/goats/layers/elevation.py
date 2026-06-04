@@ -1,10 +1,9 @@
 import subprocess
-from pathlib import Path
 
-from alidade.models import Layer, ProcessingStep, PythonAction
+from alidade.models import BoundLayer, Layer, PythonAction
+from projects.goats.layers.border import border
 from projects.goats.util import CRS
 
-_DEM_FILENAME = "USGS_13_n38w122_20250826.tif"
 # TODO: read from file instead of hardcoding
 _SRC_CRS = "EPSG:4269"
 _NODATA = "-999999"
@@ -16,10 +15,9 @@ https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38
 """
 
 
-def crop_elevation(boundary: Path, output: Path) -> None:
-    """Reproject and crop the USGS DEM to the clip border extent."""
-    project_dir = boundary.parent.parent
-    src = str(project_dir / "data" / _DEM_FILENAME)
+def crop_elevation(layer: BoundLayer) -> None:
+    """Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary."""
+    (border,) = layer.inputs
     subprocess.run(
         [
             "gdalwarp",
@@ -28,7 +26,7 @@ def crop_elevation(boundary: Path, output: Path) -> None:
             "-t_srs",
             CRS,
             "-cutline",
-            str(boundary),
+            str(border.path),
             "-crop_to_cutline",
             "-dstnodata",
             _NODATA,
@@ -39,8 +37,8 @@ def crop_elevation(boundary: Path, output: Path) -> None:
             "-co",
             "COMPRESS=LZW",
             "-overwrite",
-            src,
-            str(output),
+            str(layer.raw_path),
+            str(layer.path),
         ],
         check=True,
     )
@@ -50,16 +48,11 @@ elevation = Layer(
     id="usgs_elevation",
     name="Elevation",
     type="raster",
-    source="./output/elevation.tif",
+    inputs=[border],
+    raw_file="data/USGS_13_n38w122_20250826.tif",
+    datasource="output/elevation.tif",
     provider="gdal",
     crs=CRS,
     visible=True,
-    processing_step=ProcessingStep(
-        description=(
-            "Reproject DEM from EPSG:4269 to EPSG:26910 and crop to park boundary"
-        ),
-        action=PythonAction(fn=crop_elevation),
-        depends_on=["clip_border"],
-        output=Path("output/elevation.tif"),
-    ),
+    action=PythonAction(fn=crop_elevation),
 )

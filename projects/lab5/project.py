@@ -1,4 +1,4 @@
-from alidade.models import ProjectSpec
+from alidade.models import Project
 from projects.lab5.layers.census_tracts import census_tracts
 from projects.lab5.layers.census_tracts_raw import census_tracts_raw
 from projects.lab5.layers.hotspots_census import hotspots_census
@@ -22,7 +22,7 @@ EXTENT = (
     2544011.787,
 )
 
-spec = ProjectSpec(
+spec = Project(
     output_format="lyrx",
     title="Lab 5",
     crs="EPSG:2227",

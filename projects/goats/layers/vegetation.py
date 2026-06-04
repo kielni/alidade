@@ -1,16 +1,15 @@
-from pathlib import Path
-
 import geopandas as gpd
 
 from alidade.models import (
+    BoundLayer,
     Layer,
-    ProcessingStep,
     PythonAction,
     Rule,
     RuleRenderer,
     SimpleFill,
     Symbol,
 )
+from projects.goats.layers.border import border
 from projects.goats.util import CRS, clip_border, hex_to_rgba
 
 _GDB_LAYER = "CRUZ_CLARA_FINESCALE_VEG_6_15_2023"
@@ -76,13 +75,11 @@ _ZONES = [
 ]
 
 
-def clip_vegetation(border: Path, source: Path, output: Path) -> None:
-    """Reproject and clip the fine-scale vegetation GDB to the park clip border."""
-    # gdb = project_dir / "data" / "fine_scale_vegetation.gdb"
-    # source="./output/vegetation.gpkg|layername=vegetation",
-    # TODO: what happens between these files?
-    gdf = gpd.read_file(source, layer=_GDB_LAYER).to_crs(CRS)
-    clip_border(gdf, output).to_file(output, driver="GPKG")
+def clip_vegetation(layer: BoundLayer) -> None:
+    """Reproject and clip Santa Cruz/Santa Clara fine-scale vegetation to boundary."""
+    (border,) = layer.inputs
+    gdf = gpd.read_file(layer.raw_path, layer=_GDB_LAYER).to_crs(CRS)
+    clip_border(gdf, border.path).to_file(layer.path, driver="GPKG")
 
 
 _rules = [
@@ -110,18 +107,13 @@ _symbols = [
     for _, _, color in _ZONES
 ]
 
-"""
-raw source data: data/fine_scale_vegetation.gdb
-dependency : clip_border.source
-creates: output/vegetation.gpkg
-
-"""
 vegetation = Layer(
-    id="vegetation",
+    id="fine_scale_vegetation",
     name="Fine-Scale Vegetation (2020)",
     type="vector",
-    # TODO: why is layername here? does it need to be or is there another way to specify it?
-    source="./output/vegetation.gpkg|layername=vegetation",
+    inputs=[border],
+    raw_file="data/fine_scale_vegetation.gdb",
+    datasource="output/vegetation.gpkg|layername=vegetation",
     provider="ogr",
     crs=CRS,
     visible=True,
@@ -131,13 +123,5 @@ vegetation = Layer(
         rules=_rules,
         symbols=_symbols,
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Reproject and clip Santa Cruz/Santa Clara fine-scale vegetation"
-            " to park boundary"
-        ),
-        action=PythonAction(fn=clip_vegetation),
-        depends_on=["clip_border"],
-        output=Path("output/vegetation.gpkg"),
-    ),
+    action=PythonAction(fn=clip_vegetation),
 )

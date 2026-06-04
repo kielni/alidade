@@ -1,15 +1,15 @@
 import os
 import subprocess
 import tempfile
-from pathlib import Path
 
 from alidade.models import (
+    BoundLayer,
     Layer,
     PaletteEntry,
     PalettedRenderer,
-    ProcessingStep,
     PythonAction,
 )
+from projects.goats.layers.elevation import elevation
 from projects.goats.util import CRS
 
 # Slope categories: (value, lo_pct, hi_pct_exclusive, hex_color, label)
@@ -26,12 +26,9 @@ _CALC_EXPR = " + ".join(
 )
 
 
-def build_slope(elevation_tif: Path, output: Path) -> None:
-    """Derive a classified slope raster from the elevation DEM.
-
-    Runs gdaldem to compute percentage slope, then gdal_calc.py to reclassify
-    into 4 categories: flat/gentle, moderate, steep, too steep.
-    """
+def build_slope(layer: BoundLayer) -> None:
+    """Compute percentage slope from elevation DEM and classify into 4 categories."""
+    (elevation,) = layer.inputs
     with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
         slope_pct = tmp.name
     try:
@@ -40,7 +37,7 @@ def build_slope(elevation_tif: Path, output: Path) -> None:
                 "gdaldem",
                 "slope",
                 "-p",
-                str(elevation_tif),
+                str(elevation.path),
                 slope_pct,
                 "-of",
                 "GTiff",
@@ -51,11 +48,11 @@ def build_slope(elevation_tif: Path, output: Path) -> None:
         )
         subprocess.run(
             [
-                "gdal_calc.py",  # TODO: what is this?
+                "gdal_calc.py",
                 "-A",
                 slope_pct,
                 "--outfile",
-                str(output),
+                str(layer.path),
                 "--calc",
                 _CALC_EXPR,
                 "--type",
@@ -78,7 +75,8 @@ slope = Layer(
     id="slope_percent",
     name="Slope",
     type="raster",
-    source="./output/slope.tif",
+    inputs=[elevation],
+    datasource="output/slope.tif",
     provider="gdal",
     crs=CRS,
     visible=True,
@@ -88,13 +86,5 @@ slope = Layer(
             for val, _lo, _hi, color, label in _CLASSES
         ]
     ),
-    processing_step=ProcessingStep(
-        description=(
-            "Compute percentage slope from elevation DEM and classify"
-            " into 4 categories"
-        ),
-        action=PythonAction(fn=build_slope),
-        depends_on=["usgs_elevation"],
-        output=Path("output/slope.tif"),
-    ),
+    action=PythonAction(fn=build_slope),
 )

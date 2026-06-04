@@ -1,4 +1,4 @@
-from alidade.models import ProjectSpec
+from alidade.models import Project
 from projects.goats.layers.basemap import basemap
 from projects.goats.layers.border import border
 from projects.goats.layers.developed_area import developed_area
@@ -18,7 +18,7 @@ EXTENT = (
     4140758.2218029452,
 )
 
-map_all = ProjectSpec(
+map_all = Project(
     title="Alum Rock Goat Grazing",
     crs=CRS,
     extent=EXTENT,
@@ -39,15 +39,14 @@ map_all = ProjectSpec(
 """
 Park boundary with data layers (staging areas, creek, roads/trails, developed zone)
 """
-map_park = ProjectSpec(
+map_park = Project(
     id="park",
     title="Alum Rock Park",
     crs=CRS,
     extent=EXTENT,
     layers=[
-        staging,
         park_boundary,
-        border,
+        staging,
         developed_area,
         water,
         roads_trails,
@@ -58,19 +57,17 @@ map_park = ProjectSpec(
 """
 Slope analysis derived from DEM, clipped to park + 100ft buffer
 """
-map_slope = ProjectSpec(
+map_slope = Project(
     id="slope",
     title="Alum Rock Park: Slopes",
     crs=CRS,
     extent=EXTENT,
     layers=[
         park_boundary,
-        border,
         developed_area,
         water,
         roads_trails,
         slope,
-        elevation,
         basemap,
     ],
 )
@@ -78,14 +75,13 @@ map_slope = ProjectSpec(
 """
 Vegetation classification map, clipped to park; classes combined to 4-6 zones
 """
-map_veg = ProjectSpec(
+map_veg = Project(
     title="Alum Rock: Vegetation",
     id="vegetation",
     crs=CRS,
     extent=EXTENT,
     layers=[
         park_boundary,
-        border,
         developed_area,
         water,
         roads_trails,
@@ -97,15 +93,14 @@ map_veg = ProjectSpec(
 """
 Exclusion and priority zones (riparian buffer, road/trail buffer, staging range)
 """
-map_zones = ProjectSpec(
+map_zones = Project(
     title="Alum Rock Goat Grazing Zones",
     id="zones",
     crs=CRS,
     extent=EXTENT,
     layers=[
-        staging,
         park_boundary,
-        border,
+        staging,
         developed_area,
         water,
         roads_trails,
@@ -116,15 +111,14 @@ map_zones = ProjectSpec(
 """
 Weighted overlay suitability raster
 """
-map_suitability = ProjectSpec(
+map_suitability = Project(
     title="Alum Rock Goat Grazing Suitability",
     id="suitability",
     crs=CRS,
     extent=EXTENT,
     layers=[
-        staging,
         park_boundary,
-        border,
+        staging,
         developed_area,
         water,
         roads_trails,
@@ -135,15 +129,14 @@ map_suitability = ProjectSpec(
 """
 Recommended goat grazing zones (park-wide overview)
 """
-map_targets = ProjectSpec(
+map_targets = Project(
     title="Alum Rock Goat Grazing Targets",
     id="targets",
     crs=CRS,
     extent=EXTENT,
     layers=[
-        staging,
         park_boundary,
-        border,
+        staging,
         developed_area,
         water,
         roads_trails,
@@ -154,15 +147,14 @@ map_targets = ProjectSpec(
 """
 Detail map(s) of highest-priority zones at large scale
 """
-map_detail = ProjectSpec(
+map_detail = Project(
     title="Alum Rock Goat Grazing Detail",
     id="detail",
     crs=CRS,
     extent=EXTENT,
     layers=[
-        staging,
         park_boundary,
-        border,
+        staging,
         developed_area,
         water,
         roads_trails,
@@ -179,4 +171,4 @@ maps = [
     map_targets,
     map_detail,
 ]
-spec = map_veg
+spec = map_all
