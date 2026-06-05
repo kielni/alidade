@@ -1,13 +1,83 @@
 {
-"type": "FeatureCollection",
-"name": "staging",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.82563759317091, 37.395805524520405 ] } },
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.815458735129653, 37.393649228418731 ] } },
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.813444480056731, 37.394110835197424 ] } },
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.798247645832944, 37.397037699045548 ] } },
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.800576302263295, 37.396919639222077 ] } },
-{ "type": "Feature", "properties": { }, "geometry": { "type": "Point", "coordinates": [ -121.807861325052102, 37.392260306333945 ] } }
-]
+    "features": [
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.825638,
+                    37.395806
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Entrance"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.815921,
+                    37.393683
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Eagle Rock"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.811669,
+                    37.394281
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Rustic Lands"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.798248,
+                    37.397038
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Mineral Springs East"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.804507,
+                    37.396763
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Mineral Springs West"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.807861,
+                    37.39226
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Peacock Gap"
+            },
+            "type": "Feature"
+        }
+    ],
+    "type": "FeatureCollection"
 }

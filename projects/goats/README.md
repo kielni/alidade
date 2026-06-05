@@ -3,10 +3,16 @@
 <!-- auto:begin -->
 ## Layers
 
+### Staging Area Ranking
+
+**Source:** `output/staging_ranked.gpkg`  
+**Style:** rule-based (3 rules)  
+**Derived from:** `grazeable_patches`, `staging_areas`  
+
 ### Staging Areas
 
 **Source:** `output/staging.shp`  
-**Style:** single symbol — SVG marker goat.svg, 6.0 MM  
+**Style:** single symbol — circle marker #a01e1e, 3.0 MM  
 
 ### Park Boundary
 
@@ -18,6 +24,18 @@
 **Source:** `output/border.gpkg`  
 **Style:** single symbol — fill #000000 at 0% opacity, #6464c8 outline  
 **Derived from:** `park_boundary`  
+
+### Staging Area Scores
+
+**Source:** `output/staging_scored.gpkg`  
+**Style:** rule-based (3 rules)  
+**Derived from:** `staging_areas`, `suitability`  
+
+### Grazeable Patches
+
+**Source:** `output/patches.gpkg`  
+**Style:** rule-based (4 rules)  
+**Derived from:** `park_boundary`, `suitability`, `exclude_water_vegetation`  
 
 ### Exclusion: Riparian Buffer
 
@@ -72,6 +90,12 @@
 **Style:** rule-based (7 rules)  
 **Derived from:** `clip_border`  
 
+### Suitability
+
+**Source:** `output/suitability.tif`  
+**Style:** paletted raster (4 classes)  
+**Derived from:** `park_boundary`, `slope_percent`, `fine_scale_vegetation`, `priority_developed`, `priority_roads_trails`, `exclude_water_vegetation`  
+
 ### CartoDB Positron
 
 **Source:** `CartoDB Positron XYZ tile service`  
@@ -81,7 +105,14 @@
 
 ```mermaid
 flowchart LR
+    grazeable_patches --> staging_ranked
+    staging_areas --> staging_ranked
     park_boundary --> clip_border
+    staging_areas --> staging_targets
+    suitability --> staging_targets
+    park_boundary --> grazeable_patches
+    suitability --> grazeable_patches
+    exclude_water_vegetation --> grazeable_patches
     park_boundary --> exclude_water_vegetation
     riparian_zone --> exclude_water_vegetation
     park_boundary --> priority_roads_trails
@@ -93,5 +124,11 @@ flowchart LR
     usgs_elevation --> slope_percent
     clip_border --> usgs_elevation
     clip_border --> fine_scale_vegetation
+    park_boundary --> suitability
+    slope_percent --> suitability
+    fine_scale_vegetation --> suitability
+    priority_developed --> suitability
+    priority_roads_trails --> suitability
+    exclude_water_vegetation --> suitability
 ```
 <!-- auto:end -->

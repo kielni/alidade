@@ -12,6 +12,10 @@ from projects.goats.layers.water import water
 from projects.goats.layers.priority_developed import priority_developed
 from projects.goats.layers.priority_roads_trails import priority_roads_trails
 from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
+from projects.goats.layers.patches import patches
+from projects.goats.layers.staging_ranked import staging_ranked
+from projects.goats.layers.suitability import suitability
+from projects.goats.layers.targets import targets
 from projects.goats.util import CRS
 
 EXTENT = (
@@ -26,9 +30,12 @@ map_all = Project(
     crs=CRS,
     extent=EXTENT,
     layers=[
+        staging_ranked,
         staging,
         park_boundary,
         border,
+        targets,
+        patches,
         exclude_water_vegetation,
         priority_roads_trails,
         priority_developed,
@@ -38,6 +45,7 @@ map_all = Project(
         slope,
         elevation,
         vegetation,
+        suitability,
         basemap,
     ],
 )
@@ -125,8 +133,9 @@ map_suitability = Project(
     crs=CRS,
     extent=EXTENT,
     layers=[
-        park_boundary,
         staging,
+        suitability,
+        park_boundary,
         developed_area,
         water,
         roads_trails,
@@ -134,6 +143,21 @@ map_suitability = Project(
     ],
 )
 
+map_patches = Project(
+    title="Alum Rock Goat Grazing Patches",
+    id="patches",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        staging,
+        patches,
+        park_boundary,
+        developed_area,
+        water,
+        roads_trails,
+        basemap,
+    ],
+)
 """
 Recommended goat grazing zones (park-wide overview)
 """
@@ -144,7 +168,8 @@ map_targets = Project(
     extent=EXTENT,
     layers=[
         park_boundary,
-        staging,
+        targets,
+        suitability,
         developed_area,
         water,
         roads_trails,
@@ -152,6 +177,22 @@ map_targets = Project(
     ],
 )
 
+# cluster-based
+map_targets_cluster = Project(
+    title="Alum Rock Goat Grazing Targets",
+    id="targets_cluster",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        staging_ranked,
+        patches,
+        developed_area,
+        water,
+        roads_trails,
+        basemap,
+    ],
+)
 """
 Detail map(s) of highest-priority zones at large scale
 """
@@ -162,8 +203,9 @@ map_detail = Project(
     extent=EXTENT,
     layers=[
         park_boundary,
+        staging_ranked,
+        suitability,
         staging,
-        developed_area,
         water,
         roads_trails,
         basemap,
@@ -177,6 +219,8 @@ maps = [
     map_zones,
     map_suitability,
     map_targets,
+    map_targets_cluster,
+    map_patches,
     map_detail,
 ]
 spec = map_all

@@ -4,8 +4,8 @@ from alidade.models import (
     BoundLayer,
     Layer,
     PythonAction,
+    SimpleMarker,
     SingleSymbol,
-    SvgMarker,
     Symbol,
 )
 from projects.goats.util import CRS
@@ -35,10 +35,11 @@ staging = Layer(
         symbol=Symbol(
             type="marker",
             layers=[
-                SvgMarker(
-                    name="data/goat.svg",
-                    color="255,220,0,255",
-                    size=6.0,
+                SimpleMarker(
+                    color="160,30,30,255",
+                    outline_color="100,0,0,255",
+                    outline_width=0.4,
+                    size=3.0,
                 )
             ],
         )
