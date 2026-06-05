@@ -59,7 +59,7 @@ def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
 
 
 def _plot_paletted_raster(
-    ax: Axes, source: Path, renderer: PalettedRenderer
+    ax: Axes, source: Path, renderer: PalettedRenderer, zorder: int = 1
 ) -> list[mpatches.Patch]:
     """Render a PalettedRenderer raster onto ax; return legend patches."""
     bounds = _raster_bounds(source)
@@ -74,7 +74,13 @@ def _plot_paletted_raster(
         r, g, b, a = _hex_to_rgba(entry.color, entry.alpha)
         rgba[mask] = (r, g, b, a)
         handles.append(mpatches.Patch(facecolor=(r, g, b, 1.0), label=entry.label))
-    ax.imshow(rgba, extent=(xmin, xmax, ymin, ymax), aspect="auto", origin="upper")
+    ax.imshow(
+        rgba,
+        extent=(xmin, xmax, ymin, ymax),
+        aspect="auto",
+        origin="upper",
+        zorder=zorder,
+    )
     return handles
 
 
@@ -106,11 +112,13 @@ def _ms(mm: float) -> float:
     return (mm * 2.8) ** 2
 
 
-def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.Patch]:
+def _plot_layer(
+    ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer, zorder: int = 1
+) -> list[mpatches.Patch]:
     """Plot one layer onto ax; return legend patch handles for classified layers."""
     renderer = layer.renderer
     if renderer is None:
-        gdf.plot(ax=ax, color=(0.5, 0.5, 0.5, 0.5))
+        gdf.plot(ax=ax, color=(0.5, 0.5, 0.5, 0.5), zorder=zorder)
         return []
 
     if isinstance(renderer, SingleSymbol):
@@ -121,15 +129,19 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
                 facecolor=_rgba(sym.color),
                 edgecolor=_rgba(sym.outline_color),
                 linewidth=_lw(sym.outline_width),
+                zorder=zorder,
             )
         elif isinstance(sym, SimpleLine):
             gdf.plot(
                 ax=ax,
                 color=_rgba(sym.line_color),
                 linewidth=_lw(sym.line_width),
+                zorder=zorder,
             )
         elif isinstance(sym, (SimpleMarker, SvgMarker)):
-            gdf.plot(ax=ax, color=_rgba(sym.color), markersize=_ms(sym.size))
+            gdf.plot(
+                ax=ax, color=_rgba(sym.color), markersize=_ms(sym.size), zorder=zorder
+            )
         return []
 
     if isinstance(renderer, GraduatedRenderer):
@@ -143,7 +155,9 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
             fc = _rgba(r.color)
             subset = gdf[mask]
             if not subset.empty:
-                subset.plot(ax=ax, facecolor=fc, edgecolor=ec, linewidth=lw)
+                subset.plot(
+                    ax=ax, facecolor=fc, edgecolor=ec, linewidth=lw, zorder=zorder
+                )
             handles.append(mpatches.Patch(facecolor=fc, edgecolor=ec, label=r.label))
             assigned = assigned | mask
         return handles
@@ -174,6 +188,7 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
                     facecolor=fc,
                     edgecolor=ec,
                     linewidth=_lw(sym.outline_width),
+                    zorder=zorder,
                 )
                 handles.append(
                     mpatches.Patch(facecolor=fc, edgecolor=ec, label=rule.label)
@@ -183,6 +198,17 @@ def _plot_layer(ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer) -> list[mpatches.
                     ax=ax,
                     color=_rgba(sym.line_color),
                     linewidth=_lw(sym.line_width),
+                    zorder=zorder,
+                )
+            elif isinstance(sym, (SimpleMarker, SvgMarker)):
+                subset.plot(
+                    ax=ax,
+                    color=_rgba(sym.color),
+                    markersize=_ms(sym.size),
+                    zorder=zorder,
+                )
+                handles.append(
+                    mpatches.Patch(facecolor=_rgba(sym.color), label=rule.label)
                 )
         return handles
 
@@ -260,12 +286,15 @@ def render(
     ax.patch.set_visible(True)
     legend_handles: list[mpatches.Patch] = []
 
-    for layer, data in layers_data:
+    for i, (layer, data) in enumerate(layers_data):
+        zorder = i + 1
         if layer.type == "raster" and isinstance(layer.renderer, PalettedRenderer):
             assert isinstance(data, Path)
-            legend_handles.extend(_plot_paletted_raster(ax, data, layer.renderer))
+            legend_handles.extend(
+                _plot_paletted_raster(ax, data, layer.renderer, zorder=zorder)
+            )
         elif isinstance(data, gpd.GeoDataFrame):
-            legend_handles.extend(_plot_layer(ax, data, layer))
+            legend_handles.extend(_plot_layer(ax, data, layer, zorder=zorder))
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
