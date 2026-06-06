@@ -27,9 +27,9 @@ Weighted overlay suitability raster.
   Shrub                                      → 4  (primary target)
   Non-native Herbaceous                      → 3  (invasive, accessible)
   Herbaceous                                 → 3  (native grassland)
-  Eucalyptus / Non-native Forest             → 2  (neutral)
+  Eucalyptus / Non-native Forest             → 1  (neutral)
   Forest / Deciduous/Evergreen Hardwood
-    / Pine/Cypress                           → 2  (neutral)
+    / Pine/Cypress                           → 1  (neutral)
   Riparian Forest                            → 0  (hard exclude via vegetation)
   Developed                                  → 0  (hard exclude)
   Use rasterio.features.rasterize with a per-feature burn-value lookup.

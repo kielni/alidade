@@ -1,8 +1,10 @@
 """
 Staging area rankings by distance-decay scoring against grazeable patches.
 
-For each staging point, score = sum(patch_score / distance) over all patches,
-rewarding proximity to high-scoring patches. Rank 1 = highest score (best).
+For each staging point, score = sum(patch_score / distance) over High and Very
+high patches (class >= 3 only). Low and Moderate patches are excluded so that
+marginal terrain fragments do not inflate scores for staging areas that lack
+access to genuinely high-priority grazing zones. Rank 1 = highest score (best).
 Style: ColorBrewer YlGn 3-class — dark green = best, mid green = second,
 pale yellow = other.
 """
@@ -37,14 +39,19 @@ def build_staging_ranked(layer: BoundLayer) -> None:
     pts = gpd.read_file(staging_layer.path).to_crs(CRS)
     patch_gdf = gpd.read_file(patches_layer.path).to_crs(CRS)
 
+    # Only High and Very high patches drive ranking; class 1-2 fragments are
+    # too marginal to meaningfully differentiate staging area access
+    patch_gdf = patch_gdf[patch_gdf["patch_class"] >= 3].copy()
+
     patch_scores = patch_gdf["patch_score"].to_numpy(dtype=float)
 
     scores = []
     for _, row in pts.iterrows():
-        # Distance to nearest edge of each patch polygon; clamp to avoid /0
+        # Clamp at 50 m so patches closer than that contribute equally —
+        # exact proximity to a patch edge should not dominate the score
         distances = (
             patch_gdf.geometry.distance(row.geometry)
-            .clip(lower=1.0)
+            .clip(lower=50.0)
             .to_numpy(dtype=float)
         )
         scores.append(float((patch_scores / distances).sum()))
@@ -59,7 +66,7 @@ def build_staging_ranked(layer: BoundLayer) -> None:
         print(
             f"  #{int(row['rank'])} {name}  "
             f"score={row['score_norm']:.3f}  "
-            f"raw={row['score']:.1f}"
+            f"raw={row['score']:.4f}"
         )
 
     pts.to_file(layer.path, driver="GPKG")

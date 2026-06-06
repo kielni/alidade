@@ -12,7 +12,7 @@
 ### Staging Areas
 
 **Source:** `output/staging.shp`  
-**Style:** single symbol — circle marker #a01e1e, 3.0 MM  
+**Style:** single symbol — circle marker #d27800, 3.0 MM  
 
 ### Park Boundary
 
@@ -24,12 +24,6 @@
 **Source:** `output/border.gpkg`  
 **Style:** single symbol — fill #000000 at 0% opacity, #6464c8 outline  
 **Derived from:** `park_boundary`  
-
-### Staging Area Scores
-
-**Source:** `output/staging_scored.gpkg`  
-**Style:** rule-based (3 rules)  
-**Derived from:** `staging_areas`, `suitability`  
 
 ### Grazeable Patches
 
@@ -90,6 +84,11 @@
 **Style:** rule-based (7 rules)  
 **Derived from:** `clip_border`  
 
+### Fine-Scale Vegetation (2020)
+
+**Source:** `output/vegetation.gpkg`  
+**Style:** rule-based (7 rules)  
+
 ### Suitability
 
 **Source:** `output/suitability.tif`  
@@ -108,8 +107,6 @@ flowchart LR
     grazeable_patches --> staging_ranked
     staging_areas --> staging_ranked
     park_boundary --> clip_border
-    staging_areas --> staging_targets
-    suitability --> staging_targets
     park_boundary --> grazeable_patches
     suitability --> grazeable_patches
     exclude_water_vegetation --> grazeable_patches

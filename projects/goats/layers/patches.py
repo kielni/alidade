@@ -1,20 +1,29 @@
 """
 Grazeable patch polygons derived from the suitability raster.
 
-Vectorize non-zero suitability pixels → convex hull → union overlapping hulls
-→ bisect large patches → subtract riparian exclusions (re-explode if a creek
-splits a patch) → clip to park boundary. Score each polygon by
+Vectorize non-zero suitability pixels → morphological closing (buffer + negative
+buffer, replaces convex hull) to merge adjacent pixels and round staircase edges
+without filling real terrain notches → union overlapping patches → Voronoi-split
+oversized patches using k-means cluster centers as seeds (replaces rectangular
+bisection); split lines run through low-suitability terrain gaps between clusters
+→ subtract riparian exclusions → clip to park. Score each polygon by
 suitability_sum / perimeter; patch_class 1–4 via Jenks natural breaks
 (4 = highest score).
 """
 
+import math
+
 import geopandas as gpd
 import mapclassify
+import numpy as np
 import rasterio
 import rasterio.features
+import rasterio.mask
 from rasterstats import zonal_stats
-from shapely.geometry import box, shape
+from scipy.cluster.vq import kmeans2
+from shapely.geometry import MultiPoint, Point, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import voronoi_diagram
 
 from alidade.models import (
     BoundLayer,
@@ -34,6 +43,8 @@ from projects.goats.util import CRS, clip_park, hex_to_rgba
 MIN_AREA_M2 = 500.0
 # about 30 acres: 100 goats x 30 days
 MAX_AREA_M2 = 120_000.0
+# one pixel width at 10 m resolution — morphological closing distance
+_SMOOTH_M = 10.0
 
 # ColorBrewer Purples 4-class — darker = higher patch score
 PATCH_CLASSES = [
@@ -44,31 +55,55 @@ PATCH_CLASSES = [
 ]
 
 
-def _subdivide(geom: BaseGeometry, max_area_m2: float) -> list[BaseGeometry]:
-    """Bisect a polygon along its longer axis until all parts are ≤ max_area_m2."""
+def _voronoi_split(
+    geom: BaseGeometry,
+    suitability_path: object,
+    max_area_m2: float,
+) -> list[BaseGeometry]:
+    """Split a polygon into N pieces using Voronoi regions seeded at suitability maxima.
+
+    K-means cluster centers within the polygon's suitability pixels serve as
+    Voronoi seeds; Voronoi boundaries between them pass through low-suitability
+    gaps, which correspond to terrain transitions (rock bands, forest edges, etc.).
+    """
     if geom.area <= max_area_m2:
         return [geom]
-    minx, miny, maxx, maxy = geom.bounds
-    if (maxx - minx) >= (maxy - miny):
-        mid = (minx + maxx) / 2
-        halves = [
-            geom.intersection(box(minx, miny, mid, maxy)),
-            geom.intersection(box(mid, miny, maxx, maxy)),
-        ]
-    else:
-        mid = (miny + maxy) / 2
-        halves = [
-            geom.intersection(box(minx, miny, maxx, mid)),
-            geom.intersection(box(minx, mid, maxx, maxy)),
-        ]
-    result = []
-    for half in halves:
-        if half.is_empty:
+
+    n = math.ceil(geom.area / max_area_m2)
+
+    try:
+        with rasterio.open(suitability_path) as src:
+            masked, mask_transform = rasterio.mask.mask(
+                src, [geom], crop=True, nodata=0
+            )
+    except Exception:
+        return [geom]
+
+    data = masked[0]
+    row_idx, col_idx = np.where(data > 0)
+
+    if len(row_idx) < n:
+        return [geom]
+
+    xs = mask_transform.c + (col_idx + 0.5) * mask_transform.a
+    ys = mask_transform.f + (row_idx + 0.5) * mask_transform.e
+    coords = np.column_stack([xs, ys]).astype(float)
+
+    centers, _ = kmeans2(coords, min(n, len(coords)), minit="points")
+
+    seed_points = MultiPoint([Point(float(x), float(y)) for x, y in centers])
+    regions = voronoi_diagram(seed_points, envelope=geom.envelope)
+
+    result: list[BaseGeometry] = []
+    for region in regions.geoms:
+        clipped = geom.intersection(region)
+        if clipped.is_empty:
             continue
-        for part in getattr(half, "geoms", [half]):
+        for part in getattr(clipped, "geoms", [clipped]):
             if part.area > 0:
-                result.extend(_subdivide(part, max_area_m2))
-    return result
+                result.append(part)
+
+    return result if result else [geom]
 
 
 def build_patches(layer: BoundLayer) -> None:
@@ -89,29 +124,29 @@ def build_patches(layer: BoundLayer) -> None:
     ]
     gdf = gpd.GeoDataFrame(results, crs=crs_raster).to_crs(CRS)
 
-    # Remove noise patches below minimum area
     gdf = gdf[gdf.geometry.area >= MIN_AREA_M2].copy()
 
-    # Convex hull simplifies jagged pixel perimeters; must precede exclusion
-    # subtraction — hull of a notched polygon re-fills the notch
-    gdf.geometry = gdf.geometry.convex_hull
+    # Morphological closing merges immediately adjacent pixel clusters and rounds
+    # staircase pixel edges without filling real terrain notches (unlike convex hull)
+    gdf.geometry = gdf.geometry.buffer(_SMOOTH_M).buffer(-_SMOOTH_M)
+    gdf = gdf[~gdf.geometry.is_empty].copy()
+    gdf = gdf[gdf.geometry.area >= MIN_AREA_M2].copy()
 
-    # Union overlapping convex hulls into distinct non-overlapping patches,
-    # then re-explode so each island is its own row
+    # Union overlapping patches, then re-explode so each island is its own row
     gdf = (
         gpd.GeoDataFrame(geometry=[gdf.geometry.union_all()], crs=CRS)
         .explode(index_parts=False)
         .reset_index(drop=True)
     )
 
-    # Bisect any patch that exceeds the target maximum manageable area
+    # Voronoi-split patches that exceed the target area; k-means seeds are placed
+    # at suitability maxima within the patch so split lines follow terrain gaps
     split_geoms: list[BaseGeometry] = []
     for geom in gdf.geometry:
-        split_geoms.extend(_subdivide(geom, MAX_AREA_M2))
+        split_geoms.extend(_voronoi_split(geom, suitability_layer.path, MAX_AREA_M2))
     gdf = gpd.GeoDataFrame(geometry=split_geoms, crs=CRS).reset_index(drop=True)
 
-    # Subtract riparian exclusion zones after hull; a creek crossing a patch
-    # splits it into two separate patches, so re-explode and drop tiny fragments
+    # Subtract riparian exclusion zones after split; re-explode and drop slivers
     excl = gpd.read_file(exclusion_layer.path).to_crs(CRS).dissolve()
     if not excl.empty:
         excl_geom = excl.geometry.iloc[0]
@@ -124,11 +159,9 @@ def build_patches(layer: BoundLayer) -> None:
     gdf = clip_park(gdf, boundary_layer.path).copy()
     gdf = gdf[~gdf.geometry.is_empty].copy()
 
-    # Stable sequential ID assigned after all geometry operations are complete
     gdf = gdf.reset_index(drop=True)
     gdf["patch_id"] = gdf.index + 1
 
-    # Perimeter, size, and weighted suitability sum per patch
     gdf["perimeter"] = gdf.geometry.length
     gdf["size_acres"] = (gdf.geometry.area / 4046.856).round(2)
     stats = zonal_stats(gdf, str(suitability_layer.path), stats=["sum"], nodata=0)
@@ -137,7 +170,6 @@ def build_patches(layer: BoundLayer) -> None:
     # score = suitability per unit of fencing (perimeter); clamp to avoid /0
     gdf["patch_score"] = gdf["suitability_sum"] / gdf["perimeter"].clip(lower=0.01)
 
-    # Jenks 4-class classification stored as an integer column for the renderer
     valid = gdf["patch_score"] > 0
     if valid.sum() >= 4:
         jnb = mapclassify.NaturalBreaks(gdf.loc[valid, "patch_score"], k=4)

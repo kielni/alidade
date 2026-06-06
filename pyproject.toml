@@ -28,6 +28,7 @@ dependencies = [
     "statsmodels>=0.14.0",
     "rasterio>=1.5.0",
     "rasterstats>=0.21.0",
+    "pysheds>=0.5",
 ]
 
 [project.scripts]
@@ -63,7 +64,7 @@ module = ["pyogrio"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*"]
+module = ["rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*", "pysheds", "pysheds.*"]
 ignore_missing_imports = true
 
 

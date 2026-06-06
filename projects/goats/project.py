@@ -1,5 +1,6 @@
 from alidade.models import Project
 from projects.goats.layers.basemap import basemap
+from projects.goats.layers.basemap_satellite import basemap_satellite
 from projects.goats.layers.border import border
 from projects.goats.layers.developed_area import developed_area
 from projects.goats.layers.elevation import elevation
@@ -8,6 +9,7 @@ from projects.goats.layers.slope import slope
 from projects.goats.layers.roads_trails import roads_trails
 from projects.goats.layers.staging import staging
 from projects.goats.layers.vegetation import vegetation
+from projects.goats.layers.vegetation_outline import vegetation_outline
 from projects.goats.layers.water import water
 from projects.goats.layers.priority_developed import priority_developed
 from projects.goats.layers.priority_roads_trails import priority_roads_trails
@@ -15,7 +17,6 @@ from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetat
 from projects.goats.layers.patches import patches
 from projects.goats.layers.staging_ranked import staging_ranked
 from projects.goats.layers.suitability import suitability
-from projects.goats.layers.targets import targets
 from projects.goats.util import CRS
 
 EXTENT = (
@@ -34,7 +35,6 @@ map_all = Project(
         staging,
         park_boundary,
         border,
-        targets,
         patches,
         exclude_water_vegetation,
         priority_roads_trails,
@@ -45,6 +45,7 @@ map_all = Project(
         slope,
         elevation,
         vegetation,
+        vegetation_outline,
         suitability,
         basemap,
     ],
@@ -161,23 +162,6 @@ map_patches = Project(
 """
 Recommended goat grazing zones (park-wide overview)
 """
-map_targets = Project(
-    title="Alum Rock Goat Grazing Targets",
-    id="targets",
-    crs=CRS,
-    extent=EXTENT,
-    layers=[
-        park_boundary,
-        targets,
-        suitability,
-        developed_area,
-        water,
-        roads_trails,
-        basemap,
-    ],
-)
-
-# cluster-based
 map_targets_cluster = Project(
     title="Alum Rock Goat Grazing Targets",
     id="targets_cluster",
@@ -196,19 +180,26 @@ map_targets_cluster = Project(
 """
 Detail map(s) of highest-priority zones at large scale
 """
+EXTENT_DETAIL = (
+    604652.0231237924,
+    4138974.3374774046,
+    605629.9647183827,
+    4139559.1397050596,
+)
+
 map_detail = Project(
-    title="Alum Rock Goat Grazing Detail",
+    title="Alum Rock Rustic Lands",
     id="detail",
     crs=CRS,
-    extent=EXTENT,
+    extent=EXTENT_DETAIL,
     layers=[
         park_boundary,
         staging_ranked,
-        suitability,
-        staging,
+        priority_roads_trails,
+        vegetation_outline,
         water,
         roads_trails,
-        basemap,
+        basemap_satellite,
     ],
 )
 
@@ -218,7 +209,6 @@ maps = [
     map_veg,
     map_zones,
     map_suitability,
-    map_targets,
     map_targets_cluster,
     map_patches,
     map_detail,
