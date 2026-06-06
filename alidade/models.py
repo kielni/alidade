@@ -387,7 +387,7 @@ Layer.model_rebuild()
 
 class BoundLayer(Layer):
     project_path: Path
-    inputs: list["BoundLayer"] = []  # type: ignore[assignment]  # narrows for bound context
+    inputs: list["BoundLayer"] = []  # type: ignore[assignment]
 
     @property
     def path(self) -> Path:

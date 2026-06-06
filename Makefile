@@ -9,7 +9,7 @@ SHELL := /bin/bash
 
 LOG ?= lint.log
 
-.PHONY: help dump build build-all map extent validate lint clean
+.PHONY: help dump build build-all map extent validate lint publish clean
 
 help:
 	@echo "Targets:"
@@ -20,6 +20,8 @@ help:
 	@echo "  make extent DIR=project_dir        # print extent from QGIS-saved output/project.qgs"
 	@echo "  make validate DIR=project_dir      # check all source/style paths exist"
 	@echo "  make lint"
+	@echo "  make publish DIR=project_dir         # publish layers to ArcGIS Online"
+	@echo "  make publish DIR=project_dir MAP=id  # publish one named map"
 	@echo "  make clean DIR=project_dir"
 
 dump:
@@ -51,6 +53,10 @@ lint:
 	uv run black . 2>&1 | tee $(LOG)
 	uv run flake8 . 2>&1 | tee -a $(LOG)
 	uv run mypy . 2>&1 | tee -a $(LOG)
+
+publish:
+	@if [ -z "$(DIR)" ]; then echo "Usage: make publish DIR=project_dir [MAP=map_id]"; exit 1; fi
+	uv run python -m alidade.publish_arcgis $(DIR) $(if $(MAP),--map $(MAP),)
 
 clean:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make clean DIR=project_dir"; exit 1; fi

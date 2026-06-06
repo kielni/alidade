@@ -29,6 +29,8 @@ dependencies = [
     "rasterio>=1.5.0",
     "rasterstats>=0.21.0",
     "pysheds>=0.5",
+    "arcgis>=2.4.3",
+    "azure-storage-blob>=12.1,<=12.8",
 ]
 
 [project.scripts]
@@ -65,6 +67,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*", "pysheds", "pysheds.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["arcgis", "arcgis.*"]
 ignore_missing_imports = true
 
 

@@ -524,9 +524,10 @@ def _render_renderer(
 ) -> ET.Element:
     """Serialize a Renderer model to its QGS <renderer-v2> element.
 
-    project_path is always non-None here (caller is _inject_layers with spec.project_path).
-    GraduatedRenderer is dispatched to _render_graduated_renderer, which does not receive
-    project_path and calls _render_symbol without it — that is where None enters the chain.
+    project_path is always non-None here (caller is _inject_layers with
+    spec.project_path). GraduatedRenderer is dispatched to _render_graduated_renderer,
+    which does not receive project_path and calls _render_symbol without it — that is
+    where None enters the chain.
     """
     base = dict(
         forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
