@@ -26,6 +26,7 @@ EXTENT = (
     4140758.2218029452,
 )
 
+# build all layers
 map_all = Project(
     title="Alum Rock Goat Grazing",
     crs=CRS,
@@ -52,7 +53,7 @@ map_all = Project(
 )
 
 """
-Park boundary with data layers (staging areas, creek, roads/trails, developed zone)
+Park overview: staging areas, creek, roads/trails, developed zone
 """
 map_park = Project(
     id="park",
@@ -70,7 +71,7 @@ map_park = Project(
 )
 
 """
-Slope analysis derived from DEM, clipped to park + 100ft buffer
+Slope analysis derived from DEM
 """
 map_slope = Project(
     id="slope",
@@ -88,7 +89,7 @@ map_slope = Project(
 )
 
 """
-Vegetation classification map, clipped to park; classes combined to 4-6 zones
+Vegetation classification; lifeform classes grouped into 6 classes, plus developed
 """
 map_veg = Project(
     title="Alum Rock: Vegetation",
@@ -106,7 +107,7 @@ map_veg = Project(
 )
 
 """
-Exclusion and priority zones (riparian buffer, road/trail buffer)
+Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
 """
 map_zones = Project(
     title="Alum Rock Goat Priority and Exclusion Zones",
@@ -126,7 +127,7 @@ map_zones = Project(
 )
 
 """
-Weighted overlay suitability raster
+Weighted overlay for suitability from on priority/exclusion zones, slope, and vegetation
 """
 map_suitability = Project(
     title="Alum Rock Goat Grazing Suitability",
@@ -144,6 +145,9 @@ map_suitability = Project(
     ],
 )
 
+"""
+Group and smooth suitability outputs into target zones
+"""
 map_patches = Project(
     title="Alum Rock Goat Grazing Patches",
     id="patches",
@@ -159,8 +163,9 @@ map_patches = Project(
         basemap,
     ],
 )
+
 """
-Recommended goat grazing zones (park-wide overview)
+Prioritized staging areas based on access to target zones
 """
 map_targets_cluster = Project(
     title="Alum Rock Goat Grazing Targets",
@@ -177,8 +182,10 @@ map_targets_cluster = Project(
         basemap,
     ],
 )
+
 """
-Detail map(s) of highest-priority zones at large scale
+Detail map of top staging location, with satellite basemap, priority zones, and
+vegetation zones.
 """
 EXTENT_DETAIL = (
     604652.0231237924,
@@ -188,7 +195,7 @@ EXTENT_DETAIL = (
 )
 
 map_detail = Project(
-    title="Alum Rock Rustic Lands",
+    title="Alum Rock Rustic Lands area",
     id="detail",
     crs=CRS,
     extent=EXTENT_DETAIL,
@@ -209,8 +216,8 @@ maps = [
     map_veg,
     map_zones,
     map_suitability,
-    map_targets_cluster,
     map_patches,
+    map_targets_cluster,
     map_detail,
 ]
 spec = map_all

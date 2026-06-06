@@ -19,7 +19,7 @@ _symbols = [
 
 vegetation_outline = Layer(
     id="vegetation_outline",
-    name="Fine-Scale Vegetation (2020)",
+    name="Fine-Scale Vegetation outline",
     type="vector",
     inputs=[vegetation],
     datasource="output/vegetation.gpkg|layername=vegetation",

@@ -2,7 +2,7 @@
 Grazeable patch polygons derived from the suitability raster.
 
 Vectorize non-zero suitability pixels → morphological closing (buffer + negative
-buffer, replaces convex hull) to merge adjacent pixels and round staircase edges
+buffer) to merge adjacent pixels and round staircase edges
 without filling real terrain notches → union overlapping patches → Voronoi-split
 oversized patches using k-means cluster centers as seeds (replaces rectangular
 bisection); split lines run through low-suitability terrain gaps between clusters
