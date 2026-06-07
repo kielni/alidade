@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from arcgis.apps.storymap import StoryMap
+from pyproj import Transformer
+from arcgis.apps.storymap import _utils as _sm_utils
 from arcgis.features import FeatureLayerCollection
 from arcgis.gis import GIS, ItemProperties, ItemTypeEnum
 from arcgis.raster.analytics import copy_raster
@@ -422,7 +425,7 @@ def _publish_layer(
     renderer_only: bool,
     dry_run: bool,
 ) -> float:
-    """Prepare and publish one layer. Returns MB of upload file (0 in dry_run)."""
+    """Prepare and publish one layer. Returns MB of upload file."""
     if layer.provider == "wms" or layer.datasource.startswith("http"):
         print(f"  {layer.id}: skip (tile service)")
         return 0.0
@@ -561,6 +564,326 @@ def _publish_layer(
     return size_mb
 
 
+# ── Web map creation ─────────────────────────────────────────────────────────
+
+
+def _layer_item_ids_for_map(
+    bound: "BoundProject",
+    item_registry: dict[str, dict],
+) -> list[str]:
+    """Return feature_item_ids for all publishable, registered layers in a map."""
+    ids = []
+    for layer in bound.bound_layers:
+        if layer.provider == "wms" or layer.datasource.startswith("http"):
+            continue
+        fid = item_registry.get(layer.id, {}).get("feature_item_id")
+        if fid:
+            ids.append(fid)
+        else:
+            print(f"    {layer.id}: no feature_item_id; omitting from web map")
+    return ids
+
+
+def _reproject_extent(
+    extent: tuple[float, float, float, float],
+    src_crs: str,
+    dst_crs: str = "EPSG:4326",
+) -> tuple[float, float, float, float]:
+    """Reproject (xmin, ymin, xmax, ymax) from src_crs to dst_crs."""
+    tf = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
+    xmin, ymin = tf.transform(extent[0], extent[1])
+    xmax, ymax = tf.transform(extent[2], extent[3])
+    return (xmin, ymin, xmax, ymax)
+
+
+def _build_webmap_json(
+    layer_items: list[Any],
+    extent_wgs84: tuple[float, float, float, float] | None = None,
+) -> dict[str, Any]:
+    """Build minimal ArcGIS web map JSON from a list of hosted layer items."""
+    operational_layers = []
+    for item in layer_items:
+        item_url = (item.url or "").rstrip("/")
+        if item.type in ("Feature Service",):
+            operational_layers.append(
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "url": item_url + "/0",
+                    "layerType": "ArcGISFeatureLayer",
+                    "visibility": True,
+                    "opacity": 1,
+                }
+            )
+        elif "Image" in item.type:
+            operational_layers.append(
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "url": item_url,
+                    "layerType": "ArcGISImageServiceLayer",
+                    "visibility": True,
+                    "opacity": 1,
+                }
+            )
+        else:
+            print(
+                f"    Warning: unknown item type {item.type!r} for "
+                f"{item.title!r}; skipping"
+            )
+    result: dict[str, Any] = {
+        "operationalLayers": operational_layers,
+        "baseMap": {
+            "baseMapLayers": [
+                {
+                    "id": "World_Light_Gray_Base",
+                    "layerType": "ArcGISTiledMapServiceLayer",
+                    "url": (
+                        "https://services.arcgisonline.com/ArcGIS/rest/"
+                        "services/Canvas/World_Light_Gray_Base/MapServer"
+                    ),
+                    "visibility": True,
+                    "opacity": 1,
+                    "title": "Light Gray Canvas Base",
+                },
+                {
+                    "id": "World_Light_Gray_Reference",
+                    "layerType": "ArcGISTiledMapServiceLayer",
+                    "url": (
+                        "https://services.arcgisonline.com/ArcGIS/rest/"
+                        "services/Canvas/World_Light_Gray_Reference/MapServer"
+                    ),
+                    "visibility": True,
+                    "opacity": 1,
+                    "title": "Light Gray Canvas Reference",
+                    "isReference": True,
+                },
+            ],
+            "title": "Light Gray Canvas",
+        },
+        "spatialReference": {"wkid": 102100, "latestWkid": 3857},
+        "version": "2.28",
+    }
+    if extent_wgs84:
+        xmin, ymin, xmax, ymax = extent_wgs84
+        result["extent"] = {
+            "xmin": round(xmin, 6),
+            "ymin": round(ymin, 6),
+            "xmax": round(xmax, 6),
+            "ymax": round(ymax, 6),
+            "spatialReference": {"wkid": 4326},
+        }
+    return result
+
+
+def _create_web_map(
+    map_spec: Any,
+    gis: GIS | None,
+    item_registry: dict[str, dict],
+    project_path: Path,
+    *,
+    dry_run: bool,
+) -> bool:
+    """Create or update a web map for one map spec. Returns True if newly created."""
+    map_key = f"map:{map_spec.id}"
+    bound = BoundProject(
+        **map_spec.model_dump(mode="python"), project_path=project_path
+    )
+    layer_ids = _layer_item_ids_for_map(bound, item_registry)
+
+    if not layer_ids:
+        print(f"  {map_spec.id}: skip (no published layers)")
+        return False
+
+    if dry_run:
+        existing_id = item_registry.get(map_key, {}).get("webmap_item_id", "new")
+        print(
+            f"  {map_spec.id}: would update web map ({len(layer_ids)} layers, id={existing_id})"
+        )
+        return False
+
+    assert gis is not None
+
+    layer_items = [gis.content.get(fid) for fid in layer_ids]
+    layer_items = [it for it in layer_items if it is not None]
+
+    extent_wgs84 = None
+    if map_spec.extent and map_spec.crs:
+        try:
+            extent_wgs84 = _reproject_extent(map_spec.extent, map_spec.crs)
+        except Exception as exc:
+            print(f"    Warning: could not reproject extent: {exc}")
+
+    webmap_text = json.dumps(_build_webmap_json(layer_items, extent_wgs84=extent_wgs84))
+
+    existing = item_registry.get(map_key, {})
+    existing_item = (
+        gis.content.get(existing["webmap_item_id"])
+        if existing.get("webmap_item_id")
+        else None
+    )
+    if existing_item:
+        existing_item.update(item_properties={"text": webmap_text})
+        _save_registry(_ARCGIS_JSON, item_registry)
+        print(f"    Updated web map (webmap_item_id={existing_item.id})")
+        return False  # not new — existing story map link still valid
+
+    root_folder = gis.content.folders.get()
+    props = ItemProperties(
+        title=map_spec.title,
+        item_type=ItemTypeEnum.WEB_MAP,
+        tags=_ARCGIS_TAG,
+        snippet=f"Web map: {map_spec.title}",
+    )
+    wm_item = root_folder.add(item_properties=props, text=webmap_text).result()
+    item_registry[map_key] = {
+        "webmap_item_id": wm_item.id,
+        "added_to_story_maps": [],
+    }
+    _save_registry(_ARCGIS_JSON, item_registry)
+    print(f"    Created web map (webmap_item_id={wm_item.id})")
+    return True
+
+
+# ── Story map ─────────────────────────────────────────────────────────────────
+
+
+def _story_map_resource(
+    wm_id: str,
+    map_spec: Any,
+    gis: GIS,
+) -> dict[str, Any]:
+    """Build the story map resource data block for one web map."""
+    # Extent and viewpoint in web mercator (wkid 102100) for the story viewer.
+    extent_dict: dict[str, Any] = {}
+    center_dict: dict[str, Any] | None = None
+    viewpoint: dict[str, Any] = {"rotation": 0, "scale": -1, "targetGeometry": {}}
+
+    if map_spec.extent and map_spec.crs:
+        try:
+            xmin, ymin, xmax, ymax = _reproject_extent(
+                map_spec.extent, map_spec.crs, dst_crs="EPSG:3857"
+            )
+            sr = {"wkid": 102100, "latestWkid": 3857}
+            extent_dict = {
+                "xmin": xmin,
+                "ymin": ymin,
+                "xmax": xmax,
+                "ymax": ymax,
+                "spatialReference": sr,
+            }
+            center_dict = {
+                "spatialReference": sr,
+                "x": (xmin + xmax) / 2,
+                "y": (ymin + ymax) / 2,
+            }
+            viewpoint = {"rotation": 0, "scale": -1, "targetGeometry": center_dict}
+        except Exception as exc:
+            print(f"    Warning: could not compute story map extent: {exc}")
+
+    # mapLayers drives per-story layer visibility; must match the web map's
+    # operational layers with visible:true or the story viewer hides them all.
+    map_layers: list[dict[str, Any]] = []
+    wm_item = gis.content.get(wm_id)
+    if wm_item:
+        try:
+            wm_data = wm_item.get_data() or {}
+            for layer in wm_data.get("operationalLayers", []):
+                map_layers.append(
+                    {
+                        "id": layer["id"],
+                        "title": layer.get("title", ""),
+                        "visible": layer.get("visibility", True),
+                    }
+                )
+        except Exception as exc:
+            print(f"    Warning: could not read web map layers: {exc}")
+
+    return {
+        "extent": extent_dict,
+        "center": center_dict,
+        "zoom": 2,
+        "mapLayers": map_layers,
+        "viewpoint": viewpoint,
+        "itemId": wm_id,
+        "itemType": "Web Map",
+        "type": "minimal",
+    }
+
+
+def _add_maps_to_story(
+    maps: list[Any],
+    story_map_id: str,
+    gis: GIS | None,
+    item_registry: dict[str, dict],
+    *,
+    dry_run: bool,
+) -> None:
+    """Add new web maps to the story and refresh resource data for existing ones."""
+    candidates = []
+    for map_spec in maps:
+        map_key = f"map:{map_spec.id}"
+        entry = item_registry.get(map_key, {})
+        wm_id = entry.get("webmap_item_id")
+        if not wm_id:
+            print(f"  {map_spec.id}: no web map registered; skipping")
+            continue
+        already_added = story_map_id in entry.get("added_to_story_maps", [])
+        candidates.append((map_key, wm_id, map_spec, already_added))
+
+    if not candidates:
+        print("  No web maps registered.")
+        return
+
+    if dry_run:
+        for _, wm_id, map_spec, already_added in candidates:
+            action = "update" if already_added else "add"
+            print(f"  {map_spec.id}: would {action} in story map {story_map_id!r}")
+        return
+
+    assert gis is not None
+
+    story_item = gis.content.get(story_map_id)
+    if not story_item:
+        print(
+            f"Error: story map item {story_map_id!r} not found",
+            file=sys.stderr,
+        )
+        return
+
+    sm = StoryMap(item=story_item, gis=gis)
+    for map_key, wm_id, map_spec, already_added in candidates:
+        resource_node = f"r-{wm_id}"
+        resource_data = _story_map_resource(wm_id, map_spec, gis)
+
+        if already_added and resource_node in sm._properties.get("resources", {}):
+            # Update extent/visibility on the existing node without adding a duplicate.
+            sm._properties["resources"][resource_node]["data"] = resource_data
+            print(f"  {map_spec.id}: updated")
+        else:
+            # Write the webmap node directly, bypassing story_content.Map which
+            # requires the optional arcgis.map package.
+            node_id = _sm_utils.create_unique_id()
+            sm._properties["nodes"][node_id] = {
+                "type": "webmap",
+                "data": {"map": resource_node, "caption": "", "alt": ""},
+                "config": {"size": None},
+            }
+            sm._properties["resources"][resource_node] = {
+                "type": "webmap",
+                "data": resource_data,
+            }
+            _sm_utils.add_child(sm, node_id=node_id)
+            item_registry[map_key].setdefault("added_to_story_maps", []).append(
+                story_map_id
+            )
+            _save_registry(_ARCGIS_JSON, item_registry)
+            print(f"  {map_spec.id}: added")
+
+    sm.save(title=story_item.title)
+    print(f"  Story map saved ({story_map_id})")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -589,6 +912,25 @@ def main() -> None:
         help=(
             "Prepare data files and print what would be uploaded; "
             "skip authentication and all ArcGIS API calls"
+        ),
+    )
+    parser.add_argument(
+        "--create-maps",
+        action="store_true",
+        help=(
+            "After publishing layers, create ArcGIS web maps from the "
+            "project's maps list. Maps whose layer set is unchanged are skipped."
+        ),
+    )
+    parser.add_argument(
+        "--story-map-id",
+        default=None,
+        metavar="ITEM_ID",
+        help=(
+            "ArcGIS Online item ID of the Story Map to update. Implies "
+            "--create-maps. New web maps (those not yet recorded as added) "
+            "are appended to the story. Can also be set as "
+            "ARCGIS_STORY_MAP_ID in local.env."
         ),
     )
     args = parser.parse_args()
@@ -625,9 +967,11 @@ def main() -> None:
     )
 
     # Authenticate (skipped in dry_run)
+    env = _read_local_env(_LOCAL_ENV)
+    story_map_id: str | None = args.story_map_id or env.get("ARCGIS_STORY_MAP_ID")
+
     gis: GIS | None = None
     if not args.dry_run:
-        env = _read_local_env(_LOCAL_ENV)
         client_id = env.get("ARCGIS_CLIENT_ID")
         url = env.get("ARGIS_URL", "https://www.arcgis.com")
         if not client_id:
@@ -677,6 +1021,37 @@ def main() -> None:
         print(f"\n{len(layer_errors)} layer(s) failed:")
         for layer_id, msg in layer_errors:
             print(f"  {layer_id}: {msg}")
+
+    # Create web maps (--create-maps or implied by --story-map-id)
+    project_maps = getattr(module, "maps", [])
+    do_create_maps = args.create_maps or bool(story_map_id)
+    if do_create_maps:
+        if not project_maps:
+            print("\nNo maps defined in project module; skipping web map creation.")
+        else:
+            print(f"\nCreating web maps ({len(project_maps)} map(s)):")
+            for map_spec in project_maps:
+                try:
+                    _create_web_map(
+                        map_spec,
+                        gis,
+                        item_registry,
+                        project_path,
+                        dry_run=args.dry_run,
+                    )
+                except Exception as exc:
+                    print(f"  {map_spec.id}: ERROR — {exc}")
+
+    # Add new web maps to story map
+    if story_map_id and project_maps:
+        print(f"\nUpdating story map {story_map_id!r}:")
+        _add_maps_to_story(
+            project_maps,
+            story_map_id,
+            gis,
+            item_registry,
+            dry_run=args.dry_run,
+        )
 
     if not args.dry_run:
         print("Done." if not layer_errors else "Done (with errors above).")
