@@ -356,6 +356,10 @@ class Layer(BaseModel):
     action: StepAction | None = None
     # data specific to this layer, e.g. raw source file to process in action
     raw_file: str | None = None
+    # human-readable description of what the raw data file contains
+    source_description: str | None = None
+    # provenance of the raw data (dataset name, agency, download source)
+    source_origin: str | None = None
     extra: dict[str, Any] = {}
 
     def path_for(self, project_path: Path) -> Path:

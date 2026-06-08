@@ -54,6 +54,11 @@ vegetation = Layer(
     type="vector",
     inputs=[border],
     raw_file="data/fine_scale_vegetation.gdb",
+    source_description=(
+        "121-class NVC vegetation map, 2020; 309,785 polygons"
+        " county-wide, 343 within park"
+    ),
+    source_origin="Santa Cruz / Santa Clara County, EPSG:6420",
     datasource="output/vegetation.gpkg|layername=vegetation",
     crs=CRS,
     geometry_type="MultiPolygon",

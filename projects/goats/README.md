@@ -1,106 +1,37 @@
 # Goats
 
+Habitat suitability analysis for goat grazing at Alum Rock Park. Identifies grazeable patches from terrain, vegetation, and proximity data; ranks staging areas by distance-weighted access to high-priority grazing terrain.
+
+CRS: EPSG:26910 (NAD83 / UTM Zone 10N)
+
 <!-- auto:begin -->
-## Layers
+## Data Sources
 
-### Staging Area Ranking
+| File | Description | Origin |
+|---|---|---|
+| `data/park_boundary.geojson` | Park boundary polygon | OpenStreetMap via Overpass Turbo |
+| `data/water.geojson` | Waterway stream lines (36 features) | OpenStreetMap via Overpass Turbo |
+| `data/roads_trails.geojson` | Road and trail lines (1,537 features) | OpenStreetMap via Overpass Turbo |
+| `data/fine_scale_vegetation.gdb` | 121-class NVC vegetation map, 2020; 309,785 polygons county-wide, 343 within park | Santa Cruz / Santa Clara County, EPSG:6420 |
+| `data/USGS_13_n38w122_20250826.tif` | 1/3 arc-second elevation DEM | USGS National Elevation Dataset, EPSG:4269 |
+| `data/Alum_Rock_developed_area.gpx` | GPS tracks of developed area perimeter | Field-recorded |
+| `data/staging.geojson` | Candidate goat staging area points | Field-recorded |
 
-**Source:** `output/staging_ranked.gpkg`  
-**Style:** rule-based (3 rules)  
-**Derived from:** `grazeable_patches`, `staging_areas`  
+## Processing Steps
 
-### Staging Areas
+1. **Clip border** — 100 ft buffer around park boundary; dissolve to single polygon; used as clip mask for all raster and vector inputs
+2. **Developed area** — Merge GPX tracks → simplify 10 m → close ring → polygon, reprojected to EPSG:26910
+3. **Elevation** — DEM reprojected EPSG:4269 → EPSG:26910, cropped to clip border (bilinear resampling)
+4. **Streams / Roads & Trails** — Reproject + clip to clip border; roads filter out polygons
+5. **Fine-scale vegetation** — Reproject EPSG:6420 → EPSG:26910, clip to clip border, dissolve by `ENHANCED_LIFEFORM`; 7 suitability zones
+6. **Slope** — `gdaldem slope -p` on elevation; reclassified to 4 byte classes at 15 / 27 / 58% breaks
+7. **Priority buffers** — Buffer developed area 100 ft and roads/trails 30 ft; union; clip to park boundary
+8. **Riparian exclusion** — Buffer streams 30 ft; union; clip to park boundary
+9. **Suitability raster** — Weighted overlay: slope 25% + vegetation 25% + developed buffer 25% + roads/trails buffer 25%; riparian and too-steep (class 4) pixels zeroed out; Jenks 4-class on non-zero pixels; clipped to park boundary
+10. **Grazeable patches** — Vectorize non-zero suitability pixels → morphological closing (+10 m / −10 m) → Voronoi-split patches > 120,000 m² → subtract riparian exclusion → drop fragments < 500 m²; scored by suitability_sum / perimeter
+11. **Staging area ranking** — Distance-decay score Σ(patch_score / distance) over High and Very high patches only; distance clamped ≥ 50 m; rank 1 = best access
 
-**Source:** `output/staging.shp`  
-**Style:** single symbol — diamond marker #b400ff, 4.0 MM  
-
-### Park Boundary
-
-**Source:** `data/park_boundary.geojson`  
-**Style:** single symbol — fill #000000 at 0% opacity, #404040 outline  
-
-### Clip Border (100 ft buffer)
-
-**Source:** `output/border.gpkg`  
-**Style:** single symbol — fill #000000 at 0% opacity, #6464c8 outline  
-**Derived from:** `park_boundary`  
-
-### Grazeable Patches
-
-**Source:** `output/patches.gpkg`  
-**Style:** rule-based (5 rules)  
-**Derived from:** `park_boundary`, `suitability`, `exclude_water_vegetation`  
-
-### Exclusion: Riparian Buffer
-
-**Source:** `output/exclude_water_vegetation.gpkg`  
-**Style:** single symbol — fill #4477aa at 50% opacity, #285078 outline  
-**Derived from:** `park_boundary`, `riparian_zone`  
-
-### Priority: Roads & Trails Buffer
-
-**Source:** `output/priority_roads_trails.gpkg`  
-**Style:** single symbol — fill #ffc800 at 50% opacity, #b48c00 outline  
-**Derived from:** `park_boundary`, `roads_trails`  
-
-### Priority: Developed Area Buffer
-
-**Source:** `output/priority_developed.gpkg`  
-**Style:** single symbol — fill #ff8c00 at 50% opacity, #c86400 outline  
-**Derived from:** `park_boundary`, `developed_area`  
-
-### Developed Area
-
-**Source:** `output/developed_area.shp`  
-**Style:** single symbol — fill #c8c8c8 at 50% opacity, #808080 outline  
-
-### Riparian Areas
-
-**Source:** `output/water.shp`  
-**Style:** single symbol — solid line #4477aa, 0.6 MM  
-**Derived from:** `clip_border`  
-
-### Roads & Trails
-
-**Source:** `output/roads_trails.shp`  
-**Style:** single symbol — solid line #785028, 0.5 MM  
-**Derived from:** `clip_border`  
-
-### Slope
-
-**Source:** `output/slope.tif`  
-**Style:** paletted raster (4 classes)  
-**Derived from:** `usgs_elevation`  
-
-### Elevation
-
-**Source:** `output/elevation.tif`  
-**Style:** no style configured  
-**Derived from:** `clip_border`  
-
-### Fine-Scale Vegetation (2020)
-
-**Source:** `output/vegetation.gpkg`  
-**Style:** rule-based (7 rules)  
-**Derived from:** `clip_border`  
-
-### Fine-Scale Vegetation Highlight
-
-**Source:** `output/vegetation.gpkg`  
-**Style:** rule-based (3 rules)  
-
-### Suitability
-
-**Source:** `output/suitability.tif`  
-**Style:** paletted raster (4 classes)  
-**Derived from:** `park_boundary`, `slope_percent`, `fine_scale_vegetation`, `priority_developed`, `priority_roads_trails`, `exclude_water_vegetation`  
-
-### CartoDB Positron
-
-**Source:** `CartoDB Positron XYZ tile service`  
-**Style:** see `styles/cartodb_positron.xml`  
-
-## Data flow
+## Data Flow
 
 ```mermaid
 flowchart LR

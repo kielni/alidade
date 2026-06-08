@@ -235,26 +235,36 @@ the same name as the file. `project.py` only imports layers and assembles the sp
 
 ## Processing steps
 
-Derived layers are produced by `ProcessingStep` — shell commands (GDAL/GRASS) or
-Python functions. `build.py` runs them in topological order, skipping steps
+Derived layers are produced by running a Python function or a shell command (GDAL/GRASS). `build.py` runs them in topological order, skipping steps
 whose output already exists (pass `--force` to re-run all).
 
-```python
-class ProcessingStep(BaseModel):
-    description: str          # plain-English sentence
-    action: ShellAction | PythonAction
-    depends_on: list[str]     # layer IDs that are step inputs
-    output: Path              # e.g. Path("output/slope.tif")
-```
-
-Prefer `PythonAction` (geopandas) over `ShellAction` for vector operations;
-reserve `ShellAction` for raster tools like `gdaldem slope` or `gdalwarp`.
+Prefer Python (geopandas) over shell for vector operations;
+reserve shell commands for raster tools like `gdaldem slope` or `gdalwarp`.
 
 ## LLM workflow documentation
 
-Each project directory contains `workflow.md` recording prompts, what each did,
-non-obvious choices, and data source URLs. Update in the same session as the
-work — not retroactively.
+Each project directory contains `workflow.md`. Its purpose is to let another
+person reconstruct the project from scratch by following the recorded steps in
+order.
+
+Each entry covers one logical unit of work: what was done, the key parameters
+and values (URLs, thresholds, CRS codes, algorithm choices), and which files
+were created or changed. Two or three sentences is typical; more when the
+change involves a non-obvious decision or a discovered constraint.
+
+Format:
+
+```markdown
+## Step N — Brief title
+
+What was done and the specific values that matter: URLs, distances,
+field names, color codes, algorithm choices, tradeoffs.
+
+**Files created/changed:**
+- `path/to/file.py` — one-line summary of the change
+```
+
+Update in the same session as the work — not retroactively.
 
 ## File ownership
 

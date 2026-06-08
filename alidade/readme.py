@@ -6,17 +6,8 @@ from pathlib import Path
 
 from alidade.models import (
     BoundProject,
-    GraduatedRenderer,
     Layer,
-    PalettedRenderer,
-    Renderer,
-    RuleRenderer,
-    SimpleFill,
-    SimpleLine,
-    SimpleMarker,
-    SingleSymbol,
-    SvgMarker,
-    SymbolLayer,
+    PythonAction,
 )
 
 _BEGIN = "<!-- auto:begin -->"
@@ -32,14 +23,6 @@ _SOURCE_LABELS: list[tuple[str, str]] = [
     ("http-header", "WMS/XYZ tile service"),
     ("wms", "WMS/XYZ tile service"),
 ]
-
-
-def _color(rgba: str) -> tuple[str, int]:
-    """Return (hex_color, alpha_percent) from a comma-separated 'r,g,b,a' string."""
-    parts = rgba.split(",")
-    r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
-    a = int(parts[3]) if len(parts) > 3 else 255
-    return f"#{r:02x}{g:02x}{b:02x}", round(a / 255 * 100)
 
 
 def _source_label(source: str) -> str:
@@ -60,70 +43,96 @@ def _source_label(source: str) -> str:
     return p.name
 
 
-def _describe_symbol_layer(sl: SymbolLayer) -> str:
-    """Return a one-line prose description of a SymbolLayer for the README."""
-    if isinstance(sl, SimpleFill):
-        fill_hex, fill_alpha = _color(sl.color)
-        out_hex, _ = _color(sl.outline_color)
-        desc = f"fill {fill_hex}"
-        if fill_alpha < 100:
-            desc += f" at {fill_alpha}% opacity"
-        desc += f", {out_hex} outline"
-        return desc
-    if isinstance(sl, SimpleLine):
-        hex_, _ = _color(sl.line_color)
-        return f"{sl.line_style} line {hex_}, {sl.line_width} {sl.line_width_unit}"
-    if isinstance(sl, SimpleMarker):
-        hex_, _ = _color(sl.color)
-        return f"{sl.name} marker {hex_}, {sl.size} {sl.size_unit}"
-    if isinstance(sl, SvgMarker):
-        return f"SVG marker {Path(sl.name).name}, {sl.size} {sl.size_unit}"
-    return type(sl).__name__
+def _data_source_rows(
+    layer: Layer,
+) -> list[tuple[str, str, str, str]]:
+    """
+    Return (dedup_key, file_label, description, origin) rows for a layer's raw inputs.
+    """
+    rows = []
+    if layer.provider == "wms":
+        label = _source_label(layer.datasource)
+        desc = layer.source_description or layer.name
+        origin = layer.source_origin or "XYZ / WMS tile service"
+        rows.append((label, label, desc, origin))
+    elif layer.raw_file:
+        desc = layer.source_description or layer.name
+        origin = layer.source_origin or ""
+        rows.append((layer.raw_file, layer.raw_file, desc, origin))
+    elif layer.action is None:
+        src = _source_label(layer.datasource)
+        if src.startswith("data/"):
+            desc = layer.source_description or layer.name
+            origin = layer.source_origin or ""
+            rows.append((src, src, desc, origin))
+    return rows
 
 
-def _describe_renderer(renderer: Renderer) -> str:
-    """Return a one-line prose description of a Renderer for the README."""
-    if isinstance(renderer, SingleSymbol):
-        parts = [_describe_symbol_layer(sl) for sl in renderer.symbol.layers]
-        return "single symbol — " + "; ".join(parts)
-    if isinstance(renderer, RuleRenderer):
-        return f"rule-based ({len(renderer.rules)} rules)"
-    if isinstance(renderer, PalettedRenderer):
-        return f"paletted raster ({len(renderer.entries)} classes)"
-    if isinstance(renderer, GraduatedRenderer):
-        return f"graduated ({len(renderer.ranges)} classes on `{renderer.attr}`)"
-    return type(renderer).__name__
+def _step_description(layer: Layer) -> str:
+    """Return a one-line description of a processing step from the action docstring."""
+    if isinstance(layer.action, PythonAction):
+        doc = getattr(layer.action.fn, "__doc__", None)
+        if doc:
+            return doc.strip().split("\n")[0].strip().rstrip(".")
+    return ""
 
 
-def _describe_style(layer: Layer) -> str:
-    """Return a one-line style description for a layer."""
-    if layer.renderer is not None:
-        return _describe_renderer(layer.renderer)
-    if layer.style_xml is not None:
-        return f"see `{layer.style_xml}`"
-    return "no style configured"
+def _topo_sort(derived: list[Layer]) -> list[Layer]:
+    """
+    Return derived layers in topological order (all inputs before the layer itself).
+    """
+    id_to_layer = {la.id: la for la in derived}
+    order: list[Layer] = []
+    visited: set[str] = set()
+
+    def visit(layer: Layer) -> None:
+        if layer.id in visited:
+            return
+        visited.add(layer.id)
+        for inp in layer.inputs:
+            if inp.id in id_to_layer:
+                visit(id_to_layer[inp.id])
+        order.append(layer)
+
+    for layer in derived:
+        visit(layer)
+    return order
 
 
 def _auto_section(spec: BoundProject) -> str:
     """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
-    lines.append("## Layers")
+    # ── Data Sources ──────────────────────────────────────────────────────────
+    lines.append("## Data Sources")
     lines.append("")
+    lines.append("| File | Description | Origin |")
+    lines.append("|---|---|---|")
+    seen: set[str] = set()
     for layer in spec.layers:
-        lines.append(f"### {layer.name}")
-        lines.append("")
-        source = _source_label(layer.datasource)
-        lines.append(f"**Source:** `{source}`  ")
-        lines.append(f"**Style:** {_describe_style(layer)}  ")
-        if layer.action is not None and layer.inputs:
-            deps = ", ".join(f"`{inp.id}`" for inp in layer.inputs)
-            lines.append(f"**Derived from:** {deps}  ")
-        lines.append("")
+        for key, file_label, desc, origin in _data_source_rows(layer):
+            if key not in seen:
+                seen.add(key)
+                lines.append(f"| `{file_label}` | {desc} | {origin} |")
+    lines.append("")
 
+    # ── Processing Steps ──────────────────────────────────────────────────────
     derived = [la for la in spec.layers if la.action is not None]
     if derived:
-        lines.append("## Data flow")
+        ordered = _topo_sort(derived)
+        lines.append("## Processing Steps")
+        lines.append("")
+        for i, layer in enumerate(ordered, 1):
+            desc = _step_description(layer)
+            if desc:
+                lines.append(f"{i}. **{layer.name}** — {desc}")
+            else:
+                lines.append(f"{i}. **{layer.name}**")
+        lines.append("")
+
+    # ── Data Flow ─────────────────────────────────────────────────────────────
+    if derived:
+        lines.append("## Data Flow")
         lines.append("")
         lines.append("```mermaid")
         lines.append("flowchart LR")
