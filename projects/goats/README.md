@@ -12,12 +12,12 @@
 ### Staging Areas
 
 **Source:** `output/staging.shp`  
-**Style:** single symbol — circle marker #d27800, 3.0 MM  
+**Style:** single symbol — diamond marker #b400ff, 4.0 MM  
 
 ### Park Boundary
 
 **Source:** `data/park_boundary.geojson`  
-**Style:** single symbol — fill #000000 at 0% opacity, #808080 outline  
+**Style:** single symbol — fill #000000 at 0% opacity, #404040 outline  
 
 ### Clip Border (100 ft buffer)
 
@@ -28,7 +28,7 @@
 ### Grazeable Patches
 
 **Source:** `output/patches.gpkg`  
-**Style:** rule-based (4 rules)  
+**Style:** rule-based (5 rules)  
 **Derived from:** `park_boundary`, `suitability`, `exclude_water_vegetation`  
 
 ### Exclusion: Riparian Buffer
@@ -84,10 +84,10 @@
 **Style:** rule-based (7 rules)  
 **Derived from:** `clip_border`  
 
-### Fine-Scale Vegetation (2020)
+### Fine-Scale Vegetation Highlight
 
 **Source:** `output/vegetation.gpkg`  
-**Style:** rule-based (7 rules)  
+**Style:** rule-based (3 rules)  
 
 ### Suitability
 

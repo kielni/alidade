@@ -17,7 +17,7 @@ _CLASSES = [
     (1, 0, 15, "#1a9641", "Flat to gentle (0–15%)"),
     (2, 15, 27, "#ffffbf", "Moderate (15–27%)"),
     (3, 27, 58, "#fdae61", "Steep (27–58%)"),
-    (4, 58, None, "#efefef", "Too steep (58%+)"),
+    (4, 58, None, "#ddd0c0", "Too steep (58%+)"),
 ]
 
 _CALC_EXPR = " + ".join(

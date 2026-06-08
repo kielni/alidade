@@ -9,7 +9,8 @@ from projects.goats.layers.slope import slope
 from projects.goats.layers.roads_trails import roads_trails
 from projects.goats.layers.staging import staging
 from projects.goats.layers.vegetation import vegetation
-from projects.goats.layers.vegetation_outline import vegetation_outline
+from projects.goats.layers.park_fill import park_fill
+from projects.goats.layers.vegetation_highlight import vegetation_highlight
 from projects.goats.layers.water import water
 from projects.goats.layers.priority_developed import priority_developed
 from projects.goats.layers.priority_roads_trails import priority_roads_trails
@@ -46,14 +47,15 @@ map_all = Project(
         slope,
         elevation,
         vegetation,
-        vegetation_outline,
+        vegetation_highlight,
         suitability,
+        park_fill,
         basemap,
     ],
 )
 
 """
-Park overview: staging areas, creek, roads/trails, developed zone
+1: Park overview: staging areas, creek, roads/trails, developed zone
 """
 map_park = Project(
     id="park",
@@ -71,7 +73,7 @@ map_park = Project(
 )
 
 """
-Slope analysis derived from DEM
+2: Slope analysis derived from USGS DEM
 """
 map_slope = Project(
     id="slope",
@@ -89,7 +91,7 @@ map_slope = Project(
 )
 
 """
-Vegetation classification; lifeform classes grouped into 6 classes, plus developed
+3: Vegetation classification; lifeform classes grouped into 6 classes, plus developed
 """
 map_veg = Project(
     title="Alum Rock: Vegetation",
@@ -107,7 +109,7 @@ map_veg = Project(
 )
 
 """
-Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
+4: Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
 """
 map_zones = Project(
     title="Alum Rock Goat Priority and Exclusion Zones",
@@ -127,7 +129,7 @@ map_zones = Project(
 )
 
 """
-Weighted overlay for suitability from on priority/exclusion zones, slope, and vegetation
+5: Weighted overlay for suitability from priority/exclusion zones, slope, and vegetation
 """
 map_suitability = Project(
     title="Alum Rock Goat Grazing Suitability",
@@ -141,12 +143,13 @@ map_suitability = Project(
         developed_area,
         water,
         roads_trails,
+        park_fill,
         basemap,
     ],
 )
 
 """
-Group and smooth suitability outputs into target zones
+6: Group and smooth suitability outputs into target zones
 """
 map_patches = Project(
     title="Alum Rock Goat Grazing Patches",
@@ -160,12 +163,13 @@ map_patches = Project(
         developed_area,
         water,
         roads_trails,
+        park_fill,
         basemap,
     ],
 )
 
 """
-Prioritized staging areas based on access to target zones
+7: Prioritized staging areas based on access to target zones
 """
 map_targets_cluster = Project(
     title="Alum Rock Goat Grazing Targets",
@@ -179,12 +183,13 @@ map_targets_cluster = Project(
         developed_area,
         water,
         roads_trails,
+        park_fill,
         basemap,
     ],
 )
 
 """
-Detail map of top staging location, with satellite basemap, priority zones, and
+8: Detail map of top staging location, with satellite basemap, priority zones, and
 vegetation zones.
 """
 EXTENT_DETAIL = (
@@ -203,7 +208,7 @@ map_detail = Project(
         park_boundary,
         staging_ranked,
         priority_roads_trails,
-        vegetation_outline,
+        vegetation_highlight,
         water,
         roads_trails,
         basemap_satellite,

@@ -36,10 +36,11 @@ staging = Layer(
             type="marker",
             layers=[
                 SimpleMarker(
-                    color="210,120,0,255",
-                    outline_color="150,80,0,255",
+                    name="diamond",
+                    color="180,0,255,255",
+                    outline_color="110,0,160,255",
                     outline_width=0.4,
-                    size=3.0,
+                    size=4.0,
                 )
             ],
         )

@@ -24,11 +24,11 @@ from projects.goats.layers.patches import patches
 from projects.goats.layers.staging import staging
 from projects.goats.util import CRS
 
-# ColorBrewer YlGn 3-class — darker green = better
+# YlGn 3-class, saturated — darker green = better
 _RANK_TIERS = [
-    ("rank1", "Best", '"rank" = 1', "49,163,84,255"),
-    ("rank2", "Better", '"rank" = 2', "173,221,142,255"),
-    ("rank3", "Good", '"rank" >= 3', "247,252,185,255"),
+    ("rank1", "Best", '"rank" = 1', "0,200,60,255"),
+    ("rank2", "Better", '"rank" = 2', "120,230,90,255"),
+    ("rank3", "Good", '"rank" >= 3', "225,255,80,255"),
 ]
 
 
@@ -80,7 +80,9 @@ _rules = [
 _symbols = [
     Symbol(
         type="marker",
-        layers=[SimpleMarker(color=color, outline_color=color, size=3.0)],
+        layers=[
+            SimpleMarker(name="diamond", color=color, outline_color=color, size=4.0)
+        ],
     )
     for _, _, _, color in _RANK_TIERS
 ]
