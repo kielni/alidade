@@ -196,7 +196,7 @@ def _classify_filter(
       'catchall' — comparison operator (>=, <=, >, <, !=) or empty
       'unknown'  — unrecognised pattern; caller should warn and skip
     """
-    if not filter_expr or not filter_expr.strip():
+    if not filter_expr or filter_expr.strip().upper() == "ELSE":
         return "catchall", []
     parts = re.split(r"\s+OR\s+", filter_expr.strip(), flags=re.IGNORECASE)
     pairs = [_parse_equality(p) for p in parts]
@@ -752,13 +752,15 @@ def _build_webmap_json(
     }
     if extent_3857:
         xmin, ymin, xmax, ymax = extent_3857
-        result["extent"] = {
+        extent_obj = {
             "xmin": round(xmin, 2),
             "ymin": round(ymin, 2),
             "xmax": round(xmax, 2),
             "ymax": round(ymax, 2),
             "spatialReference": {"wkid": 102100, "latestWkid": 3857},
         }
+        result["extent"] = extent_obj
+        result["initialState"] = {"viewpoint": {"targetGeometry": extent_obj}}
     return result
 
 

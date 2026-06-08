@@ -164,15 +164,18 @@ def _plot_layer(
 
     if isinstance(renderer, RuleRenderer):
         handles = []
+        matched = pd.Series(False, index=gdf.index)
         for rule in renderer.rules:
             if not rule.active:
                 continue
             sym = renderer.symbols[rule.symbol_index].layers[0]
-            if rule.filter:
+            if rule.filter == "ELSE":
+                subset = gdf[~matched]  # type: ignore[assignment]
+            elif rule.filter:
                 try:
-                    subset = gdf[  # type: ignore[assignment]
-                        gdf.eval(_qgis_to_pandas_expr(rule.filter))
-                    ]
+                    mask = gdf.eval(_qgis_to_pandas_expr(rule.filter))  # type: ignore[assignment]
+                    matched = matched | mask
+                    subset = gdf[mask]  # type: ignore[assignment]
                 except Exception as exc:
                     print(f"  rule filter {rule.filter!r} failed: {exc}")
                     continue
