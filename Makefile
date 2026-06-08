@@ -56,7 +56,7 @@ lint:
 
 publish:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make publish DIR=project_dir [MAP=map_id]"; exit 1; fi
-	uv run python -m alidade.publish_arcgis $(DIR) $(if $(MAP),--map $(MAP),)
+	uv run python -m alidade.publish_arcgis $(DIR) $(if $(MAP),--map $(MAP),) --create-maps
 
 clean:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make clean DIR=project_dir"; exit 1; fi

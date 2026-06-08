@@ -6,11 +6,14 @@ import json
 import re
 import subprocess
 import sys
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import rasterio
+import rasterio.features
 from arcgis.apps.storymap import StoryMap
 from pyproj import Transformer
 from arcgis.apps.storymap import _utils as _sm_utils
@@ -291,11 +294,31 @@ def _renderer_to_arcgis(
         return result
 
     if isinstance(renderer, PalettedRenderer):
-        print(
-            "  Note: PalettedRenderer (raster) — "
-            "set symbology manually in Map Viewer"
-        )
-        return None
+        uv_infos = []
+        for entry in renderer.entries:
+            entry_sym: dict[str, Any] = {
+                "type": "esriSFS",
+                "style": "esriSFSSolid",
+                "color": _color_to_arcgis(entry.color),
+                "outline": {
+                    "type": "esriSLS",
+                    "style": "esriSLSNull",
+                    "color": [0, 0, 0, 0],
+                    "width": 0,
+                },
+            }
+            uv_infos.append(
+                {
+                    "value": str(entry.value),
+                    "label": entry.label,
+                    "symbol": entry_sym,
+                }
+            )
+        return {
+            "type": "uniqueValue",
+            "field1": "value",
+            "uniqueValueInfos": uv_infos,
+        }
 
     return None
 
@@ -366,16 +389,41 @@ def _prepare_vector(layer: BoundLayer, publish_dir: Path) -> Path:
     return out
 
 
+def _vectorize_raster(layer: BoundLayer, publish_dir: Path) -> Path:
+    """Polygonize a PalettedRenderer raster; return a GeoJSON in EPSG:4326.
+
+    Uses rasterio.features.shapes so GDAL polygonize is not required.  Adjacent
+    pixels of the same class value are dissolved into single multipolygons.
+    """
+    publish_dir.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(layer.path) as src:
+        data = src.read(1)
+        transform = src.transform
+        crs = src.crs
+        nodata = int(src.nodata or 0)
+    mask = (data != nodata).astype("uint8")
+    features = [
+        {"type": "Feature", "geometry": geom, "properties": {"value": int(val)}}
+        for geom, val in rasterio.features.shapes(data, mask=mask, transform=transform)
+        if int(val) != nodata
+    ]
+    gdf = gpd.GeoDataFrame.from_features(features, crs=crs)
+    gdf = gdf.dissolve(by="value", as_index=False).to_crs(4326)
+    dst = publish_dir / f"{layer.id}.geojson"
+    gdf.to_file(dst, driver="GeoJSON")
+    return dst
+
+
 def _prepare_raster(layer: BoundLayer, publish_dir: Path) -> Path:
     """Reproject to Web Mercator and build overviews; return path to the .tif."""
     publish_dir.mkdir(parents=True, exist_ok=True)
     dst = publish_dir / f"{layer.id}_3857.tif"
     subprocess.run(
-        ["gdalwarp", "-t_srs", "EPSG:3857", str(layer.path), str(dst)],
+        ["gdalwarp", "-overwrite", "-t_srs", "EPSG:3857", str(layer.path), str(dst)],
         check=True,
     )
     subprocess.run(
-        ["gdaladdo", "-r", "average", str(dst), "2", "4", "8", "16", "32"],
+        ["gdaladdo", "-r", "nearest", str(dst), "2", "4", "8", "16", "32"],
         check=True,
     )
     return dst
@@ -434,7 +482,11 @@ def _publish_layer(
         print(f"  {layer.id}: skip (not built — run make build first)")
         return 0.0
 
-    is_raster = layer.type == "raster"
+    # Paletted rasters are published as polygon feature layers so that the
+    # legend can show class labels instead of a 256-entry color table.
+    is_raster = layer.type == "raster" and not isinstance(
+        layer.renderer, PalettedRenderer
+    )
     ids = item_registry.get(layer.id, {})
     stat = layer.path.stat()
 
@@ -450,11 +502,12 @@ def _publish_layer(
     upload_path: Path | None = None
     size_mb = 0.0
     if not renderer_only:
-        upload_path = (
-            _prepare_raster(layer, publish_dir)
-            if is_raster
-            else _prepare_vector(layer, publish_dir)
-        )
+        if is_raster:
+            upload_path = _prepare_raster(layer, publish_dir)
+        elif layer.type == "raster":
+            upload_path = _vectorize_raster(layer, publish_dir)
+        else:
+            upload_path = _prepare_vector(layer, publish_dir)
         size_mb = upload_path.stat().st_size / 1_048_576
         print(f"  {layer.id}: {upload_path.name}  {size_mb:.2f} MB")
 
@@ -468,14 +521,33 @@ def _publish_layer(
     if not renderer_only and upload_path is not None:
         if is_raster:
             # Delete existing imagery layer before replacing — tiled imagery
-            # layers cannot be updated in-place, only replaced.
-            if ids.get("feature_item_id"):
-                old = gis.content.get(ids["feature_item_id"])
+            # layers cannot be updated in-place, only replaced.  Also search by
+            # title to catch items the registry no longer tracks (e.g. manually
+            # deleted and re-attempted, or registry entry cleared).
+            known_id = ids.get("feature_item_id")
+            if known_id:
+                old = gis.content.get(known_id)
                 if old:
                     old.delete()
+                    print(f"    Deleted existing item {known_id}")
+            else:
+                hits = gis.content.search(
+                    f'title:"{layer.name}" type:"Image Service"',
+                    max_items=10,
+                )
+                for hit in hits:
+                    if hit.title == layer.name:
+                        hit.delete()
+                        print(f"    Deleted stale image service {hit.id}")
+            raster_context: dict[str, Any] | None = None
+            if isinstance(layer.renderer, PalettedRenderer):
+                # Single-band: value 0 is nodata (transparent).
+                raster_context = {"noData": "0"}
+            service_name = f"{layer.id}_{uuid.uuid4().hex[:8]}"
             pub_result = copy_raster(
                 input_raster=str(upload_path),
-                output_name=layer.name,
+                output_name=service_name,
+                context=raster_context,
                 gis=gis,
             )
             # copy_raster returns an Item (arcgis >= 2.x) or ImageryLayer;
@@ -488,6 +560,11 @@ def _publish_layer(
                     f"copy_raster did not return an identifiable item "
                     f"for {layer.name!r}: {pub_result!r}"
                 )
+            # copy_raster uses output_name as the service name and item title;
+            # rename the item to the human-readable layer name.
+            raster_item = gis.content.get(feature_item_id)
+            if raster_item and raster_item.title != layer.name:
+                raster_item.update(item_properties={"title": layer.name})
             item_registry[layer.id] = {
                 "feature_item_id": feature_item_id,
                 "src_mtime": stat.st_mtime,
@@ -500,6 +577,13 @@ def _publish_layer(
         # Vector: overwrite existing or publish new
         if ids.get("feature_item_id"):
             item = gis.content.get(ids["feature_item_id"])
+            if item and "Feature" not in item.type:
+                # Registered item is an image service (e.g. previous raster
+                # publish); delete it so we can replace with a feature layer.
+                item.delete()
+                print(f"    Deleted old {item.type} (replacing with feature layer)")
+                ids = {}
+                item = None
             if item:
                 FeatureLayerCollection.fromitem(item).manager.overwrite(
                     str(upload_path)
@@ -511,7 +595,7 @@ def _publish_layer(
                 }
                 _save_registry(_ARCGIS_JSON, item_registry)
                 print(f"    Overwrote {ids['feature_item_id']}")
-            else:
+            elif ids.get("feature_item_id"):
                 print(
                     f"  Warning: feature_item_id={ids['feature_item_id']!r} "
                     "not found in ArcGIS; re-publishing"
@@ -598,11 +682,13 @@ def _reproject_extent(
 
 def _build_webmap_json(
     layer_items: list[Any],
-    extent_wgs84: tuple[float, float, float, float] | None = None,
+    extent_3857: tuple[float, float, float, float] | None = None,
 ) -> dict[str, Any]:
     """Build minimal ArcGIS web map JSON from a list of hosted layer items."""
     operational_layers = []
-    for item in layer_items:
+    # ArcGIS renders operationalLayers[0] at the bottom; reverse so that
+    # project layers[0] (topmost in the legend) ends up on top.
+    for item in reversed(layer_items):
         item_url = (item.url or "").rstrip("/")
         if item.type in ("Feature Service",):
             operational_layers.append(
@@ -621,7 +707,7 @@ def _build_webmap_json(
                     "id": item.id,
                     "title": item.title,
                     "url": item_url,
-                    "layerType": "ArcGISImageServiceLayer",
+                    "layerType": "ArcGISTiledImageServiceLayer",
                     "visibility": True,
                     "opacity": 1,
                 }
@@ -664,14 +750,14 @@ def _build_webmap_json(
         "spatialReference": {"wkid": 102100, "latestWkid": 3857},
         "version": "2.28",
     }
-    if extent_wgs84:
-        xmin, ymin, xmax, ymax = extent_wgs84
+    if extent_3857:
+        xmin, ymin, xmax, ymax = extent_3857
         result["extent"] = {
-            "xmin": round(xmin, 6),
-            "ymin": round(ymin, 6),
-            "xmax": round(xmax, 6),
-            "ymax": round(ymax, 6),
-            "spatialReference": {"wkid": 4326},
+            "xmin": round(xmin, 2),
+            "ymin": round(ymin, 2),
+            "xmax": round(xmax, 2),
+            "ymax": round(ymax, 2),
+            "spatialReference": {"wkid": 102100, "latestWkid": 3857},
         }
     return result
 
@@ -698,7 +784,8 @@ def _create_web_map(
     if dry_run:
         existing_id = item_registry.get(map_key, {}).get("webmap_item_id", "new")
         print(
-            f"  {map_spec.id}: would update web map ({len(layer_ids)} layers, id={existing_id})"
+            f"  {map_spec.id}: would update web map "
+            f"({len(layer_ids)} layers, id={existing_id})"
         )
         return False
 
@@ -707,14 +794,16 @@ def _create_web_map(
     layer_items = [gis.content.get(fid) for fid in layer_ids]
     layer_items = [it for it in layer_items if it is not None]
 
-    extent_wgs84 = None
+    extent_3857 = None
     if map_spec.extent and map_spec.crs:
         try:
-            extent_wgs84 = _reproject_extent(map_spec.extent, map_spec.crs)
+            extent_3857 = _reproject_extent(
+                map_spec.extent, map_spec.crs, dst_crs="EPSG:3857"
+            )
         except Exception as exc:
             print(f"    Warning: could not reproject extent: {exc}")
 
-    webmap_text = json.dumps(_build_webmap_json(layer_items, extent_wgs84=extent_wgs84))
+    webmap_text = json.dumps(_build_webmap_json(layer_items, extent_3857=extent_3857))
 
     existing = item_registry.get(map_key, {})
     existing_item = (
@@ -725,7 +814,7 @@ def _create_web_map(
     if existing_item:
         existing_item.update(item_properties={"text": webmap_text})
         _save_registry(_ARCGIS_JSON, item_registry)
-        print(f"    Updated web map (webmap_item_id={existing_item.id})")
+        print(f"    Updated {map_spec.id} (webmap_item_id={existing_item.id})")
         return False  # not new — existing story map link still valid
 
     root_folder = gis.content.folders.get()
@@ -874,9 +963,9 @@ def _add_maps_to_story(
                 "data": resource_data,
             }
             _sm_utils.add_child(sm, node_id=node_id)
-            item_registry[map_key].setdefault("added_to_story_maps", []).append(
-                story_map_id
-            )
+            added = item_registry[map_key].setdefault("added_to_story_maps", [])
+            if story_map_id not in added:
+                added.append(story_map_id)
             _save_registry(_ARCGIS_JSON, item_registry)
             print(f"  {map_spec.id}: added")
 
@@ -981,8 +1070,9 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        print("Authenticating…")
-        gis = GIS(url, client_id=client_id)
+        profile = env.get("ARCGIS_PROFILE", "arcgis_alidade")
+        print(f"Authenticating (profile={profile!r})…")
+        gis = GIS(url, client_id=client_id, profile=profile)
         me = gis.users.me
         print(f"  OK — signed in as {me.username} ({me.fullName})")
 
@@ -991,7 +1081,9 @@ def main() -> None:
             print("Verifying registered items:")
             for layer_id, ids in item_registry.items():
                 fid = ids.get("feature_item_id", "")
-                item = gis.content.get(fid) if fid else None
+                if not fid:
+                    continue
+                item = gis.content.get(fid)
                 if item:
                     print(f"  {layer_id}: OK ({item.title})")
                 else:
