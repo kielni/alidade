@@ -325,7 +325,7 @@ def _collect_classes(val: Any) -> set[str]:
 
 def _source_lines(source: str) -> list[str]:
     """Return source= assignment lines, splitting strings over 88 chars."""
-    single = f"    source={source!r},"
+    single = f"    datasource={source!r},"
     if len(single) <= 88:
         return [single]
     if "\n" in source:
@@ -336,14 +336,14 @@ def _source_lines(source: str) -> list[str]:
             if val:
                 chunks.append(repr(val))
         return [
-            "    source=(",
+            "    datasource=(",
             *[f"        {c}" for c in chunks],
             "    ),",
         ]
     max_chunk = 78  # 88 - 8 spaces indent - 2 quotes
     parts = [source[i : i + max_chunk] for i in range(0, len(source), max_chunk)]
     return [
-        "    source=(",
+        "    datasource=(",
         *[f"        {p!r}" for p in parts],
         "    ),",
     ]
@@ -365,7 +365,7 @@ def _write_layer_py(
     if layer.renderer is not None:
         model_names |= _collect_classes(layer.renderer)
     imports = ", ".join(n for n in _MODEL_IMPORT_ORDER if n in model_names)
-    source_stem = Path(layer.source.split("|")[0]).name if layer.source else ""
+    source_stem = Path(layer.datasource.split("|")[0]).name if layer.datasource else ""
     docstring = f'"""{layer.name} — {layer.type} layer'
     if source_stem:
         docstring += f" from {source_stem}"
@@ -390,7 +390,7 @@ def _write_layer_py(
         f"    id={layer.id!r},",
         f"    name={layer.name!r},",
         f"    type={layer.type!r},",
-        *_source_lines(layer.source),
+        *_source_lines(layer.datasource),
         f"    provider={layer.provider!r},",
         f"    crs={layer.crs!r},",
         f"    visible={layer.visible!r},",
@@ -496,7 +496,7 @@ def _parse_layers(
                     id=layer_id,
                     name=layer_name,
                     type=_layer_type(ml),
-                    source=source,
+                    datasource=source,
                     provider=provider,
                     crs=crs,
                     visible=visibility.get(lid, True),

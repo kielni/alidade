@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from alidade.render_qgis import _abs_source, _load_spec
+from alidade.util.helpers import bind_project
 
 
 def _is_file_source(source: str) -> bool:
@@ -24,7 +24,7 @@ def _is_file_source(source: str) -> bool:
 
 def validate(project_dir: Path) -> bool:
     """Validate that all source and style paths for a project exist on disk."""
-    spec = _load_spec(project_dir)
+    spec = bind_project(project_dir)
     errors: list[str] = []
 
     for layer in spec.layers:
@@ -33,8 +33,8 @@ def validate(project_dir: Path) -> bool:
             if not xml_path.exists():
                 errors.append(f"  [{layer.id}] style_xml not found: {xml_path}")
 
-        if _is_file_source(layer.source):
-            abs_path = Path(_abs_source(layer.source, project_dir).split("|")[0])
+        if _is_file_source(layer.datasource):
+            abs_path = layer.path_for(project_dir)
             if not abs_path.exists():
                 errors.append(f"  [{layer.id}] source not found: {abs_path}")
 

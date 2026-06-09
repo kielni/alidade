@@ -6,7 +6,7 @@ park_features_symbol_lines = Layer(
     id="park_features_symbol_lines",
     name="park_features_symbol",
     type="vector",
-    source="./data/park_features_symbol.geojson|geometrytype=LineString",
+    datasource="data/park_features_symbol.geojson|geometrytype=LineString",
     provider="ogr",
     crs="EPSG:4326",
     visible=True,

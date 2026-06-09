@@ -126,7 +126,7 @@ park_features_symbol_points = Layer(
     id="park_features_symbol_points",
     name="park_features_symbol",
     type="vector",
-    source="./data/park_features_symbol.geojson|geometrytype=Point",
+    datasource="data/park_features_symbol.geojson|geometrytype=Point",
     provider="ogr",
     crs="EPSG:4326",
     visible=True,

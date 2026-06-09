@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from alidade import colors
 
+# Styling
+
 # ── Symbol layers ─────────────────────────────────────────────────────────────
 
 
@@ -135,33 +137,6 @@ Renderer = Annotated[
     Field(discriminator="kind"),
 ]
 
-# ── Processing step ───────────────────────────────────────────────────────────
-
-
-class ShellAction(BaseModel):
-    kind: Literal["shell"] = "shell"
-    command: str  # template, e.g. "gdaldem slope {input} {output}"
-
-
-class PythonAction(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    kind: Literal["python"] = "python"
-    fn: Any  # callable(*inputs: Path, output: Path) -> None
-
-
-StepAction = Annotated[
-    ShellAction | PythonAction,
-    Field(discriminator="kind"),
-]
-
-
-class ProcessingStep(BaseModel):
-    description: str
-    action: StepAction
-    depends_on: list[str]
-    output: Path
-
-
 # ── Label ─────────────────────────────────────────────────────────────────────
 
 
@@ -172,46 +147,6 @@ class Label(BaseModel):
     bold: bool = True
     color: str = colors.LABEL_GRAY
     y_offset: float = 2.0  # MM offset above the point symbol
-
-
-# ── Layer ─────────────────────────────────────────────────────────────────────
-
-
-class Layer(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    id: str
-    name: str
-    type: Literal["vector", "raster"]
-    source: str
-    # "ogr" for files (shapefile/GeoJSON/CSV); "wms" for XYZ/WMS tile services.
-    provider: str = "ogr"
-    style_xml: Path | None = None  # styles/{layer_id}.xml — full <maplayer> element
-    crs: str | None = None
-    geometry_type: str | None = (
-        None  # "Polygon", "LineString", or "Point" — enables XML-free vector layers
-    )
-    alpha_band: int | None = (
-        None  # raster alpha band (e.g. 2 when created with gdalwarp -dstalpha)
-    )
-    visible: bool = True
-    renderer: Renderer | None = None
-    label: Label | None = None
-    processing_step: ProcessingStep | None = None
-    extra: dict[str, Any] = {}
-
-    @field_validator("id")
-    @classmethod
-    def _pad_short_id(cls, v: str) -> str:
-        # QGIS silently drops layers whose <id> is 10 characters or shorter.
-        if len(v) > 10:
-            return v
-        padded = f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
-        warnings.warn(
-            f"Layer id {v!r} is <=10 chars and will be dropped by QGIS; "
-            f"padded to {padded!r}",
-            stacklevel=2,
-        )
-        return padded
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────
@@ -336,12 +271,15 @@ class PrintLayout(BaseModel):
         return self
 
 
+# Data
+
 # ── Project ───────────────────────────────────────────────────────────────────
 
 
 class Project(BaseModel):
     """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     model_config = ConfigDict(extra="allow")
     output_format: Literal["qgis", "lyrx"] = "qgis"
     title: str
@@ -350,3 +288,122 @@ class Project(BaseModel):
     extent: tuple[float, float, float, float] | None = None
     print_layout: PrintLayout | None = None
     extra: dict[str, Any] = {}
+
+
+class BoundProject(Project):
+    project_path: Path
+
+    @property
+    def bound_layers(self) -> list[BoundLayer]:
+        """Return all layers in this project with project_path set on them."""
+        return [
+            BoundLayer(
+                **{f: getattr(layer, f) for f in Layer.model_fields if f != "inputs"},
+                project_path=self.project_path,
+            )
+            for layer in self.layers
+        ]
+
+    @property
+    def output_path(self) -> Path:
+        return self.project_path / "output"
+
+
+# ── Processing step ───────────────────────────────────────────────────────────
+
+
+class ShellAction(BaseModel):
+    kind: Literal["shell"] = "shell"
+    command: str  # template, e.g. "gdaldem slope {input} {output}"
+
+
+class PythonAction(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    kind: Literal["python"] = "python"
+    fn: Any  # callable(*inputs: Path, output: Path) -> None
+
+
+StepAction = Annotated[
+    ShellAction | PythonAction,
+    Field(discriminator="kind"),
+]
+
+# ── Layer ─────────────────────────────────────────────────────────────────────
+
+
+class Layer(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: str
+    name: str
+    type: Literal["vector", "raster"]
+    # relative path for use in GIS
+    datasource: str
+    # "ogr" for files (shapefile/GeoJSON/CSV); "wms" for XYZ/WMS tile services.
+    provider: str = "ogr"
+    style_xml: Path | None = None  # styles/{layer_id}.xml — full <maplayer> element
+    crs: str | None = None
+    geometry_type: str | None = (
+        None  # "Polygon", "LineString", or "Point" — enables XML-free vector layers
+    )
+    alpha_band: int | None = (
+        None  # raster alpha band (e.g. 2 when created with gdalwarp -dstalpha)
+    )
+    visible: bool = True
+    renderer: Renderer | None = None
+    label: Label | None = None
+    # this layer uses these other layers as inputs
+    inputs: list["Layer"] = []
+    action: StepAction | None = None
+    # data specific to this layer, e.g. raw source file to process in action
+    raw_file: str | None = None
+    # human-readable description of what the raw data file contains
+    source_description: str | None = None
+    # provenance of the raw data (dataset name, agency, download source)
+    source_origin: str | None = None
+    extra: dict[str, Any] = {}
+
+    def path_for(self, project_path: Path) -> Path:
+        """Resolve datasource to an absolute path against project_path.
+
+        Strips OGR/CSV suffixes (|layername=…, ?type=csv&…) before resolving.
+        """
+        part = self.datasource.split("|")[0].split("?")[0].lstrip("./")
+        return (project_path / part).resolve()
+
+    @field_validator("id")
+    @classmethod
+    def _pad_short_id(cls, v: str) -> str:
+        # QGIS silently drops layers whose <id> is 10 characters or shorter.
+        if len(v) > 10:
+            return v
+        padded = f"{v}_{uuid.uuid5(uuid.NAMESPACE_DNS, v).hex[:8]}"
+        warnings.warn(
+            f"Layer id {v!r} is <=10 chars and will be dropped by QGIS; "
+            f"padded to {padded!r}",
+            stacklevel=2,
+        )
+        return padded
+
+
+# resolve the self-referential inputs: list["Layer"] forward ref
+Layer.model_rebuild()
+
+
+class BoundLayer(Layer):
+    project_path: Path
+    inputs: list["BoundLayer"] = []  # type: ignore[assignment]
+
+    @property
+    def path(self) -> Path:
+        """Resolved file this layer represents."""
+        return self.path_for(self.project_path)
+
+    @property
+    def raw_path(self) -> Path:
+        """Resolved path to raw_file."""
+        assert self.raw_file is not None, f"raw_file not set on layer {self.id!r}"
+        return (self.project_path / self.raw_file).resolve()
+
+    @property
+    def output_path(self) -> Path:
+        return self.project_path / "output"

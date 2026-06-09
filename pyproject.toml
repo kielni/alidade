@@ -26,10 +26,16 @@ dependencies = [
     "esda>=2.9.0",
     "scipy>=1.15.0",
     "statsmodels>=0.14.0",
+    "rasterio>=1.5.0",
+    "rasterstats>=0.21.0",
+    "pysheds>=0.5",
+    "arcgis>=2.4.3",
+    "azure-storage-blob>=12.1,<=12.8",
 ]
 
 [project.scripts]
 alidade-build = "alidade.build:main"
+alidade-map = "alidade.render_map:main"
 alidade-dump = "alidade.dump_qgis:main"
 alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"
@@ -53,6 +59,18 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*", "statsmodels", "statsmodels.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pyogrio"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*", "pysheds", "pysheds.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["arcgis", "arcgis.*"]
 ignore_missing_imports = true
 
 

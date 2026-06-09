@@ -1,0 +1,83 @@
+{
+    "features": [
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.825638,
+                    37.395806
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Entrance"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.815921,
+                    37.393683
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Eagle Rock"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.811669,
+                    37.394281
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Rustic Lands"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.798248,
+                    37.397038
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Mineral Springs East"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.804507,
+                    37.396763
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Mineral Springs West"
+            },
+            "type": "Feature"
+        },
+        {
+            "geometry": {
+                "coordinates": [
+                    -121.807861,
+                    37.39226
+                ],
+                "type": "Point"
+            },
+            "properties": {
+                "name": "Peacock Gap"
+            },
+            "type": "Feature"
+        }
+    ],
+    "type": "FeatureCollection"
+}

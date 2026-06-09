@@ -6,6 +6,8 @@ config_aws.js
 .DS_Store
 .idea
 local.env
+local.arcgis.json
+publish/
 config_aws.js
 .venv/
 __pycache__/

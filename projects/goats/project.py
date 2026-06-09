@@ -1,0 +1,228 @@
+from alidade.models import Project
+from projects.goats.layers.basemap import basemap
+from projects.goats.layers.basemap_satellite import basemap_satellite
+from projects.goats.layers.border import border
+from projects.goats.layers.developed_area import developed_area
+from projects.goats.layers.elevation import elevation
+from projects.goats.layers.park_boundary import park_boundary
+from projects.goats.layers.slope import slope
+from projects.goats.layers.roads_trails import roads_trails
+from projects.goats.layers.staging import staging
+from projects.goats.layers.vegetation import vegetation
+from projects.goats.layers.park_fill import park_fill
+from projects.goats.layers.vegetation_highlight import vegetation_highlight
+from projects.goats.layers.water import water
+from projects.goats.layers.priority_developed import priority_developed
+from projects.goats.layers.priority_roads_trails import priority_roads_trails
+from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
+from projects.goats.layers.target_zones import target_zones
+from projects.goats.layers.staging_ranked import staging_ranked
+from projects.goats.layers.suitability import suitability
+from projects.goats.util import CRS
+
+EXTENT = (
+    603628.0288069494,
+    4138828.9799421867,
+    607872.9612583271,
+    4140758.2218029452,
+)
+
+# build all layers
+map_all = Project(
+    title="Alum Rock Goat Grazing",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        staging_ranked,
+        staging,
+        park_boundary,
+        border,
+        target_zones,
+        exclude_water_vegetation,
+        priority_roads_trails,
+        priority_developed,
+        developed_area,
+        water,
+        roads_trails,
+        slope,
+        elevation,
+        vegetation,
+        vegetation_highlight,
+        suitability,
+        park_fill,
+        basemap,
+    ],
+)
+
+"""
+1: Park overview: staging areas, creek, roads/trails, developed zone
+"""
+map_park = Project(
+    id="park",
+    title="Alum Rock Park",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        staging,
+        developed_area,
+        water,
+        roads_trails,
+        basemap,
+    ],
+)
+
+"""
+2: Slope analysis derived from USGS DEM
+"""
+map_slope = Project(
+    id="slope",
+    title="Alum Rock Park: Slopes",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        developed_area,
+        water,
+        roads_trails,
+        slope,
+        basemap,
+    ],
+)
+
+"""
+3: Vegetation classification; lifeform classes grouped into 6 classes, plus developed
+"""
+map_veg = Project(
+    title="Alum Rock: Vegetation",
+    id="vegetation",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        developed_area,
+        water,
+        roads_trails,
+        vegetation,
+        basemap,
+    ],
+)
+
+"""
+4: Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
+"""
+map_zones = Project(
+    title="Alum Rock Goat Priority and Exclusion Zones",
+    id="zones",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        exclude_water_vegetation,
+        priority_roads_trails,
+        priority_developed,
+        developed_area,
+        water,
+        roads_trails,
+        basemap,
+    ],
+)
+
+"""
+5: Weighted overlay for suitability from priority/exclusion zones, slope, and vegetation
+"""
+map_suitability = Project(
+    title="Alum Rock Goat Grazing Suitability",
+    id="suitability",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        staging,
+        suitability,
+        park_boundary,
+        developed_area,
+        water,
+        roads_trails,
+        park_fill,
+        basemap,
+    ],
+)
+
+"""
+6: Group and smooth suitability outputs into target zones
+"""
+map_target_zones = Project(
+    title="Alum Rock Goat Grazing Target Zones",
+    id="patches",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        staging,
+        target_zones,
+        park_boundary,
+        developed_area,
+        water,
+        roads_trails,
+        park_fill,
+        basemap,
+    ],
+)
+
+"""
+7: Prioritized staging areas based on access to target zones
+"""
+map_ranked_staging = Project(
+    title="Alum Rock Goat Grazing Staging",
+    id="targets_cluster",
+    crs=CRS,
+    extent=EXTENT,
+    layers=[
+        park_boundary,
+        staging_ranked,
+        target_zones,
+        developed_area,
+        water,
+        roads_trails,
+        park_fill,
+        basemap,
+    ],
+)
+
+"""
+8: Detail map of top staging location, with satellite basemap, priority zones, and
+vegetation zones.
+"""
+EXTENT_DETAIL = (
+    604652.0231237924,
+    4138974.3374774046,
+    605629.9647183827,
+    4139559.1397050596,
+)
+
+map_detail = Project(
+    title="Alum Rock Rustic Lands area",
+    id="detail",
+    crs=CRS,
+    extent=EXTENT_DETAIL,
+    layers=[
+        park_boundary,
+        staging_ranked,
+        priority_roads_trails,
+        vegetation_highlight,
+        water,
+        roads_trails,
+        basemap_satellite,
+    ],
+)
+
+maps = [
+    map_park,
+    map_slope,
+    map_veg,
+    map_zones,
+    map_suitability,
+    map_target_zones,
+    map_ranked_staging,
+    map_detail,
+]
+spec = map_all
