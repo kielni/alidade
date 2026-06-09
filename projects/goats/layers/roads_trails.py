@@ -30,6 +30,7 @@ from alidade.models import (
     Symbol,
 )
 from projects.goats.layers.border import border
+from projects.goats.palette import ROADS_LINE
 from projects.goats.util import CRS, clip_border
 
 
@@ -59,7 +60,7 @@ roads_trails = Layer(
             type="line",
             layers=[
                 SimpleLine(
-                    line_color="120,80,40,255",
+                    line_color=ROADS_LINE,
                     line_width=0.5,
                 )
             ],

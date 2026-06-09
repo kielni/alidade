@@ -104,6 +104,7 @@ from projects.goats.layers.priority_developed import priority_developed
 from projects.goats.layers.priority_roads_trails import priority_roads_trails
 from projects.goats.layers.slope import slope
 from projects.goats.layers.vegetation import vegetation
+from projects.goats.palette import SUITABILITY
 from projects.goats.util import CRS
 
 M2_PER_ACRE = 4046.856
@@ -264,10 +265,10 @@ suitability = Layer(
     visible=True,
     renderer=PalettedRenderer(
         entries=[
-            PaletteEntry(value=1, color="#f2f0f7", label="Low"),
-            PaletteEntry(value=2, color="#cbc9e2", label="Moderate"),
-            PaletteEntry(value=3, color="#9e9ac8", label="High"),
-            PaletteEntry(value=4, color="#6a51a3", label="Very high"),
+            PaletteEntry(value=1, color=SUITABILITY[0], label="Low"),
+            PaletteEntry(value=2, color=SUITABILITY[1], label="Moderate"),
+            PaletteEntry(value=3, color=SUITABILITY[2], label="High"),
+            PaletteEntry(value=4, color=SUITABILITY[3], label="Very high"),
         ]
     ),
     action=PythonAction(fn=build_suitability),

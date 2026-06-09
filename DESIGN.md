@@ -130,6 +130,69 @@ spec = Project(output_format="qgis", title="My Map", crs="EPSG:3857", layers=[..
 spec = Project(output_format="lyrx", title="My Map", crs="EPSG:3857", layers=[...])
 ```
 
+## Colors
+
+All colors are authored as `Color` objects and converted to vendor-specific
+formats only at the rendering boundary.
+
+**Authoring** — construct from a hex string, optionally with an explicit alpha:
+
+```python
+from alidade.color import Color, brewer
+
+color = Color.from_hex("#1a9850")             # opaque
+color = Color.from_hex("#1a9850", alpha=200)  # semi-transparent (0-255)
+color = color.with_alpha(128)                 # copy at different opacity
+```
+
+**Output boundary conversions** — call only from rendering code, not from layer
+files:
+
+| Property | Returns | Used in |
+|---|---|---|
+| `.qgis` | `"R,G,B,A"` string | `render_qgis.py` |
+| `.matplotlib_rgba` | `(r/255, g/255, b/255, a/255)` | `render_map.py` |
+| `.hex` | `"#rrggbb"` string | `lyrx/build.py` (SVG fill substitution) |
+
+Vendor-specific output formats that require a non-trivial encoding (e.g. a CIM
+dict, an ArcGIS REST API list) stay as private functions in the module that
+produces them — not as properties on `Color`. See `_rgb_color()` in
+`lyrx/symbols.py` and `_color_to_arcgis()` in `publish_arcgis.py`.
+
+**Parsing QGIS XML** — `Color.from_qgis("R,G,B,A")` is provided only for use
+in `dump_qgis.py` and legacy layer files exported before the color refactor.
+Do not use it when authoring new layers.
+
+**ColorBrewer palettes:**
+
+```python
+from alidade.color import brewer
+
+SUITABILITY = brewer("sequential.Purples", 4, alpha=200)  # list[Color]
+```
+
+`palette_name` uses the palettable dotted namespace: `"sequential.Purples"`,
+`"diverging.RdYlBu"`, etc. Available names are in the
+[ColorBrewer reference](https://colorbrewer2.org/).
+
+**Generic constants** in `alidade/color.py`: `BLACK`, `DARK_GRAY`, `WHITE`,
+`TRANSPARENT`, `LABEL_GRAY`. Use these in model defaults and generic rendering
+code. Project-specific colors belong in `projects/<name>/palette.py`.
+
+**Project palettes** — put all project colors in `palette.py` as named
+semantic constants. Names describe role, not hue — `ROADS_LINE` not
+`ROAD_BROWN` — so they remain meaningful if the palette changes:
+
+```python
+# projects/myproject/palette.py
+from alidade.color import Color, brewer
+
+PARK_FILL    = Color.from_hex("#ffffff")
+PARK_BORDER  = Color.from_hex("#6464c8", alpha=180)
+SLOPE_GENTLE = Color.from_hex("#1a9641")
+SUITABILITY  = brewer("sequential.Purples", 4, alpha=200)
+```
+
 ## Layer IDs and filenames
 
 Layer IDs are human-friendly strings: `"slope"`, `"elevation_10n"`, `"park_polygon"`.
@@ -186,7 +249,10 @@ The `layers[0]` CIMPATH must exactly match `layerDefinitions[0].uRI`.
 {"type": "CIMRGBColor", "values": [R, G, B, A]}
 ```
 
-Alpha is 0-100 (percent), not 0-255. `_rgb_color("R,G,B,A")` converts.
+Alpha is 0–100 (percent), not 0–255. `_rgb_color(color)` in `lyrx/symbols.py`
+converts a `Color` to this format. It lives there rather than on `Color`
+because it encodes ArcGIS CIM specifics (type name, 0–100 alpha scale) that
+`color.py` should not know about.
 
 ### Data connections
 

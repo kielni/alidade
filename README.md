@@ -192,6 +192,44 @@ For derived rasters, run `make build --force DIR=my_project` when source data
 or a processing command changes. This re-runs stale transforms in dependency
 order before rendering.
 
+## Colors
+
+Specify colors as `Color` objects constructed from hex strings. Conversions to
+QGIS XML or matplotlib format happen automatically at the rendering boundary —
+layer files never call `.qgis` or `.matplotlib_rgba` directly.
+
+```python
+from alidade.color import Color, brewer
+
+Color.from_hex("#1a9850")               # opaque
+Color.from_hex("#1a9850", alpha=200)    # semi-transparent (alpha 0-255)
+Color.from_hex("#1a9850").with_alpha(128)  # copy at different opacity
+brewer("sequential.Purples", 4)          # 4-color ColorBrewer ramp → list[Color]
+```
+
+Put project-specific colors in `projects/<name>/palette.py` as named semantic
+constants. Name by role, not by color (`ROADS_LINE` not `ROAD_BROWN`), so names
+stay meaningful if the palette changes later:
+
+```python
+# projects/myproject/palette.py
+from alidade.color import Color, brewer
+
+PARK_FILL    = Color.from_hex("#ffffff")
+PARK_BORDER  = Color.from_hex("#6464c8", alpha=180)
+SLOPE_GENTLE = Color.from_hex("#1a9641")
+SUITABILITY  = brewer("sequential.Purples", 4, alpha=200)
+```
+
+Then import them in layer files:
+
+```python
+from projects.myproject.palette import PARK_BORDER, SLOPE_GENTLE
+```
+
+Generic constants (`BLACK`, `WHITE`, `TRANSPARENT`, `DARK_GRAY`, `LABEL_GRAY`)
+are in `alidade.color` for use in model defaults and shared rendering code.
+
 ## Publishing to ArcGIS Online
 
 `alidade.publish_arcgis` publishes every layer in a project to ArcGIS Online -

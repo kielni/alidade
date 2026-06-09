@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from alidade.color import Color
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
 
 park_features_symbol_polygons = Layer(
@@ -16,8 +17,8 @@ park_features_symbol_polygons = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="114,118,118,255,hsv:0.51255555555555554,0.04060425726710918,0.46428625925078204,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#727676"),
+                    outline_color=Color.from_hex("#232323"),
                     outline_width=0.26,
                 )
             ],

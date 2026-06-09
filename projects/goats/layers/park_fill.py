@@ -1,4 +1,5 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
+from projects.goats.palette import TRANSPARENT, WHITE
 from projects.goats.util import CRS_WGS84
 
 """
@@ -17,9 +18,9 @@ park_fill = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="255,255,255,255",
+                    color=WHITE,
                     style="solid",
-                    outline_color="0,0,0,0",
+                    outline_color=TRANSPARENT,
                     outline_width=0,
                 )
             ],

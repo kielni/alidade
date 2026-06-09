@@ -12,6 +12,7 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
+from projects.goats.palette import STAGING_EDGE, STAGING_FILL
 from projects.goats.util import CRS
 
 
@@ -37,8 +38,8 @@ staging = Layer(
             layers=[
                 SimpleMarker(
                     name="diamond",
-                    color="180,0,255,255",
-                    outline_color="110,0,160,255",
+                    color=STAGING_FILL,
+                    outline_color=STAGING_EDGE,
                     outline_width=0.4,
                     size=4.0,
                 )

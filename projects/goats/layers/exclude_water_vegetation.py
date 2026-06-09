@@ -14,6 +14,7 @@ from alidade.models import (
 )
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.water import water
+from projects.goats.palette import WATER_EDGE, WATER_FILL_SEMI
 from projects.goats.util import BUFFER_100FT_M, CRS, clip_park
 
 
@@ -39,9 +40,9 @@ exclude_water_vegetation = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="68,119,170,128",
+                    color=WATER_FILL_SEMI,
                     style="solid",
-                    outline_color="40,80,120,200",
+                    outline_color=WATER_EDGE,
                     outline_width=0.5,
                 )
             ],

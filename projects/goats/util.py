@@ -3,7 +3,17 @@ from pathlib import Path
 
 import geopandas as gpd
 
+from alidade.color import Color
 from alidade.models import Rule
+from projects.goats.palette import (
+    VEG_DEVELOPED,
+    VEG_HERBACEOUS,
+    VEG_NATIVE_WOOD,
+    VEG_NON_NATIVE_HERB,
+    VEG_NON_NATIVE_WOOD,
+    VEG_RIPARIAN,
+    VEG_SHRUB,
+)
 
 CRS = "EPSG:26910"
 CRS_WGS84 = "EPSG:4326"
@@ -11,13 +21,6 @@ CRS_WGS84 = "EPSG:4326"
 BUFFER_100FT_M = 30.48  # 100 ft in metres (UTM units)
 BUFFER_30FT_M = 9.144  # 30 ft in metres
 BUFFER_HALF_MILE_M = 804.672  # 0.5 mile in metres
-
-
-def hex_to_rgba(hex_color: str, alpha: int = 255) -> str:
-    """Convert a CSS hex color to a QGIS-format 'R,G,B,A' string."""
-    h = hex_color.lstrip("#")
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f"{r},{g},{b},{alpha}"
 
 
 def clip_border(gdf: gpd.GeoDataFrame, output: Path) -> gpd.GeoDataFrame:
@@ -57,7 +60,7 @@ def clip_park(gdf: gpd.GeoDataFrame, boundary_path: Path) -> gpd.GeoDataFrame:
 class VegetationZone:
     label: str
     values: list[str]
-    color: str
+    color: Color
 
     @property
     def filter(self) -> str:
@@ -65,21 +68,23 @@ class VegetationZone:
 
 
 VEGETATION_ZONES = [
-    VegetationZone("Shrub", ["Shrub"], "#1a9850"),
-    VegetationZone("Non-native herbaceous", ["Non-native Herbaceous"], "#a6d96a"),
-    VegetationZone("Herbaceous", ["Herbaceous"], "#fee08b"),
+    VegetationZone("Shrub", ["Shrub"], VEG_SHRUB),
+    VegetationZone(
+        "Non-native herbaceous", ["Non-native Herbaceous"], VEG_NON_NATIVE_HERB
+    ),
+    VegetationZone("Herbaceous", ["Herbaceous"], VEG_HERBACEOUS),
     VegetationZone(
         "Non-native woodland",
         ["Eucalyptus", "Non-native Forest"],
-        "#cccccc",
+        VEG_NON_NATIVE_WOOD,
     ),
     VegetationZone(
         "Native woodland",
         ["Forest", "Deciduous Hardwood", "Evergreen Hardwood", "Pine/Cypress"],
-        "#969696",
+        VEG_NATIVE_WOOD,
     ),
-    VegetationZone("Riparian forest", ["Riparian Forest"], "#bdd7e7"),
-    VegetationZone("Developed", ["Developed"], "#636363"),
+    VegetationZone("Riparian forest", ["Riparian Forest"], VEG_RIPARIAN),
+    VegetationZone("Developed", ["Developed"], VEG_DEVELOPED),
 ]
 
 vegetation_rules = [

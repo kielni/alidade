@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from alidade.color import Color
 from alidade.lyrx.data_connection import build_data_connection
 from alidade.lyrx.renderers import class_break, class_breaks_renderer, simple_renderer
 from alidade.lyrx.symbols import line_symbol, point_symbol, polygon_symbol
@@ -24,15 +25,10 @@ _CIM_BUILD = 55405
 _MM_TO_PT = 72 / 25.4
 
 
-def _rgba_to_css_hex(color_str: str) -> str:
-    r, g, b = (int(x) for x in color_str.split(",")[:3])
-    return f"#{r:02X}{g:02X}{b:02X}"
-
-
-def _svg_data_uri(svg_path: Path, fill_color: str) -> str:
+def _svg_data_uri(svg_path: Path, fill_color: Color) -> str:
     """Read SVG, substitute param(fill) with fill_color, return a data URI."""
     svg = svg_path.read_text(encoding="utf-8")
-    svg = re.sub(r'param\(fill\)[^"]*', _rgba_to_css_hex(fill_color), svg)
+    svg = re.sub(r'param\(fill\)[^"]*', fill_color.hex, svg)
     b64 = base64.b64encode(svg.encode()).decode()
     return f"data:image/svg+xml;base64,{b64}"
 

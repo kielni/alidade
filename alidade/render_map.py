@@ -15,6 +15,7 @@ import pandas as pd
 from matplotlib.axes import Axes
 from PIL import Image
 
+from alidade.color import Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
@@ -29,17 +30,6 @@ from alidade.models import (
     SvgMarker,
 )
 from alidade.util.helpers import bind_project, load_project_module
-
-
-def _hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[float, float, float, float]:
-    """Convert '#rrggbb' palette hex to matplotlib RGBA tuple (0–1)."""
-    h = hex_color.lstrip("#")
-    return (
-        int(h[0:2], 16) / 255,
-        int(h[2:4], 16) / 255,
-        int(h[4:6], 16) / 255,
-        alpha / 255,
-    )
 
 
 def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
@@ -71,7 +61,7 @@ def _plot_paletted_raster(
     handles: list[mpatches.Patch] = []
     for entry in renderer.entries:
         mask = arr == entry.value
-        r, g, b, a = _hex_to_rgba(entry.color, entry.alpha)
+        r, g, b, a = entry.color.matplotlib_rgba
         rgba[mask] = (r, g, b, a)
         handles.append(mpatches.Patch(facecolor=(r, g, b, 1.0), label=entry.label))
     ax.imshow(
@@ -82,14 +72,6 @@ def _plot_paletted_raster(
         zorder=zorder,
     )
     return handles
-
-
-def _rgba(color_str: str) -> tuple[float, float, float, float]:
-    """Convert 'R,G,B,A' alidade color string to matplotlib RGBA tuple (0–1)."""
-    parts = color_str.split(",")[:4]
-    r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
-    a = int(parts[3]) if len(parts) >= 4 else 255
-    return r / 255, g / 255, b / 255, a / 255
 
 
 def _qgis_to_pandas_expr(expr: str) -> str:
@@ -118,7 +100,7 @@ def _plot_layer(
     """Plot one layer onto ax; return legend patch handles for classified layers."""
     renderer = layer.renderer
     if renderer is None:
-        gdf.plot(ax=ax, color=(0.5, 0.5, 0.5, 0.5), zorder=zorder)
+        gdf.plot(ax=ax, color=Color(128, 128, 128, 128).matplotlib_rgba, zorder=zorder)
         return []
 
     if isinstance(renderer, SingleSymbol):
@@ -126,33 +108,36 @@ def _plot_layer(
         if isinstance(sym, SimpleFill):
             gdf.plot(
                 ax=ax,
-                facecolor=_rgba(sym.color),
-                edgecolor=_rgba(sym.outline_color),
+                facecolor=sym.color.matplotlib_rgba,
+                edgecolor=sym.outline_color.matplotlib_rgba,
                 linewidth=_lw(sym.outline_width),
                 zorder=zorder,
             )
         elif isinstance(sym, SimpleLine):
             gdf.plot(
                 ax=ax,
-                color=_rgba(sym.line_color),
+                color=sym.line_color.matplotlib_rgba,
                 linewidth=_lw(sym.line_width),
                 zorder=zorder,
             )
         elif isinstance(sym, (SimpleMarker, SvgMarker)):
             gdf.plot(
-                ax=ax, color=_rgba(sym.color), markersize=_ms(sym.size), zorder=zorder
+                ax=ax,
+                color=sym.color.matplotlib_rgba,
+                markersize=_ms(sym.size),
+                zorder=zorder,
             )
         return []
 
     if isinstance(renderer, GraduatedRenderer):
-        ec = _rgba(renderer.outline_color)
+        ec = renderer.outline_color.matplotlib_rgba
         lw = _lw(renderer.outline_width)
         col = renderer.attr
         handles: list[mpatches.Patch] = []
         assigned = pd.Series(False, index=gdf.index)
         for r in renderer.ranges:
             mask = (~assigned) & (gdf[col] >= r.lower) & (gdf[col] <= r.upper)
-            fc = _rgba(r.color)
+            fc = r.color.matplotlib_rgba
             subset = gdf[mask]
             if not subset.empty:
                 subset.plot(
@@ -186,8 +171,8 @@ def _plot_layer(
             if subset.empty:
                 continue
             if isinstance(sym, SimpleFill):
-                fc = _rgba(sym.color)
-                ec = _rgba(sym.outline_color)
+                fc = sym.color.matplotlib_rgba
+                ec = sym.outline_color.matplotlib_rgba
                 subset.plot(
                     ax=ax,
                     facecolor=fc,
@@ -201,19 +186,21 @@ def _plot_layer(
             elif isinstance(sym, SimpleLine):
                 subset.plot(
                     ax=ax,
-                    color=_rgba(sym.line_color),
+                    color=sym.line_color.matplotlib_rgba,
                     linewidth=_lw(sym.line_width),
                     zorder=zorder,
                 )
             elif isinstance(sym, (SimpleMarker, SvgMarker)):
                 subset.plot(
                     ax=ax,
-                    color=_rgba(sym.color),
+                    color=sym.color.matplotlib_rgba,
                     markersize=_ms(sym.size),
                     zorder=zorder,
                 )
                 handles.append(
-                    mpatches.Patch(facecolor=_rgba(sym.color), label=rule.label)
+                    mpatches.Patch(
+                        facecolor=sym.color.matplotlib_rgba, label=rule.label
+                    )
                 )
         return handles
 

@@ -19,6 +19,7 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
+from projects.goats.palette import DEVELOPED_EDGE, DEVELOPED_FILL
 from projects.goats.util import CRS
 
 SIMPLIFY_TOLERANCE_M = 10
@@ -57,8 +58,8 @@ developed_area = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="200,200,200,128",
-                    outline_color="128,128,128,255",
+                    color=DEVELOPED_FILL,
+                    outline_color=DEVELOPED_EDGE,
                     outline_width=1.0,
                 )
             ],

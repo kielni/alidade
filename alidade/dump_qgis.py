@@ -12,7 +12,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
-from alidade import colors
+from alidade.color import BLACK, DARK_GRAY, Color
 from alidade.models import (
     Layer,
     Project,
@@ -161,9 +161,9 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
 
     if kind == "SimpleFill":
         return SimpleFill(
-            color=o.get("color", colors.BLACK),
+            color=Color.from_qgis(o.get("color", BLACK.qgis)),
             style=o.get("style", "solid"),
-            outline_color=o.get("outline_color", colors.DARK_GRAY),
+            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
             outline_style=o.get("outline_style", "solid"),
             outline_width=float(o.get("outline_width", "0.5")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
@@ -172,7 +172,7 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
         )
     if kind == "SimpleLine":
         return SimpleLine(
-            line_color=o.get("line_color", colors.BLACK),
+            line_color=Color.from_qgis(o.get("line_color", BLACK.qgis)),
             line_style=o.get("line_style", "solid"),
             line_width=float(o.get("line_width", "0.5")),
             line_width_unit=o.get("line_width_unit", "MM"),
@@ -185,8 +185,8 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
             name=o.get("name", ""),
             size=float(o.get("size", "6")),
             size_unit=o.get("size_unit", "MM"),
-            color=o.get("color", colors.BLACK),
-            outline_color=o.get("outline_color", colors.DARK_GRAY),
+            color=Color.from_qgis(o.get("color", BLACK.qgis)),
+            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
             outline_width=float(o.get("outline_width", "0")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
             angle=float(o.get("angle", "0")),
@@ -198,8 +198,8 @@ def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
             name=o.get("name", "circle"),
             size=float(o.get("size", "2")),
             size_unit=o.get("size_unit", "MM"),
-            color=o.get("color", colors.BLACK),
-            outline_color=o.get("outline_color", colors.DARK_GRAY),
+            color=Color.from_qgis(o.get("color", BLACK.qgis)),
+            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
             outline_width=float(o.get("outline_width", "0")),
             outline_width_unit=o.get("outline_width_unit", "MM"),
             angle=float(o.get("angle", "0")),
@@ -287,6 +287,10 @@ def _parse_renderer(maplayer_el: ET.Element) -> Renderer | None:
 
 def _py_repr(val: Any) -> str:
     """Recursively generate a Python constructor expression for a value."""
+    if isinstance(val, Color):
+        if val.a != 255:
+            return f"Color.from_hex({val.hex!r}, alpha={val.a})"
+        return f"Color.from_hex({val.hex!r})"
     if isinstance(val, BaseModel):
         cls = type(val).__name__
         pairs: list[str] = []
@@ -309,8 +313,10 @@ def _py_repr(val: Any) -> str:
 
 
 def _collect_classes(val: Any) -> set[str]:
-    """Collect Pydantic model class names referenced in val."""
+    """Collect model and Color class names referenced in val."""
     names: set[str] = set()
+    if isinstance(val, Color):
+        return {"Color"}
     if isinstance(val, BaseModel):
         names.add(type(val).__name__)
         for field_name in type(val).model_fields:
@@ -375,6 +381,10 @@ def _write_layer_py(
         "",
         "from pathlib import Path",
         "",
+    ]
+    if "Color" in model_names:
+        lines += ["from alidade.color import Color", ""]
+    lines += [
         f"from alidade.models import {imports}",
         "",
     ]

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from alidade.color import Color
 from alidade.models import Layer, SimpleLine, SingleSymbol, Symbol
 
 park_features_symbol_lines = Layer(
@@ -16,7 +17,7 @@ park_features_symbol_lines = Layer(
             type="line",
             layers=[
                 SimpleLine(
-                    line_color="13,37,155,255,hsv:0.63800000000000001,0.9187762264438849,0.60784313725490191,1",  # noqa: E501
+                    line_color=Color.from_hex("#0d259b"),
                     line_width=0.75,
                 )
             ],

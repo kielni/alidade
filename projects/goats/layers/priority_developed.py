@@ -15,6 +15,7 @@ from alidade.models import (
 )
 from projects.goats.layers.developed_area import developed_area
 from projects.goats.layers.park_boundary import park_boundary
+from projects.goats.palette import PRIORITY_DEVELOPED_EDGE, PRIORITY_DEVELOPED_FILL
 from projects.goats.util import BUFFER_100FT_M, CRS, clip_park
 
 
@@ -40,9 +41,9 @@ priority_developed = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="255,140,0,128",
+                    color=PRIORITY_DEVELOPED_FILL,
                     style="solid",
-                    outline_color="200,100,0,200",
+                    outline_color=PRIORITY_DEVELOPED_EDGE,
                     outline_width=0.5,
                 )
             ],

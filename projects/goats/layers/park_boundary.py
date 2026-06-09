@@ -1,4 +1,5 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
+from projects.goats.palette import PARK_BOUNDARY_EDGE, TRANSPARENT
 from projects.goats.util import CRS_WGS84
 
 """
@@ -27,9 +28,9 @@ park_boundary = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="0,0,0,0",
+                    color=TRANSPARENT,
                     style="no",
-                    outline_color="64,64,64,255",
+                    outline_color=PARK_BOUNDARY_EDGE,
                     outline_width=1,
                 )
             ],

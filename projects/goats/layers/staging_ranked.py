@@ -22,13 +22,14 @@ from alidade.models import (
 )
 from projects.goats.layers.target_zones import target_zones as patches
 from projects.goats.layers.staging import staging
+from projects.goats.palette import STAGING_RANK_TIERS
 from projects.goats.util import CRS
 
 # YlGn 3-class, saturated — darker green = better
 RANK_TIERS = [
-    ("rank1", "Best", '"rank" = 1', "0,200,60,255"),
-    ("rank2", "Better", '"rank" = 2', "120,230,90,255"),
-    ("rank3", "Good", '"rank" >= 3', "225,255,80,255"),
+    ("rank1", "Best", '"rank" = 1', STAGING_RANK_TIERS[0]),
+    ("rank2", "Better", '"rank" = 2', STAGING_RANK_TIERS[1]),
+    ("rank3", "Good", '"rank" >= 3', STAGING_RANK_TIERS[2]),
 ]
 
 # Clamp patch distance so patches inside a staging lot don't contribute

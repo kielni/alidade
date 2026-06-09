@@ -21,7 +21,7 @@ dependencies = [
     "mapclassify>=2.10.0",
     "geopy>=2.4.1",
     "matplotlib>=3.10.9",
-    "colour>=0.1.5",
+    "palettable>=3.3.3",
     "libpysal>=4.14.1",
     "esda>=2.9.0",
     "scipy>=1.15.0",
@@ -50,7 +50,7 @@ module = ["qgis.PyQt.*", "qgis.utils"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["colour"]
+module = ["palettable", "palettable.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
