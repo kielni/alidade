@@ -216,7 +216,7 @@ deployment is planned.
 
 ## References
 
-- [GitHub project repo](https://github.com/kielni/alidade/blob/main/projects/goats/README.md) - details on datasets, analyses, and Python code
+- [GitHub project repo](https://github.com/kielni/alidade/tree/main/projects/goats) - details on datasets, analyses, and Python code
 - [Alum Rock Park Vegetation Management Plan](https://www.sanjoseca.gov/home/showpublisheddocument/122618/639118513447970000) — City of San José
 - [Alum Rock Park](https://www.sanjoseca.gov/Home/Components/FacilityDirectory/FacilityDirectory/2088/2028) — City of San José facility page
 - [Goats on the Go FAQ](https://www.goatsonthego.com/faq) — goat contractor resource on behavior and diet
