@@ -319,9 +319,10 @@ reserve shell commands for raster tools like `gdaldem slope` or `gdalwarp`.
 
 ## Coding conventions
 
-**Output file format.** Prefer `.gpkg` over `.shp` for derived vector output.
-Keep existing `.geojson` files as-is; do not convert them to another format.
-Raster output uses `.tif`.
+**Output file format.** Use `.gpkg` for all derived vector output in a
+projected CRS. Use `.geojson` only for layers in WGS84 (EPSG:4326) — RFC 7946
+requires geographic coordinates; storing projected coordinates in GeoJSON is
+non-conformant and confuses tools that assume WGS84. Raster output uses `.tif`.
 Example: `datasource="output/vegetation.gpkg"` not `"output/vegetation.shp"`.
 
 **Omit default params.** When constructing a `Layer`, leave out fields that
