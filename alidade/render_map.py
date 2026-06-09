@@ -173,7 +173,9 @@ def _plot_layer(
                 subset = gdf[~matched]  # type: ignore[assignment]
             elif rule.filter:
                 try:
-                    mask = gdf.eval(_qgis_to_pandas_expr(rule.filter))  # type: ignore[assignment]
+                    mask = gdf.eval(  # type: ignore[assignment]
+                        _qgis_to_pandas_expr(rule.filter)
+                    )
                     matched = matched | mask
                     subset = gdf[mask]  # type: ignore[assignment]
                 except Exception as exc:
