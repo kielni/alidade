@@ -14,6 +14,7 @@ from alidade.color import Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
+    Extent,
     GraduatedRenderer,
     Label,
     Layer,
@@ -114,9 +115,9 @@ def _bind_for_render(layer: Layer, project_path: Path) -> BoundLayer:
     return BoundLayer(**fields, project_path=project_path)
 
 
-def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) -> None:
+def _update_extent(root: ET.Element, extent: Extent) -> None:
     """Write xmin/ymin/xmax/ymax into the theMapCanvas extent element."""
-    xmin, ymin, xmax, ymax = extent
+    xmin, ymin, xmax, ymax = extent.xmin, extent.ymin, extent.xmax, extent.ymax
     for canvas in root.findall("mapcanvas"):
         if canvas.get("name") == "theMapCanvas":
             ext = canvas.find("extent")
@@ -1809,14 +1810,14 @@ def _qpt_map_frame(
     _frame_bg(el)
     el.append(_layout_object())
     if spec.extent:
-        xmin, ymin, xmax, ymax = spec.extent
+        e = spec.extent
         ET.SubElement(
             el,
             "Extent",
-            xmin=str(xmin),
-            xmax=str(xmax),
-            ymin=str(ymin),
-            ymax=str(ymax),
+            xmin=str(e.xmin),
+            xmax=str(e.xmax),
+            ymin=str(e.ymin),
+            ymax=str(e.ymax),
         )
     ET.SubElement(el, "LayerSet")
     ET.SubElement(

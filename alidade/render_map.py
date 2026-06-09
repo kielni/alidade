@@ -263,7 +263,7 @@ def render(
         ymin -= pad_y
         ymax += pad_y
     elif spec.extent:
-        xmin, ymin, xmax, ymax = spec.extent
+        xmin, ymin, xmax, ymax = spec.extent.as_tuple()
     else:
         xmin, ymin, xmax, ymax = 0.0, 0.0, 1.0, 1.0
 

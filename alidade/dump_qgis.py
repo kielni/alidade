@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from alidade.color import BLACK, DARK_GRAY, Color
 from alidade.models import (
+    Extent,
     Layer,
     Project,
     Renderer,
@@ -419,17 +420,35 @@ def _write_layer_py(
 def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) -> None:
     """Write slim project.py that imports from layers/ and assembles Project."""
     import_lines = [f"from .layers.{hid} import {hid}" for hid in human_ids]
+    model_import = (
+        "from alidade.models import Extent, Project"
+        if spec.extent
+        else "from alidade.models import Project"
+    )
+    if spec.extent:
+        e = spec.extent
+        extent_lines = [
+            "    extent=Extent(",
+            f"        xmin={e.xmin!r},",
+            f"        ymin={e.ymin!r},",
+            f"        xmax={e.xmax!r},",
+            f"        ymax={e.ymax!r},",
+            f"        crs={e.crs!r},",
+            "    ),",
+        ]
+    else:
+        extent_lines = ["    extent=None,"]
     lines = [
         "from pathlib import Path",
         "",
-        "from alidade.models import Project",
+        model_import,
         "",
         *import_lines,
         "",
         "spec = Project(",
         f"    title={spec.title!r},",
         f"    crs={spec.crs!r},",
-        f"    extent={spec.extent!r},",
+        *extent_lines,
         "    layers=[",
         *[f"        {hid}," for hid in human_ids],
         "    ],",
@@ -587,8 +606,8 @@ def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
     print(f"Project : {spec.title!r}")
     print(f"CRS     : {spec.crs}")
     if spec.extent:
-        xmin, ymin, xmax, ymax = spec.extent
-        print(f"Extent  : ({xmin}, {ymin}) to ({xmax}, {ymax})")
+        e = spec.extent
+        print(f"Extent  : ({e.xmin}, {e.ymin}) to ({e.xmax}, {e.ymax})")
     print(f"Layers  ({len(pairs)}):")
     for hid, layer in pairs:
         vis = "show" if layer.visible else "hide"
@@ -625,17 +644,18 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
 
     title = root.findtext("title") or ""
     project_crs = _authid(root.find("projectCrs/spatialrefsys")) or ""
-    extent: tuple[float, float, float, float] | None = None
+    extent: Extent | None = None
     for canvas in root.findall("mapcanvas"):
         if canvas.get("name") == "theMapCanvas":
             ext = canvas.find("extent")
             if ext is not None:
                 try:
-                    extent = (
-                        float(ext.findtext("xmin") or ""),
-                        float(ext.findtext("ymin") or ""),
-                        float(ext.findtext("xmax") or ""),
-                        float(ext.findtext("ymax") or ""),
+                    extent = Extent(
+                        xmin=float(ext.findtext("xmin") or ""),
+                        ymin=float(ext.findtext("ymin") or ""),
+                        xmax=float(ext.findtext("xmax") or ""),
+                        ymax=float(ext.findtext("ymax") or ""),
+                        crs=project_crs,
                     )
                 except TypeError, ValueError:
                     pass

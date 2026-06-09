@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pyproj import Transformer
 
 from alidade.color import BLACK, DARK_GRAY, LABEL_GRAY, Color
 
@@ -280,6 +281,53 @@ class PrintLayout(BaseModel):
 
 # Data
 
+# ── Extent ────────────────────────────────────────────────────────────────────
+
+
+class Extent(BaseModel):
+    """Map canvas bounding box with a CRS.
+
+    Coordinates are in the units of crs (metres for UTM, degrees for WGS84).
+
+    To get values without QGIS: draw a box on boundingbox.io to get WGS84
+    degrees, then call Extent(..., crs="EPSG:4326").to_crs("EPSG:26910") to
+    reproject into the project CRS.
+
+    With a QGIS project file, run `make extent DIR=<project_dir>` after saving
+    the project file to output/project.qgs.
+    """
+
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+    crs: str
+
+    def as_tuple(self) -> tuple[float, float, float, float]:
+        return (self.xmin, self.ymin, self.xmax, self.ymax)
+
+    def to_crs(self, target_crs: str) -> "Extent":
+        """Reproject to target_crs, computing the bbox of all four corners."""
+        t = Transformer.from_crs(self.crs, target_crs, always_xy=True)
+        corners = [
+            t.transform(self.xmin, self.ymin),
+            t.transform(self.xmax, self.ymin),
+            t.transform(self.xmin, self.ymax),
+            t.transform(self.xmax, self.ymax),
+        ]
+        xs = [c[0] for c in corners]
+        ys = [c[1] for c in corners]
+        return Extent(
+            xmin=min(xs), ymin=min(ys), xmax=max(xs), ymax=max(ys), crs=target_crs
+        )
+
+    def to_wgs84(self) -> "Extent":
+        return self.to_crs("EPSG:4326")
+
+    def to_web_mercator(self) -> "Extent":
+        return self.to_crs("EPSG:3857")
+
+
 # ── Project ───────────────────────────────────────────────────────────────────
 
 
@@ -292,7 +340,7 @@ class Project(BaseModel):
     title: str
     crs: str
     layers: list[Layer]
-    extent: tuple[float, float, float, float] | None = None
+    extent: Extent | None = None
     print_layout: PrintLayout | None = None
     extra: dict[str, Any] = {}
 
