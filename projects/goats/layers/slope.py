@@ -43,10 +43,12 @@ def build_slope(layer: BoundLayer) -> None:
     with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
         slope_pct = tmp.name
     try:
+        # compute slope raster from elevation raster
         subprocess.run(
             [
                 "gdaldem",
                 "slope",
+                # as percent
                 "-p",
                 str(elevation.path),
                 slope_pct,
@@ -57,14 +59,17 @@ def build_slope(layer: BoundLayer) -> None:
             ],
             check=True,
         )
+        # reclassify to integer categories
         subprocess.run(
             [
                 "gdal_calc.py",
+                # input raster variable name
                 "-A",
                 slope_pct,
                 "--outfile",
                 str(layer.path),
                 "--calc",
+                # NumPy expression using input raster variable name
                 CALC_EXPR,
                 "--type",
                 "Byte",

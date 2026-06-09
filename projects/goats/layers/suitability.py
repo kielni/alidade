@@ -34,7 +34,7 @@ Vegetation reclassification (rasterize ENHANCED_LIFEFORM field)
   Developed                                  → 0  (hard exclude)
   Use rasterio.features.rasterize with a per-feature burn-value lookup.
 
-Priority reclassification (rasterize each buffer polygon; binary → 1–4 scale)
+Priority reclassification (rasterize each buffer polygon; binary → 1-4 scale)
   inside buffer → 4,  outside → 1
   Applies to both priority_developed and priority_roads_trails independently.
 
@@ -61,12 +61,7 @@ Exclusion masking (applied after weighted sum)
 Display classification (4 buckets of non-zero values)
   Compute Jenks natural breaks on non-zero suitability_raw pixels → 4 classes.
   Reclassify non-zero values to 1-4 and write as Byte raster (0 = excluded).
-  Color scheme: ColorBrewer Purples 4-class
-    1 → #f2f0f7  (low suitability)
-    2 → #cbc9e2
-    3 → #9e9ac8
-    4 → #6a51a3  (high suitability)
-    0 → transparent / white (excluded)
+  Color scheme: ColorBrewer Purples 4-class, transparent for excluded
 
 Summary stats to print after build
   - Total park area (non-zero pixels x pixel_area_m2); display as acres
@@ -172,6 +167,7 @@ def build_suitability(layer: BoundLayer) -> None:
     # Invert slope classes: steep terrain is most effective for goat grazing
     slope_suit = SLOPE_TO_SUITABILITY[np.clip(slope_data, 0, 4)]
 
+    # convert vector vegetation to raster to line up with slope
     veg_gdf = gpd.read_file(vegetation_layer.path).to_crs(CRS)
     veg_shapes = [
         (geom, VEGETATION_SUITABILITY.get(str(lf), 0))
@@ -186,6 +182,7 @@ def build_suitability(layer: BoundLayer) -> None:
         dtype="uint8",
     )
 
+    # convert vector priority areas to raster to line up with slope
     priority_developed_raster = _rasterize_binary(
         gpd.read_file(priority_developed_layer.path).to_crs(CRS),
         shape,
@@ -200,6 +197,7 @@ def build_suitability(layer: BoundLayer) -> None:
         inside_val=4,
         outside_val=1,
     )
+    # convert vector exclusion areas to raster to line up with slope
     excl_raster = _rasterize_binary(
         gpd.read_file(exclusion_layer.path).to_crs(CRS),
         shape,
@@ -208,6 +206,7 @@ def build_suitability(layer: BoundLayer) -> None:
         outside_val=0,
     )
 
+    # calculate per-pixel suitability
     suitability_raw = (
         slope_suit.astype(float) * WEIGHT_SLOPE
         + veg_raster.astype(float) * WEIGHT_VEGETATION
@@ -215,11 +214,14 @@ def build_suitability(layer: BoundLayer) -> None:
         + priority_trails_raster.astype(float) * WEIGHT_PRIORITY_TRAILS
     )
 
+    # adjust for excluded areas
     excluded = (slope_suit == 0) | (veg_raster == 0) | (excl_raster == 1)
     suitability_raw[excluded] = 0.0
 
     valid_mask = suitability_raw > 0
     valid_vals = suitability_raw[valid_mask]
+
+    # find class boundaries
     jenks_breaks = mapclassify.NaturalBreaks(valid_vals, k=4)
     suitability_class = np.zeros(shape, dtype="uint8")
     suitability_class[valid_mask] = (jenks_breaks.yb + 1).astype("uint8")
@@ -234,6 +236,8 @@ def build_suitability(layer: BoundLayer) -> None:
     print(f"  median weighted score: {float(np.median(valid_vals)):.2f}")
 
     park_gdf = gpd.read_file(boundary_layer.path).to_crs(CRS)
+
+    # trim buffer area outside the park
     outside_park = rasterio.features.geometry_mask(
         [geom for geom in park_gdf.geometry if geom is not None],
         out_shape=shape,

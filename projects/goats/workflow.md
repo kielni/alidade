@@ -91,7 +91,7 @@ a priority factor in the suitability overlay.
 
 **Files created:**
 - `layers/developed_area.py` — `convert_developed_area`;
-  output `output/developed_area.shp`
+  output `output/developed_area.gpkg`
 
 ---
 
@@ -245,7 +245,7 @@ clamped ≥ 50 m so patches inside a staging lot don't contribute disproportiona
 Rank 1 = highest score. Colors: YlGn 3-class diamond markers.
 
 **Files created:**
-- `layers/staging_ranked.py` — `rank_staging_areas`;
+- `layers/staging_ranked.py` — `build_staging_ranked`;
   output `output/staging_ranked.gpkg`
 
 ---

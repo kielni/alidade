@@ -41,7 +41,7 @@ def build_staging_ranked(layer: BoundLayer) -> None:
     """Score each staging point by distance-decay sum over grazeable patches."""
     patches_layer, staging_layer = layer.inputs
 
-    pts = gpd.read_file(staging_layer.path).to_crs(CRS)
+    points = gpd.read_file(staging_layer.path).to_crs(CRS)
     patch_gdf = gpd.read_file(patches_layer.path).to_crs(CRS)
 
     # Only High and Very high patches drive ranking; class 1-2 fragments are
@@ -50,21 +50,24 @@ def build_staging_ranked(layer: BoundLayer) -> None:
 
     patch_scores = patch_gdf["patch_score"].to_numpy(dtype=float)
 
-    scores = []
-    for _, row in pts.iterrows():
+    scores: list[float] = []
+    for _, row in points.iterrows():
         distances = (
+            # distance from this point to every patch geometry
             patch_gdf.geometry.distance(row.geometry)
-            .clip(lower=MIN_PATCH_DISTANCE_M)
-            .to_numpy(dtype=float)
+            # set minimum distance to avoid overweighting points inside an area
+            .clip(lower=MIN_PATCH_DISTANCE_M).to_numpy(dtype=float)
         )
         scores.append(float((patch_scores / distances).sum()))
 
-    pts["score"] = scores
-    max_score = float(pts["score"].max())
-    pts["score_norm"] = (pts["score"] / max_score).round(3) if max_score > 0 else 0.0
-    pts["rank"] = pts["score"].rank(ascending=False, method="min").astype(int)
+    points["score"] = scores
+    max_score = float(points["score"].max())
+    points["score_norm"] = (
+        (points["score"] / max_score).round(3) if max_score > 0 else 0.0
+    )
+    points["rank"] = points["score"].rank(ascending=False, method="min").astype(int)
 
-    for _, row in pts.sort_values("rank").iterrows():
+    for _, row in points.sort_values("rank").iterrows():
         name = row.get("name", "—")
         print(
             f"  #{int(row['rank'])} {name}  "
@@ -72,7 +75,7 @@ def build_staging_ranked(layer: BoundLayer) -> None:
             f"raw={row['score']:.4f}"
         )
 
-    pts.to_file(layer.path, driver="GPKG")
+    points.to_file(layer.path, driver="GPKG")
 
 
 _rules = [

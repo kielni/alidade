@@ -19,7 +19,7 @@ from projects.goats.util import CRS
 def reproject_staging(layer: BoundLayer) -> None:
     """Reproject staging area points to project CRS."""
     gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
-    gdf.to_file(layer.path, driver="GeoJSON")
+    gdf.to_file(layer.path, driver="GPKG")
 
 
 staging = Layer(
@@ -29,7 +29,7 @@ staging = Layer(
     raw_file="data/staging.geojson",
     source_description="Candidate goat staging area points",
     source_origin="Field-recorded",
-    datasource="output/staging.geojson",
+    datasource="output/staging.gpkg",
     crs=CRS,
     geometry_type="Point",
     renderer=SingleSymbol(

@@ -26,21 +26,25 @@ SIMPLIFY_TOLERANCE_M = 10
 
 
 def convert_developed_area(layer: BoundLayer) -> None:
-    """Convert GPX to .gpkg for developed area layer.
+    """Convert GPX to GeoPackage for developed area layer.
 
     Simplify GPX track (10 m tolerance), close ring, convert to polygon,
     reproject to EPSG:26910.
     """
     gdf = gpd.read_file(layer.raw_path, layer="tracks").to_crs(CRS)
+    # merge line segments into a single Line
     line = linemerge(cast(MultiLineString, gdf.geometry.iloc[0]))
+    # drop vertices within tolerance
     simplified = line.simplify(SIMPLIFY_TOLERANCE_M, preserve_topology=True)
+    # create a polygon
     poly = Polygon(list(simplified.coords))
+    # keep only name field
     result = gpd.GeoDataFrame(
         gdf[["name"]].iloc[:1].reset_index(drop=True),
         geometry=[poly],
         crs=CRS,
     )
-    result.to_file(layer.path, driver="GeoJSON")
+    result.to_file(layer.path, driver="GPKG")
 
 
 developed_area = Layer(
@@ -50,7 +54,7 @@ developed_area = Layer(
     raw_file="data/Alum_Rock_developed_area.gpx",
     source_description="GPS tracks of developed area perimeter",
     source_origin="Strava walk",
-    datasource="output/developed_area.geojson",
+    datasource="output/developed_area.gpkg",
     crs=CRS,
     geometry_type="Polygon",
     renderer=SingleSymbol(
