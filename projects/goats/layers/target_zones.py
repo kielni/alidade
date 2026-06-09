@@ -1,13 +1,17 @@
 """
-Grazeable patch polygons derived from the suitability raster.
+Target grazing polygons derived from the suitability raster.
 
-Vectorize non-zero suitability pixels → morphological closing (buffer + negative
-buffer) to merge adjacent pixels and round staircase edges
-without filling real terrain notches → union overlapping patches → Voronoi-split
-oversized patches using k-means cluster centers as seeds (replaces rectangular
-bisection); split lines run through low-suitability terrain gaps between clusters
-→ subtract riparian exclusions → clip to park. Score each polygon by
-suitability_sum / perimeter; patch_class 1–4 via Jenks natural breaks
+  - Vectorize non-zero suitability pixels
+  - morphological closing (buffer + negative buffer) to merge adjacent pixels
+    and round staircase edges without filling real terrain notches
+  - union overlapping patches
+  - Voronoi-split oversized patches using k-means cluster centers as seeds;
+    split lines run through low-suitability terrain gaps between clusters
+  - subtract riparian exclusions
+  - clip to park
+
+Score each polygon by
+suitability_sum / perimeter; patch_class 1-4 via Jenks natural breaks
 (4 = highest score).
 """
 
@@ -44,7 +48,7 @@ MIN_AREA_M2 = 500.0
 # about 30 acres: 100 goats x 30 days
 MAX_AREA_M2 = 120_000.0
 # one pixel width at 10 m resolution — morphological closing distance
-_SMOOTH_M = 10.0
+SMOOTH_M = 10.0
 
 # ColorBrewer Purples 4-class — darker = higher patch score
 PATCH_CLASSES = [
@@ -128,7 +132,7 @@ def build_patches(layer: BoundLayer) -> None:
 
     # Morphological closing merges immediately adjacent pixel clusters and rounds
     # staircase pixel edges without filling real terrain notches (unlike convex hull)
-    gdf.geometry = gdf.geometry.buffer(_SMOOTH_M).buffer(-_SMOOTH_M)
+    gdf.geometry = gdf.geometry.buffer(SMOOTH_M).buffer(-SMOOTH_M)
     gdf = gdf[~gdf.geometry.is_empty].copy()
     gdf = gdf[gdf.geometry.area >= MIN_AREA_M2].copy()
 
@@ -212,15 +216,13 @@ _symbols = [
     for _, _, _, color in PATCH_CLASSES
 ]
 
-patches = Layer(
+target_zones = Layer(
     id="grazeable_patches",
-    name="Grazeable Patches",
+    name="Target Grazing Zones",
     type="vector",
     inputs=[park_boundary, suitability, exclude_water_vegetation],
     datasource="output/patches.gpkg",
-    provider="ogr",
     crs=CRS,
-    visible=True,
     geometry_type="Polygon",
     renderer=RuleRenderer(
         rules_key="patch",

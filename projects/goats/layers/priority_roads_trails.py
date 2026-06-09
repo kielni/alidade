@@ -1,3 +1,7 @@
+"""
+Priority zone: 30 ft buffer along roads and trails.
+"""
+
 import geopandas as gpd
 
 from alidade.models import (
@@ -10,21 +14,14 @@ from alidade.models import (
 )
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.roads_trails import roads_trails
-from projects.goats.util import CRS, clip_park
-
-BUFFER_METERS = 9.144  # 30 ft in metres
-
-"""
-Priority zone: 30 ft buffer along roads and trails.
-High human foot traffic → high goat visibility and engagement potential.
-"""
+from projects.goats.util import BUFFER_30FT_M, CRS, clip_park
 
 
 def create_priority_roads_trails(layer: BoundLayer) -> None:
     """Buffer roads and trails by 30 ft and clip to park boundary."""
     boundary, roads_trails = layer.inputs
     gdf = gpd.read_file(roads_trails.path).to_crs(CRS)
-    buffered_geom = gdf.geometry.buffer(BUFFER_METERS).union_all()
+    buffered_geom = gdf.geometry.buffer(BUFFER_30FT_M).union_all()
     buffered = gpd.GeoDataFrame(geometry=[buffered_geom], crs=CRS)
     clip_park(buffered, boundary.path).to_file(layer.path, driver="GPKG")
 
@@ -35,9 +32,7 @@ priority_roads_trails = Layer(
     type="vector",
     inputs=[park_boundary, roads_trails],
     datasource="output/priority_roads_trails.gpkg",
-    provider="ogr",
     crs=CRS,
-    visible=True,
     geometry_type="Polygon",
     renderer=SingleSymbol(
         symbol=Symbol(

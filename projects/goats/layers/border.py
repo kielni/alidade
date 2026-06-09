@@ -1,3 +1,9 @@
+"""
+Park boundary with 100ft buffer.
+Use this to clip input data layers when it's important to include border (ie include
+road to identify roadside area).
+"""
+
 import geopandas as gpd
 
 from alidade.models import (
@@ -9,9 +15,7 @@ from alidade.models import (
     Symbol,
 )
 from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.util import CRS
-
-_BUFFER_M = 30.48  # 100 ft in metres (UTM units)
+from projects.goats.util import BUFFER_100FT_M, CRS
 
 
 def create_border(layer: BoundLayer) -> None:
@@ -19,7 +23,7 @@ def create_border(layer: BoundLayer) -> None:
     (boundary,) = layer.inputs
     gdf = gpd.read_file(boundary.path).to_crs(CRS)
     dissolved = gdf.dissolve()
-    dissolved.geometry = dissolved.geometry.buffer(_BUFFER_M)
+    dissolved.geometry = dissolved.geometry.buffer(BUFFER_100FT_M)
     dissolved.to_file(layer.path, driver="GPKG")
 
 
@@ -29,7 +33,6 @@ border = Layer(
     type="vector",
     inputs=[park_boundary],
     datasource="output/border.gpkg",
-    provider="ogr",
     crs=CRS,
     visible=False,
     geometry_type="Polygon",

@@ -15,7 +15,7 @@ from projects.goats.layers.water import water
 from projects.goats.layers.priority_developed import priority_developed
 from projects.goats.layers.priority_roads_trails import priority_roads_trails
 from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
-from projects.goats.layers.patches import patches
+from projects.goats.layers.target_zones import target_zones
 from projects.goats.layers.staging_ranked import staging_ranked
 from projects.goats.layers.suitability import suitability
 from projects.goats.util import CRS
@@ -37,7 +37,7 @@ map_all = Project(
         staging,
         park_boundary,
         border,
-        patches,
+        target_zones,
         exclude_water_vegetation,
         priority_roads_trails,
         priority_developed,
@@ -151,14 +151,14 @@ map_suitability = Project(
 """
 6: Group and smooth suitability outputs into target zones
 """
-map_patches = Project(
-    title="Alum Rock Goat Grazing Patches",
+map_target_zones = Project(
+    title="Alum Rock Goat Grazing Target Zones",
     id="patches",
     crs=CRS,
     extent=EXTENT,
     layers=[
         staging,
-        patches,
+        target_zones,
         park_boundary,
         developed_area,
         water,
@@ -171,15 +171,15 @@ map_patches = Project(
 """
 7: Prioritized staging areas based on access to target zones
 """
-map_targets_cluster = Project(
-    title="Alum Rock Goat Grazing Targets",
+map_ranked_staging = Project(
+    title="Alum Rock Goat Grazing Staging",
     id="targets_cluster",
     crs=CRS,
     extent=EXTENT,
     layers=[
         park_boundary,
         staging_ranked,
-        patches,
+        target_zones,
         developed_area,
         water,
         roads_trails,
@@ -221,8 +221,8 @@ maps = [
     map_veg,
     map_zones,
     map_suitability,
-    map_patches,
-    map_targets_cluster,
+    map_target_zones,
+    map_ranked_staging,
     map_detail,
 ]
 spec = map_all

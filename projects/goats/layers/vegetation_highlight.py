@@ -1,33 +1,21 @@
+"""
+Display high-priority vegetation as partially transparent polygons.
+"""
+
 from alidade.models import Layer, Rule, RuleRenderer, SimpleFill, Symbol
-from projects.goats.util import CRS, hex_to_rgba
+from projects.goats.util import CRS, VEGETATION_ZONES, hex_to_rgba
 from projects.goats.layers.vegetation import vegetation
 
-_HIGHLIGHT_ZONES = [
-    (
-        "Shrub",
-        "\"ENHANCED_LIFEFORM\" = 'Shrub'",
-        "#1a9850",
-    ),
-    (
-        "Non-native herbaceous",
-        "\"ENHANCED_LIFEFORM\" = 'Non-native Herbaceous'",
-        "#a6d96a",
-    ),
-    (
-        "Herbaceous",
-        "\"ENHANCED_LIFEFORM\" = 'Herbaceous'",
-        "#fee08b",
-    ),
-]
+HIGHLIGHT_ZONES = VEGETATION_ZONES[:3]
 
 _rules = [
     Rule(
         key=f"veg_highlight{i}",
-        label=label,
-        filter=filter_expr,
+        label=zone.label,
+        filter=zone.filter,
         symbol_index=i,
     )
-    for i, (label, filter_expr, _) in enumerate(_HIGHLIGHT_ZONES)
+    for i, zone in enumerate(HIGHLIGHT_ZONES)
 ]
 
 _symbols = [
@@ -35,14 +23,14 @@ _symbols = [
         type="fill",
         layers=[
             SimpleFill(
-                color=hex_to_rgba(color, 32),
+                color=hex_to_rgba(zone.color, 32),
                 style="solid",
-                outline_color=hex_to_rgba(color, 255),
+                outline_color=hex_to_rgba(zone.color, 255),
                 outline_width=0.5,
             )
         ],
     )
-    for _, _, color in _HIGHLIGHT_ZONES
+    for zone in HIGHLIGHT_ZONES
 ]
 
 vegetation_highlight = Layer(

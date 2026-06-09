@@ -1,5 +1,5 @@
 """
-Staging area rankings by distance-decay scoring against grazeable patches.
+Staging area rankings by distance-decay scoring against target zones.
 
 For each staging point, score = sum(patch_score / distance) over High and Very
 high patches (class >= 3 only). Low and Moderate patches are excluded so that
@@ -20,16 +20,20 @@ from alidade.models import (
     SimpleMarker,
     Symbol,
 )
-from projects.goats.layers.patches import patches
+from projects.goats.layers.target_zones import target_zones as patches
 from projects.goats.layers.staging import staging
 from projects.goats.util import CRS
 
 # YlGn 3-class, saturated — darker green = better
-_RANK_TIERS = [
+RANK_TIERS = [
     ("rank1", "Best", '"rank" = 1', "0,200,60,255"),
     ("rank2", "Better", '"rank" = 2', "120,230,90,255"),
     ("rank3", "Good", '"rank" >= 3', "225,255,80,255"),
 ]
+
+# Clamp patch distance so patches inside a staging lot don't contribute
+# disproportionately to the score
+MIN_PATCH_DISTANCE_M = 50.0
 
 
 def build_staging_ranked(layer: BoundLayer) -> None:
@@ -47,11 +51,9 @@ def build_staging_ranked(layer: BoundLayer) -> None:
 
     scores = []
     for _, row in pts.iterrows():
-        # Clamp at 50 m so patches closer than that contribute equally —
-        # exact proximity to a patch edge should not dominate the score
         distances = (
             patch_gdf.geometry.distance(row.geometry)
-            .clip(lower=50.0)
+            .clip(lower=MIN_PATCH_DISTANCE_M)
             .to_numpy(dtype=float)
         )
         scores.append(float((patch_scores / distances).sum()))
@@ -74,7 +76,7 @@ def build_staging_ranked(layer: BoundLayer) -> None:
 
 _rules = [
     Rule(key=key, label=label, filter=filt, symbol_index=i)
-    for i, (key, label, filt, _) in enumerate(_RANK_TIERS)
+    for i, (key, label, filt, _) in enumerate(RANK_TIERS)
 ]
 
 _symbols = [
@@ -84,7 +86,7 @@ _symbols = [
             SimpleMarker(name="diamond", color=color, outline_color=color, size=4.0)
         ],
     )
-    for _, _, _, color in _RANK_TIERS
+    for _, _, _, color in RANK_TIERS
 ]
 
 staging_ranked = Layer(
@@ -93,9 +95,7 @@ staging_ranked = Layer(
     type="vector",
     inputs=[patches, staging],
     datasource="output/staging_ranked.gpkg",
-    provider="ogr",
     crs=CRS,
-    visible=True,
     geometry_type="Point",
     renderer=RuleRenderer(
         rules_key="rank",

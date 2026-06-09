@@ -1,16 +1,3 @@
-import geopandas as gpd
-
-from alidade.models import (
-    BoundLayer,
-    Layer,
-    PythonAction,
-    SimpleLine,
-    SingleSymbol,
-    Symbol,
-)
-from projects.goats.layers.border import border
-from projects.goats.util import CRS, clip_border
-
 """
 Creeks from OpenStreetMap data,
 downloaded via Overpass Turbo: https://overpass-turbo.eu
@@ -32,6 +19,19 @@ out geom;
 ```
 """
 
+import geopandas as gpd
+
+from alidade.models import (
+    BoundLayer,
+    Layer,
+    PythonAction,
+    SimpleLine,
+    SingleSymbol,
+    Symbol,
+)
+from projects.goats.layers.border import border
+from projects.goats.util import CRS, clip_border
+
 
 def clip_water(layer: BoundLayer) -> None:
     """Reproject and clip streams to park boundary."""
@@ -39,7 +39,7 @@ def clip_water(layer: BoundLayer) -> None:
     gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
     keep = {"@id", "name", gdf.geometry.name}
     gdf = gdf[[c for c in gdf.columns if c in keep]]
-    clip_border(gdf, border.path).to_file(layer.path)
+    clip_border(gdf, border.path).to_file(layer.path, driver="GPKG")
 
 
 water = Layer(
@@ -50,10 +50,8 @@ water = Layer(
     raw_file="data/water.geojson",
     source_description="Waterway stream lines",
     source_origin="OpenStreetMap via Overpass Turbo",
-    datasource="output/water.shp",
-    provider="ogr",
+    datasource="output/water.gpkg",
     crs=CRS,
-    visible=True,
     geometry_type="LineString",
     renderer=SingleSymbol(
         symbol=Symbol(

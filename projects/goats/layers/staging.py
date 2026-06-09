@@ -1,3 +1,7 @@
+"""
+Large flat areas suitable for goat staging.
+"""
+
 import geopandas as gpd
 
 from alidade.models import (
@@ -10,15 +14,11 @@ from alidade.models import (
 )
 from projects.goats.util import CRS
 
-"""
-Parking lots suitable for goat staging.
-"""
-
 
 def reproject_staging(layer: BoundLayer) -> None:
     """Reproject staging area points to project CRS."""
     gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
-    gdf.to_file(layer.path)
+    gdf.to_file(layer.path, driver="GeoJSON")
 
 
 staging = Layer(
@@ -28,10 +28,8 @@ staging = Layer(
     raw_file="data/staging.geojson",
     source_description="Candidate goat staging area points",
     source_origin="Field-recorded",
-    datasource="output/staging.shp",
-    provider="ogr",
+    datasource="output/staging.geojson",
     crs=CRS,
-    visible=True,
     geometry_type="Point",
     renderer=SingleSymbol(
         symbol=Symbol(

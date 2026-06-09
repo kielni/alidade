@@ -1,4 +1,5 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
+from projects.goats.util import CRS_WGS84
 
 """
 Alum Rock Park boundary layer, from OpenStreetMap data
@@ -18,8 +19,7 @@ park_boundary = Layer(
     datasource="data/park_boundary.geojson",
     source_description="Park boundary polygon",
     source_origin="OpenStreetMap via Overpass Turbo",
-    provider="ogr",
-    crs="EPSG:4326",
+    crs=CRS_WGS84,
     visible=True,
     geometry_type="Polygon",
     renderer=SingleSymbol(
