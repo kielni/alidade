@@ -22,7 +22,7 @@ Coming from software engineering, the user wants:
 - Minimal repetitive clicking through GIS menus
 - Batch edits via text files
 - Incremental commits with metadata and meaningful diffs
-- Reproducibility — a fresh checkout rebuilds the project exactly
+- Reproducibility - a fresh checkout rebuilds the project exactly
 - Browse/edit configuration with Python in an IDE
 - No hand-editing XML; no committing compressed binaries
 
@@ -40,12 +40,14 @@ Generalize after friction, not before.
 ```
 alidade/
   alidade/
-    models.py              # Pydantic: Project, Layer, ProcessingStep, renderers, symbols
+    models.py              # Pydantic: Project, Layer, renderers, symbols
     dump_qgis.py           # .qgz → layers/*.py + styles/*.xml  (QGIS only)
     render_qgis.py         # project.py → output/project.qgs   (QGIS)
     render_lyrx.py         # project.py → output/{layer.id}.lyrx  (ArcGIS Pro)
+    render_map.py          # project.py → output/{map.id}.png  (static PNG via matplotlib)
     lyrx/                  # CIM builder subpackage (data_connection, symbols, renderers, build)
     build.py               # entry point; dispatches on output_format
+    publish_arcgis.py      # publish layers + web maps to ArcGIS Online
     readme.py              # auto-generates README from spec
   Makefile
   local.env                # machine-local config (gitignored)
@@ -87,8 +89,8 @@ class Layer(BaseModel):
     id: str                           # human-friendly, e.g. "slope"
     name: str                         # display name
     type: Literal["vector", "raster"]
-    source: str                       # path or URI
-    provider: str = "ogr"             # "ogr", "gdal", "wms"
+    datasource: str                   # relative path, e.g. "data/boundary.geojson"
+    provider: str = "ogr"             # "ogr" (default), "gdal", "wms"
     style_xml: Path | None = None     # QGIS-only
     crs: str | None = None
     geometry_type: str | None = None  # "Polygon", "LineString", "Point"
@@ -96,7 +98,11 @@ class Layer(BaseModel):
     visible: bool = True
     renderer: Renderer | None = None
     label: Label | None = None
-    processing_step: ProcessingStep | None = None
+    inputs: list[Layer] = []          # layers this one depends on
+    action: ShellAction | PythonAction | None = None
+    raw_file: str | None = None       # path to unprocessed source data
+    source_description: str | None = None
+    source_origin: str | None = None
     extra: dict[str, Any] = {}
 
 class Project(BaseModel):
@@ -110,7 +116,11 @@ class Project(BaseModel):
     extra: dict[str, Any] = {}
 ```
 
-**`project.py` pattern** — import `Project` and set `output_format`:
+When constructing a `Layer`, omit fields that use the default value. Common defaults
+to leave out: `provider="ogr"`, `visible=True`. Only pass fields that differ from
+the model default.
+
+**`project.py` pattern** - import `Project` and set `output_format`:
 
 ```python
 from alidade.models import Project
@@ -124,14 +134,14 @@ spec = Project(output_format="lyrx", title="My Map", crs="EPSG:3857", layers=[..
 
 Layer IDs are human-friendly strings: `"slope"`, `"elevation_10n"`, `"park_polygon"`.
 Not QGIS-generated UUIDs. The ID is the stable handle used as the filename
-(`layers/slope.py`) and in `depends_on` declarations.
+(`layers/slope.py`) and referenced when a layer imports another as an input.
 
 QGIS silently drops layers whose `<id>` is ≤10 characters. The `Layer` validator
 auto-pads short IDs to `{id}_{uuid[:8]}` and emits a warning.
 
 ## QGIS output
 
-No PyQGIS — generate XML directly. `render_qgis.py` builds a `.qgs` XML tree from the
+No PyQGIS - generate XML directly. `render_qgis.py` builds a `.qgs` XML tree from the
 `QGISProject` spec and writes `output/project.qgs`. Style is embedded from
 `styles/*.xml` or rendered from typed `Renderer` models.
 
@@ -141,7 +151,7 @@ Symbol layers: `SimpleFill`, `SimpleLine`, `SimpleMarker`, `SvgMarker`.
 
 ## ArcGIS Pro output
 
-`render_lyrx.py` writes one `output/{layer.id}.lyrx` per layer — a standalone
+`render_lyrx.py` writes one `output/{layer.id}.lyrx` per layer - a standalone
 JSON file using the CIM (Cartographic Information Model) v3.4.0 format.
 Each `.lyrx` can be dragged directly into ArcGIS Pro without building a full
 project archive.
@@ -176,7 +186,7 @@ The `layers[0]` CIMPATH must exactly match `layerDefinitions[0].uRI`.
 {"type": "CIMRGBColor", "values": [R, G, B, A]}
 ```
 
-Alpha is 0–100 (percent), not 0–255. `_rgb_color("R,G,B,A")` converts.
+Alpha is 0-100 (percent), not 0-255. `_rgb_color("R,G,B,A")` converts.
 
 ### Data connections
 
@@ -196,7 +206,7 @@ Alpha is 0–100 (percent), not 0–255. `_rgb_color("R,G,B,A")` converts.
 Standalone `.lyrx` files require absolute paths. Set `ARCGIS_WORKSPACE_ROOT`
 in `local.env` (gitignored) to remap local paths to the ArcGIS machine path.
 The project directory name is appended automatically so the value is machine-level
-only — no per-project secrets committed.
+only - no per-project secrets committed.
 
 ### Supported renderers (lyrx path)
 
@@ -241,6 +251,41 @@ whose output already exists (pass `--force` to re-run all).
 Prefer Python (geopandas) over shell for vector operations;
 reserve shell commands for raster tools like `gdaldem slope` or `gdalwarp`.
 
+## Coding conventions
+
+**Output file format.** Prefer `.gpkg` over `.shp` for derived vector output.
+Keep existing `.geojson` files as-is; do not convert them to another format.
+Raster output uses `.tif`.
+Example: `datasource="output/vegetation.gpkg"` not `"output/vegetation.shp"`.
+
+**Omit default params.** When constructing a `Layer`, leave out fields that
+match the model default: `provider="ogr"` and `visible=True` are the most
+common. Only pass fields that differ from the default.
+
+**Constants naming.** Use `UPPER_CASE` for module-level constants. Do not use
+a leading underscore prefix. Example: `RANK_TIERS`, `WEIGHT_SLOPE`,
+`RIPARIAN_BUFFER_M`.
+
+**Tunable parameters as constants.** Define buffer distances, weights,
+thresholds, and other tunable values as named constants at the top of the
+layer file, not as literal values embedded in function bodies. Reviewers and
+future sessions can then adjust parameters without hunting through code.
+
+```python
+RIPARIAN_BUFFER_M = 30.0
+DEVELOPED_BUFFER_M = 100.0
+WEIGHT_SLOPE = 0.25
+```
+
+**Avoid abbreviations.** Write full names in variables: `boundary_layer`,
+`slope_layer`, `vegetation_layer` - not `bnd`, `slp`, `veg`, `lyr`, `pts`.
+The `_layer` suffix makes the role of each variable obvious in `build_*`
+functions that unpack `layer.inputs`.
+
+**Checking package versions.** Use `pyproject.toml` as the source of truth
+for which packages are installed and at what versions. Do not write one-off
+`pip show` checks or inline `import pkg; pkg.__version__` lookups.
+
 ## LLM workflow documentation
 
 Each project directory contains `workflow.md`. Its purpose is to let another
@@ -255,26 +300,26 @@ change involves a non-obvious decision or a discovered constraint.
 Format:
 
 ```markdown
-## Step N — Brief title
+## Step N - Brief title
 
 What was done and the specific values that matter: URLs, distances,
 field names, color codes, algorithm choices, tradeoffs.
 
 **Files created/changed:**
-- `path/to/file.py` — one-line summary of the change
+- `path/to/file.py` - one-line summary of the change
 ```
 
-Update in the same session as the work — not retroactively.
+Update in the same session as the work - not retroactively.
 
 ## File ownership
 
 | File | Written by | Human edits? |
 |---|---|---|
-| `layers/*.py` | dump (once, bootstrap) | yes — source of truth |
-| `styles/*.xml` | dump / QGIS Save Style | no — treat as opaque |
+| `layers/*.py` | dump (once, bootstrap) | yes - source of truth |
+| `styles/*.xml` | dump / QGIS Save Style | no - treat as opaque |
 | `project.py` | human | yes |
 | `workflow.md` | LLM + human | yes |
-| `output/` | build | no — gitignored |
+| `output/` | build | no - gitignored |
 
 ## External references
 
