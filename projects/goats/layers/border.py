@@ -15,6 +15,7 @@ from alidade.models import (
     Symbol,
 )
 from projects.goats.layers.park_boundary import park_boundary
+from projects.goats.palette import PARK_BORDER, TRANSPARENT
 from projects.goats.util import BUFFER_100FT_M, CRS
 
 
@@ -41,9 +42,9 @@ border = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="0,0,0,0",
+                    color=TRANSPARENT,
                     style="no",
-                    outline_color="100,100,200,180",
+                    outline_color=PARK_BORDER,
                     outline_width=0.5,
                 )
             ],

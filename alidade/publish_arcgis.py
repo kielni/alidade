@@ -21,6 +21,7 @@ from arcgis.features import FeatureLayerCollection
 from arcgis.gis import GIS, ItemProperties, ItemTypeEnum
 from arcgis.raster.analytics import copy_raster
 
+from alidade.color import Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
@@ -76,14 +77,13 @@ def _save_registry(path: Path, registry: dict[str, dict]) -> None:
 # ── Color / size ──────────────────────────────────────────────────────────────
 
 
-def _color_to_arcgis(color_str: str) -> list[int]:
-    """Convert 'R,G,B[,A]' or '#rrggbb' to [R, G, B, A]."""
-    s = color_str.strip()
-    if s.startswith("#"):
-        h = s.lstrip("#")
-        return [int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255]
-    parts = [int(x.strip()) for x in s.split(",")]
-    return parts if len(parts) == 4 else parts + [255]
+def _color_to_arcgis(color: Color) -> list[int]:
+    """Convert a Color to [R, G, B, A].
+
+    Stays here rather than on Color: the [R, G, B, A] list is the
+    ArcGIS REST API color format, not a generic representation.
+    """
+    return [color.r, color.g, color.b, color.a]
 
 
 def _mm_to_pt(mm: float) -> float:
@@ -1028,7 +1028,17 @@ def main() -> None:
 
     # Load project — same resolution as bind_project / alidade-build
     project_path = (Path.cwd() / args.project_dir).resolve()
-    package = ".".join(project_path.relative_to(_REPO_ROOT).parts)
+    try:
+        rel_parts = project_path.relative_to(_REPO_ROOT).parts
+    except ValueError:
+        # project_path resolved through a symlink; find matching entry in projects/
+        for _c in (_REPO_ROOT / "projects").glob("*"):
+            if _c.is_symlink() and _c.resolve() == project_path:
+                rel_parts = _c.relative_to(_REPO_ROOT).parts
+                break
+        else:
+            raise
+    package = ".".join(rel_parts)
     module = importlib.import_module(f"{package}.project")
 
     if args.map_name:

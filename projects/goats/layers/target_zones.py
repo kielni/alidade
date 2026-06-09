@@ -41,7 +41,8 @@ from alidade.models import (
 from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.suitability import suitability
-from projects.goats.util import CRS, clip_park, hex_to_rgba
+from projects.goats.palette import BLACK, SUITABILITY
+from projects.goats.util import CRS, clip_park
 
 # about 1/8 acre
 MIN_AREA_M2 = 500.0
@@ -52,10 +53,10 @@ SMOOTH_M = 10.0
 
 # ColorBrewer Purples 4-class — darker = higher patch score
 PATCH_CLASSES = [
-    ("patch1", "Low", '"patch_class" = 1', "#f2f0f7"),
-    ("patch2", "Moderate", '"patch_class" = 2', "#cbc9e2"),
-    ("patch3", "High", '"patch_class" = 3', "#9e9ac8"),
-    ("patch4", "Very high", '"patch_class" = 4', "#6a51a3"),
+    ("patch1", "Low", '"patch_class" = 1', SUITABILITY[0]),
+    ("patch2", "Moderate", '"patch_class" = 2', SUITABILITY[1]),
+    ("patch3", "High", '"patch_class" = 3', SUITABILITY[2]),
+    ("patch4", "Very high", '"patch_class" = 4', SUITABILITY[3]),
 ]
 
 
@@ -206,9 +207,9 @@ _symbols = [
         type="fill",
         layers=[
             SimpleFill(
-                color=hex_to_rgba(color, 200),
+                color=color,
                 style="solid",
-                outline_color="0,0,0",
+                outline_color=BLACK,
                 outline_width=0.2,
             )
         ],

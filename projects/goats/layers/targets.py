@@ -44,15 +44,16 @@ from alidade.models import (
 )
 from projects.goats.layers.staging import staging
 from projects.goats.layers.suitability import suitability
+from projects.goats.palette import TARGET_RANK_TIERS
 from projects.goats.util import CRS
 
 BUFFER_M = 804.672  # 0.5 mile
 
 # (key, label, filter, color) — RdYlBu diverging: red = best, blue = least good
 _RANK_TIERS = [
-    ("travel1", "Best", '"rank" = 1', "215,25,28,255"),
-    ("travel2", "Second", '"rank" = 2', "253,174,97,255"),
-    ("travel3", "Other", '"rank" >= 3', "44,123,182,255"),
+    ("travel1", "Best", '"rank" = 1', TARGET_RANK_TIERS[0]),
+    ("travel2", "Second", '"rank" = 2', TARGET_RANK_TIERS[1]),
+    ("travel3", "Other", '"rank" >= 3', TARGET_RANK_TIERS[2]),
 ]
 
 

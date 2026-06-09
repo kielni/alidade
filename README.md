@@ -2,13 +2,13 @@
 
 A toolkit for managing GIS projects as code, built for working with an LLM.
 
-*An alidade is the sighting rule on a plane table — the instrument that draws
+*An alidade is the sighting rule on a plane table - the instrument that draws
 the map line, not just the one that measures.*
 
 ## Overview
 
 Alidade treats a GIS project as build output, not source. The source of truth
-is Python — one file per layer — that you edit in an IDE or describe in plain
+is Python - one file per layer - that you edit in an IDE or describe in plain
 English to an LLM. A build step renders those files into a `.qgs` that QGIS
 opens, or an `.aprx` that ArcGIS Pro opens. The GIS application stays open as
 a viewer; all changes happen in code.
@@ -20,53 +20,53 @@ system knows which downstream steps need re-running when an input changes.
 
 ## Inspiration
 
-QGIS started as a GUI layer over GDAL, OGR, and GRASS — command-line GIS tools
+QGIS started as a GUI layer over GDAL, OGR, and GRASS - command-line GIS tools
 made accessible through menus and dialogs. That was a big improvement in ease
 of use. Over the decades, trying to serve every use case has resulted in
 hundreds of buttons, deep menu trees, and a steep learning curve.
 
-This project goes back to those roots — code and shell commands — treating a map
+This project goes back to those roots - code and shell commands - treating a map
 project the way DevOps treats infrastructure: defined in code, committed to git,
 and reproducible from a clean checkout. The configuration is visible, diffable,
 and batch-editable. Write in English, Python, or both.
 
 Using an LLM lowers the remaining barrier. Geoffrey Litt's
 [malleable software](https://www.geoffreylitt.com/2023/03/25/llm-end-user-programming)
-argues that LLMs can make any software customizable by its users — not just
+argues that LLMs can make any software customizable by its users - not just
 programmers, but anyone willing to describe what they want. Tell an LLM to
 "add a slope layer colored by steepness" or "make the park boundary dashed" and
 it finds the right GDAL flag, the right XML attribute, writes clean Python, and
 logs what it did to `workflow.md`. The result is committed, readable, and
-reusable — not a sequence of menu clicks that vanishes the moment you close the
+reusable - not a sequence of menu clicks that vanishes the moment you close the
 dialog.
 
 Robin Sloan's [home-cooked app](https://www.robinsloan.com/notes/home-cooked-app/)
 draws a distinction between software built for a mass audience and software you
-cook for yourself — personal, imperfect, and fitted exactly to how you work.
+cook for yourself - personal, imperfect, and fitted exactly to how you work.
 This is not a finished product or an installable package. It is a starting
 point to fork and shape. The `projects/sample/` and `DESIGN.md` are a starting
 point.
 
 QGIS bundles its own Python interpreter, version-locked to each release and
 confined to a stripped-down console. This runs in your own environment:
-any Python version, any library, full IDE support — key bindings, syntax
+any Python version, any library, full IDE support - key bindings, syntax
 highlighting, completion, and navigation.
 
 ## Advantages
 
-- **Reproducible** — a fresh checkout rebuilds the project exactly, including
+- **Reproducible** - a fresh checkout rebuilds the project exactly, including
   derived rasters (slope, hillshade) from recorded GDAL commands
-- **Diffable** — styles committed as XML; no compressed binaries; meaningful
+- **Diffable** - styles committed as XML; no compressed binaries; meaningful
   git history
-- **Batch edits** — change all symbol sizes, swap a color palette, add a
+- **Batch edits** - change all symbol sizes, swap a color palette, add a
   standard base layer: edit code, not menus
-- **LLM-friendly** — each layer is a self-contained Python file; describe a
+- **LLM-friendly** - each layer is a self-contained Python file; describe a
   change in English and let the LLM implement it; a `workflow.md` log captures
   the prompts and decisions so a new session can continue without reconstructing
   context
-- **IDE-native** — browse, search, and edit layer configuration in your editor,
+- **IDE-native** - browse, search, and edit layer configuration in your editor,
   not GIS dialogs
-- **Dual output** — the same `project.py` spec can render to QGIS or ArcGIS Pro
+- **Dual output** - the same `project.py` spec can render to QGIS or ArcGIS Pro
   without duplicating layer definitions
 
 ## Use cases
@@ -79,18 +79,18 @@ This tool could be for you if:
   you manage code: IDE editing, meaningful commits, reproducible builds
 - You want to describe map changes in plain English to an LLM rather than
   hunting through menus or looking up GDAL flags
-- You want to script repetitive work — standard base layers, consistent
-  symbology across projects — without clicking through menus each time
+- You want to script repetitive work - standard base layers, consistent
+  symbology across projects - without clicking through menus each time
 
 ## Getting started
 
 ### Requirements
 
 - QGIS 3.x desktop app (Mac: `/Applications/QGIS.app`; configure path in
-  `local.env`) — for QGIS output
-- ArcGIS Pro 3.4+ — for `.aprx` output
+  `local.env`) - for QGIS output
+- ArcGIS Pro 3.4+ - for `.aprx` output
 - [uv](https://docs.astral.sh/uv/)
-- GDAL CLI tools (`brew install gdal`) — used for raster operations (slope,
+- GDAL CLI tools (`brew install gdal`) - used for raster operations (slope,
   hillshade, reprojection) where no clean Python equivalent exists
 
 Processing steps prefer Python libraries (geopandas for vector operations like
@@ -123,28 +123,28 @@ cp alidade/util/qgis_startup.py \
 ```
 
 Optionally install the **Reloader** plugin via *Plugins → Manage and Install
-Plugins* — it watches data files and auto-reloads affected layers on change.
+Plugins* - it watches data files and auto-reloads affected layers on change.
 
 ## Directory layout
 
 ```
 alidade/
   alidade/
-    models.py               — Pydantic types: Project, Layer, renderers, symbols, print layouts
-    dump_qgis.py            — import a .qgz into a project directory (QGIS only)
-    render_qgis.py          — project.py → output/project.qgs + output/print.qpt
-    render_lyrx.py          — project.py → output/{layer.id}.lyrx (CIM v3.4.0 JSON)
-    lyrx/                   — CIM builder subpackage
-    build.py                — entry point; dispatches on output_format
+    models.py               - Pydantic types: Project, Layer, renderers, symbols, print layouts
+    dump_qgis.py            - import a .qgz into a project directory (QGIS only)
+    render_qgis.py          - project.py → output/project.qgs + output/print.qpt
+    render_lyrx.py          - project.py → output/{layer.id}.lyrx (CIM v3.4.0 JSON)
+    lyrx/                   - CIM builder subpackage
+    build.py                - entry point; dispatches on output_format
     util/
-      qgis_startup.py       — QGIS startup script (Ctrl-R reload shortcut)
-      export_pdf.py         — QGIS console script to export print layout to PDF
+      qgis_startup.py       - QGIS startup script (Ctrl-R reload shortcut)
+      export_pdf.py         - QGIS console script to export print layout to PDF
 
-  projects/                 — one directory per project
-    project.py              — source of truth (edit this)
-    data/                   — data files
-    styles/                 — per-layer XML extracted from the .qgz (QGIS only)
-    output/                 — generated project files and derived data (gitignored)
+  projects/                 - one directory per project
+    project.py              - source of truth (edit this)
+    data/                   - data files
+    styles/                 - per-layer XML extracted from the .qgz (QGIS only)
+    output/                 - generated project files and derived data (gitignored)
 ```
 
 ## Project types
@@ -192,6 +192,121 @@ For derived rasters, run `make build --force DIR=my_project` when source data
 or a processing command changes. This re-runs stale transforms in dependency
 order before rendering.
 
+## Colors
+
+Specify colors as `Color` objects constructed from hex strings. Conversions to
+QGIS XML or matplotlib format happen automatically at the rendering boundary —
+layer files never call `.qgis` or `.matplotlib_rgba` directly.
+
+```python
+from alidade.color import Color, brewer
+
+Color.from_hex("#1a9850")               # opaque
+Color.from_hex("#1a9850", alpha=200)    # semi-transparent (alpha 0-255)
+Color.from_hex("#1a9850").with_alpha(128)  # copy at different opacity
+brewer("sequential.Purples", 4)          # 4-color ColorBrewer ramp → list[Color]
+```
+
+Put project-specific colors in `projects/<name>/palette.py` as named semantic
+constants. Name by role, not by color (`ROADS_LINE` not `ROAD_BROWN`), so names
+stay meaningful if the palette changes later:
+
+```python
+# projects/myproject/palette.py
+from alidade.color import Color, brewer
+
+PARK_FILL    = Color.from_hex("#ffffff")
+PARK_BORDER  = Color.from_hex("#6464c8", alpha=180)
+SLOPE_GENTLE = Color.from_hex("#1a9641")
+SUITABILITY  = brewer("sequential.Purples", 4, alpha=200)
+```
+
+Then import them in layer files:
+
+```python
+from projects.myproject.palette import PARK_BORDER, SLOPE_GENTLE
+```
+
+Generic constants (`BLACK`, `WHITE`, `TRANSPARENT`, `DARK_GRAY`, `LABEL_GRAY`)
+are in `alidade.color` for use in model defaults and shared rendering code.
+
+## Publishing to ArcGIS Online
+
+`alidade.publish_arcgis` publishes every layer in a project to ArcGIS Online -
+uploading new layers or overwriting existing ones - and applies the alidade
+renderer translated to the ArcGIS REST API format. It can also create or update
+web maps and Story Maps.
+
+### Setup (once)
+
+Add to `local.env`:
+
+```makefile
+ARCGIS_CLIENT_ID := <your OAuth client ID>
+```
+
+To get a client ID: in ArcGIS Online go to *Content > New Item > Application*,
+register a new application, and copy the Client ID from its item page. The
+publish script uses this ID to trigger a browser-based OAuth login; credentials
+are cached locally by the arcgis SDK after the first sign-in.
+
+`local.arcgis.json` (created automatically on first publish, gitignored) stores
+the ArcGIS item IDs for each published layer. Subsequent runs overwrite rather
+than create duplicate items.
+
+### Publish
+
+```bash
+make publish DIR=projects/goats              # publish all layers, create web maps
+make publish DIR=projects/goats MAP=slope    # publish one named map
+```
+
+Under the hood this calls:
+
+```bash
+uv run python -m alidade.publish_arcgis <project_dir> [options]
+```
+
+Options:
+
+- `--map <id>` - publish one named map from the project's `maps` list
+- `--renderer-only` - skip data upload; re-apply renderers to already-registered layers
+- `--dry-run` - prepare data files and print what would be published without making any API calls
+- `--create-maps` - create or update ArcGIS web maps from the project's `maps` list (included automatically by `make publish`)
+- `--story-map-id <item_id>` - update a Story Map after publishing; new web maps are appended
+
+### What gets published
+
+| Layer type | Upload format | ArcGIS type |
+|---|---|---|
+| vector (.geojson) | GeoJSON, reprojected to WGS84 | Feature Layer |
+| vector (.shp / .gpkg) | zipped shapefile | Feature Layer |
+| raster (.tif) | GeoTiff, reprojected to EPSG:3857 | Imagery Layer |
+
+Tile services (XYZ/WMS basemaps) and layers whose output files do not yet
+exist are skipped with a warning.
+
+**Raster renderers** (PalettedRenderer) cannot be applied via the REST API -
+configure color classification in Map Viewer after upload.
+
+## Static map images
+
+`make map DIR=my_project` renders each map in the project's `maps` list to a
+static PNG using matplotlib and geopandas. No GIS application needed - useful
+for quick visual review, documentation, and story maps.
+
+```bash
+make map DIR=projects/goats              # render all maps → output/map_<id>.png
+make map DIR=projects/goats MAP=slope    # render one named map
+```
+
+Output files land in `output/` alongside the built project files. WMS/tile
+basemap layers are skipped (they require a network tile server); raster layers
+are drawn from local `.tif` files.
+
+If `project.py` defines no `maps` list, the default `spec` is rendered as
+`output/map.png`.
+
 ## Build
 
 `make build DIR=my_project` runs black on the project source, loads
@@ -200,22 +315,22 @@ the spec. Steps whose output already exists are skipped.
 
 **QGIS output** (`QGISProject`):
 
-- `output/project.qgs` — open in QGIS; reload after each rebuild with Ctrl-R
-- `output/print.qpt` — print template, when `project.py` has a `print_layout`
+- `output/project.qgs` - open in QGIS; reload after each rebuild with Ctrl-R
+- `output/print.qpt` - print template, when `project.py` has a `print_layout`
   field; US Letter with map frame, title, north arrow, scale bar, legend,
   credits
-- `output/<derived files>` — shapefiles, rasters from processing steps
-- `README.md` — Layers and Data flow sections regenerated from the spec
+- `output/<derived files>` - shapefiles, rasters from processing steps
+- `README.md` - Layers and Data flow sections regenerated from the spec
 
 **ArcGIS Pro output** (`output_format="lyrx"`):
 
-- `output/{layer.id}.lyrx` — one standalone CIM v3.4.0 JSON file per layer;
+- `output/{layer.id}.lyrx` - one standalone CIM v3.4.0 JSON file per layer;
   each file embeds both the symbology and the path to its shapefile
-- `output/<derived files>` — shapefiles, rasters from processing steps
+- `output/<derived files>` - shapefiles, rasters from processing steps
 
 ### Using .lyrx files in ArcGIS Pro
 
-Each `.lyrx` is a self-contained `CIMLayerDocument` — it carries the full
+Each `.lyrx` is a self-contained `CIMLayerDocument` - it carries the full
 renderer (graduated colors, SVG markers, etc.) *and* a data connection that
 points to the shapefile on disk. The data connection uses an absolute path, so
 it must match where the files land on the ArcGIS Pro machine.
@@ -235,12 +350,12 @@ With this set, a source like `./output/census_tracts.shp` in a project at
 
 **Each build:**
 
-1. Run `make build DIR=my_project` on the Mac — `.lyrx` files appear in `output/`.
+1. Run `make build DIR=my_project` on the Mac - `.lyrx` files appear in `output/`.
 2. Copy `output/*.lyrx` and the matching `output/*.shp` (plus `.dbf`, `.shx`,
    `.prj`, `.cpg` sidecar files) to `C:\Users\you\GIS\my_project\output\` on
    the Windows machine.
 3. In ArcGIS Pro, open the **Catalog** pane (*View → Catalog Pane*), navigate
-   to that folder, and drag one or more `.lyrx` files into the map — **or** use
+   to that folder, and drag one or more `.lyrx` files into the map - **or** use
    *Map → Add Data → Add Layer From File*.
 4. Each layer opens with its symbology intact and data already connected.
 
@@ -293,36 +408,29 @@ Create and describe a new layer `national_parks` that filters the `usaparks`
 source to National Park Service polygons.
 
 ```python
-from pathlib import Path
-
 import geopandas as gpd
 
-from alidade.models import Layer, ProcessingStep, PythonAction
+from alidade.models import BoundLayer, Layer, PythonAction
+
+from projects.usaparks.layers.usaparks import usaparks
 
 
-def filter_national_park_service(src: Path, output: Path) -> None:
-    gdf = gpd.read_file(src)
-    gdf[gdf["FCC"] == "D83"].to_file(output)
+def build_national_parks(layer: BoundLayer) -> None:
+    """Filter USAParks to FCC='D83' (NPS units: national parks, monuments, seashores)."""
+    (source_layer,) = layer.inputs
+    gdf = gpd.read_file(source_layer.path)
+    gdf[gdf["FCC"] == "D83"].to_file(layer.path, driver="GPKG")
 
 
 national_parks = Layer(
     id="national_parks",
     name="National Parks",
     type="vector",
-    source="./output/national_parks.shp",
-    provider="ogr",
+    datasource="output/national_parks.gpkg",
     crs="EPSG:3857",
-    visible=True,
     geometry_type="Polygon",
-    processing_step=ProcessingStep(
-        description=(
-            "Filter USAParks to FCC='D83' (National Park Service units:"
-            " national parks, monuments, historic parks, seashores, etc.)."
-        ),
-        action=PythonAction(fn=filter_national_park_service),
-        depends_on=["usaparks"],
-        output=Path("output/national_parks.shp"),
-    ),
+    inputs=[usaparks],
+    action=PythonAction(fn=build_national_parks),
 )
 ```
 
@@ -343,14 +451,14 @@ Inspected `data/USAParks.dbf` to identify TIGER FCC codes:
 
 Created `national_parks` as a derived layer with a `PythonAction` that filters
 `usaparks` to `FCC == "D83"` using geopandas. The filter runs at `make build`
-time and writes `output/national_parks.shp`.
+time and writes `output/national_parks.gpkg`.
 
 Why D83 and not D84/D85: the exercise target is NPS-administered lands
 (national parks, monuments, historic parks, seashores). National Forests
 (D84) and state/local parks (D85) are separate jurisdictions.
 
 **Files created:**
-- `layers/national_parks.py` — processing function defined inline in the layer file
+- `layers/national_parks.py` - processing function defined inline in the layer file
 
 See `DESIGN.md` for architecture decisions and `projects/sample/workflow.md` for an
 example of the LLM prompt log.

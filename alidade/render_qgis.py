@@ -10,9 +10,11 @@ from pathlib import Path
 
 from pyproj import CRS as ProjCRS
 
+from alidade.color import Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
+    Extent,
     GraduatedRenderer,
     Label,
     Layer,
@@ -36,6 +38,11 @@ from alidade.models import (
 HERE = Path(__file__).parent  # alidade/
 
 _QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
+
+# Fallback colors for graduated renderers with no ranges defined.
+GRADUATED_SOURCE_FILL = Color(200, 200, 200, 180)
+GRADUATED_RAMP_START = Color(255, 255, 178)
+GRADUATED_RAMP_END = Color(189, 0, 38)
 
 _ELLIPSOID_EPSG: dict[str, str] = {
     "GRS 1980": "EPSG:7019",
@@ -108,9 +115,9 @@ def _bind_for_render(layer: Layer, project_path: Path) -> BoundLayer:
     return BoundLayer(**fields, project_path=project_path)
 
 
-def _update_extent(root: ET.Element, extent: tuple[float, float, float, float]) -> None:
+def _update_extent(root: ET.Element, extent: Extent) -> None:
     """Write xmin/ymin/xmax/ymax into the theMapCanvas extent element."""
-    xmin, ymin, xmax, ymax = extent
+    xmin, ymin, xmax, ymax = extent.xmin, extent.ymin, extent.xmax, extent.ymax
     for canvas in root.findall("mapcanvas"):
         if canvas.get("name") == "theMapCanvas":
             ext = canvas.find("extent")
@@ -273,15 +280,12 @@ def _renderer_data_defined_properties() -> ET.Element:
     return ddp
 
 
-def _color(c: str) -> str:
-    """Upgrade R,G,B,A color string to QGIS 3.30+ extended format with rgb: suffix."""
-    if any(tag in c for tag in ("rgb:", "hsv:", "hsl:")):
-        return c
-    parts = c.split(",")
-    if len(parts) != 4:
-        return c
-    r, g, b, a = (int(p) for p in parts)
-    return f"{c},rgb:{r/255:.7g},{g/255:.7g},{b/255:.7g},{a/255:.7g}"
+def _color(c: Color) -> str:
+    """Format a Color as QGIS 3.30+ extended format with rgb: suffix."""
+    return (
+        f"{c.r},{c.g},{c.b},{c.a},"
+        f"rgb:{c.r/255:.7g},{c.g/255:.7g},{c.b/255:.7g},{c.a/255:.7g}"
+    )
 
 
 def _opt_map(props: Mapping[str, str]) -> ET.Element:
@@ -477,7 +481,7 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
             ],
         )
         symbols_el.append(_render_symbol(sym, str(i)))
-    src_color = renderer.ranges[0].color if renderer.ranges else "200,200,200,180"
+    src_color = renderer.ranges[0].color if renderer.ranges else GRADUATED_SOURCE_FILL
     src_syms = ET.SubElement(el, "source-symbol")
     src_syms.append(
         _render_symbol(
@@ -494,13 +498,13 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
             "0",
         )
     )
-    c1 = renderer.ranges[0].color if renderer.ranges else "255,255,178,255"
-    c2 = renderer.ranges[-1].color if renderer.ranges else "189,0,38,255"
+    c1 = renderer.ranges[0].color if renderer.ranges else GRADUATED_RAMP_START
+    c2 = renderer.ranges[-1].color if renderer.ranges else GRADUATED_RAMP_END
     cr = ET.SubElement(el, "colorramp", type="gradient", name="[source]")
     cr_opts = ET.SubElement(cr, "Option", type="Map")
     for name, value in [
-        ("color1", c1),
-        ("color2", c2),
+        ("color1", _color(c1)),
+        ("color2", _color(c2)),
         ("direction", "ccw"),
         ("discrete", "0"),
         ("rampType", "gradient"),
@@ -635,7 +639,7 @@ def _build_labeling(label: Label) -> ET.Element:
         fontSize=str(label.font_size),
         fontSizeUnit="Point",
         fontSizeMapUnitScale="3x:0,0,0,0,0,0",
-        textColor=label.color,
+        textColor=_color(label.color),
         textOpacity="1",
         blendMode="0",
         fontItalic="0",
@@ -951,8 +955,8 @@ def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
             palette,
             "paletteEntry",
             value=str(entry.value),
-            color=entry.color,
-            alpha=str(entry.alpha),
+            color=entry.color.hex,
+            alpha=str(entry.color.a),
             label=entry.label,
         )
     ET.SubElement(pipe, "brightnesscontrast", gamma="1", contrast="0", brightness="0")
@@ -1806,14 +1810,14 @@ def _qpt_map_frame(
     _frame_bg(el)
     el.append(_layout_object())
     if spec.extent:
-        xmin, ymin, xmax, ymax = spec.extent
+        e = spec.extent
         ET.SubElement(
             el,
             "Extent",
-            xmin=str(xmin),
-            xmax=str(xmax),
-            ymin=str(ymin),
-            ymax=str(ymax),
+            xmin=str(e.xmin),
+            xmax=str(e.xmax),
+            ymin=str(e.ymin),
+            ymax=str(e.ymax),
         )
     ET.SubElement(el, "LayerSet")
     ET.SubElement(

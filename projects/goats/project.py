@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import Extent, Project
 from projects.goats.layers.basemap import basemap
 from projects.goats.layers.basemap_satellite import basemap_satellite
 from projects.goats.layers.border import border
@@ -20,12 +20,13 @@ from projects.goats.layers.staging_ranked import staging_ranked
 from projects.goats.layers.suitability import suitability
 from projects.goats.util import CRS
 
-EXTENT = (
-    603628.0288069494,
-    4138828.9799421867,
-    607872.9612583271,
-    4140758.2218029452,
-)
+EXTENT = Extent(
+    xmin=-121.82933556539967,
+    ymin=37.389950939471255,
+    xmax=-121.78110958256352,
+    ymax=37.40782156055017,
+    crs="EPSG:4326",
+).to_crs(CRS)
 
 # build all layers
 map_all = Project(
@@ -192,12 +193,13 @@ map_ranked_staging = Project(
 8: Detail map of top staging location, with satellite basemap, priority zones, and
 vegetation zones.
 """
-EXTENT_DETAIL = (
-    604652.0231237924,
-    4138974.3374774046,
-    605629.9647183827,
-    4139559.1397050596,
-)
+EXTENT_DETAIL = Extent(
+    xmin=-121.81774937930001,
+    ymin=37.39151926943471,
+    xmax=-121.80662022350002,
+    ymax=37.39690041368934,
+    crs="EPSG:4326",
+).to_crs(CRS)
 
 map_detail = Project(
     title="Alum Rock Rustic Lands area",

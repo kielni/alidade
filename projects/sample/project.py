@@ -1,4 +1,4 @@
-from alidade.models import Project
+from alidade.models import Extent, Project
 from projects.sample.layers.arp_areas import arp_areas
 from projects.sample.layers.arp_slope import arp_slope
 from projects.sample.layers.cartodb_positron import cartodb_positron
@@ -19,12 +19,13 @@ from projects.sample.layers.unique_values_table import unique_values_table
 spec = Project(
     title="",
     crs="EPSG:26910",
-    extent=(
-        605148.0975601125,
-        4139304.783319104,
-        605845.1453876096,
-        4140093.2879730943,
-    ),
+    extent=Extent(
+        xmin=-121.81209934186269,
+        ymin=37.39447264780004,
+        xmax=-121.80411315462595,
+        ymax=37.40165792373717,
+        crs="EPSG:4326",
+    ).to_crs("EPSG:26910"),
     layers=[
         park_polygon,
         unique_values_table,

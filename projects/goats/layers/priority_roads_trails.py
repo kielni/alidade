@@ -14,6 +14,7 @@ from alidade.models import (
 )
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.roads_trails import roads_trails
+from projects.goats.palette import PRIORITY_ROADS_EDGE, PRIORITY_ROADS_FILL
 from projects.goats.util import BUFFER_30FT_M, CRS, clip_park
 
 
@@ -39,9 +40,9 @@ priority_roads_trails = Layer(
             type="fill",
             layers=[
                 SimpleFill(
-                    color="255,200,0,128",
+                    color=PRIORITY_ROADS_FILL,
                     style="solid",
-                    outline_color="180,140,0,200",
+                    outline_color=PRIORITY_ROADS_EDGE,
                     outline_width=0.5,
                 )
             ],

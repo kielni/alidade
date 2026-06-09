@@ -15,12 +15,12 @@ from alidade.models import (
     Symbol,
 )
 from projects.goats.layers.border import border
+from projects.goats.palette import VEG_EDGE
 from projects.goats.util import (
     BBOX_GENERAL,
     CRS,
     VEGETATION_ZONES,
     clip_border,
-    hex_to_rgba,
     vegetation_rules,
 )
 
@@ -72,9 +72,9 @@ _symbols = [
         type="fill",
         layers=[
             SimpleFill(
-                color=hex_to_rgba(zone.color, 200),
+                color=zone.color.with_alpha(200),
                 style="solid",
-                outline_color="80,80,80,120",
+                outline_color=VEG_EDGE,
                 outline_width=0,
             )
         ],

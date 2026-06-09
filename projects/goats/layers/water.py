@@ -30,6 +30,7 @@ from alidade.models import (
     Symbol,
 )
 from projects.goats.layers.border import border
+from projects.goats.palette import WATER_FILL
 from projects.goats.util import CRS, clip_border
 
 
@@ -58,7 +59,7 @@ water = Layer(
             type="line",
             layers=[
                 SimpleLine(
-                    line_color="68,119,170,255",
+                    line_color=WATER_FILL,
                     line_width=0.6,
                 )
             ],

@@ -15,14 +15,20 @@ from alidade.models import (
     PythonAction,
 )
 from projects.goats.layers.elevation import elevation
+from projects.goats.palette import (
+    SLOPE_GENTLE,
+    SLOPE_MODERATE,
+    SLOPE_STEEP,
+    SLOPE_TOO_STEEP,
+)
 from projects.goats.util import CRS
 
-# Slope categories: (value, lo_pct, hi_pct_exclusive, hex_color, label)
+# Slope categories: (value, lo_pct, hi_pct_exclusive, color, label)
 CLASSES = [
-    (1, 0, 15, "#1a9641", "Flat to gentle (0-15%)"),
-    (2, 15, 27, "#ffffbf", "Moderate (15-27%)"),
-    (3, 27, 58, "#fdae61", "Steep (27-58%)"),
-    (4, 58, None, "#ddd0c0", "Too steep (58%+)"),
+    (1, 0, 15, SLOPE_GENTLE, "Flat to gentle (0-15%)"),
+    (2, 15, 27, SLOPE_MODERATE, "Moderate (15-27%)"),
+    (3, 27, 58, SLOPE_STEEP, "Steep (27-58%)"),
+    (4, 58, None, SLOPE_TOO_STEEP, "Too steep (58%+)"),
 ]
 
 CALC_EXPR = " + ".join(

@@ -306,3 +306,32 @@ files.
 - `layers/park_boundary.py`, `layers/water.py`, `layers/roads_trails.py`,
   `layers/vegetation.py`, `layers/elevation.py`, `layers/developed_area.py`,
   `layers/staging.py` — added `source_description` and `source_origin`
+
+---
+
+## Step 18 — Color system refactor
+
+Replaced scattered color format strings (QGIS `"R,G,B,A"` strings, hex
+literals, matplotlib float tuples) with a single canonical `Color` type.
+
+- `alidade/color.py` — new `Color` frozen dataclass with `from_hex()`,
+  `from_qgis()`, `with_alpha()`, `.qgis`, `.mpl`, `.hex`; `brewer()` helper
+  via palettable; named constants `BLACK`, `DARK_GRAY`, `WHITE`, `TRANSPARENT`,
+  `LABEL_GRAY`.
+- `palette.py` — new file; all project colors as named semantic constants
+  (role-based names, never color-descriptive): `PARK_FILL`, `PARK_BORDER`,
+  `WATER_FILL`, `ROADS_LINE`, `VEG_*`, `SLOPE_*`, `SUITABILITY` (4-class
+  Purples brewer), `STAGING_FILL`, `PRIORITY_*`, `STAGING_RANK_TIERS`,
+  `TARGET_RANK_TIERS`.
+- All `layers/*.py` — inline QGIS strings replaced with named palette
+  constants; `from_qgis()` and `.with_alpha()` used at layer boundaries.
+- `alidade/colors.py` deleted; `colour` dependency replaced by `palettable`.
+
+**Files changed:**
+- `alidade/color.py` (new), `palette.py` (new), `alidade/colors.py` (deleted)
+- `alidade/models.py`, `alidade/render_map.py`, `alidade/render_qgis.py`,
+  `alidade/dump_qgis.py`, `alidade/publish_arcgis.py`
+- `alidade/lyrx/build.py`, `alidade/lyrx/symbols.py`
+- `util.py` — `VegetationZone.color: str` → `Color`; `VEGETATION_ZONES` uses
+  palette constants
+- All 17 `layers/*.py` files

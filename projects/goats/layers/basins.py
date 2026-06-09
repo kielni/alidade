@@ -37,7 +37,8 @@ from projects.goats.layers.elevation import elevation
 from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.suitability import suitability
-from projects.goats.util import CRS, clip_park, hex_to_rgba
+from projects.goats.palette import FEATURE_EDGE, SUITABILITY
+from projects.goats.util import CRS, clip_park
 
 # 1 acre minimum — filters slivers from riparian subtraction and park clipping
 MIN_AREA_M2 = 4_047.0
@@ -63,10 +64,10 @@ _D8_OFFSETS: dict[int, tuple[int, int]] = {
 
 # ColorBrewer Purples 4-class — darker = higher suitability sum
 _BASIN_CLASSES = [
-    ("basin1", "Low", '"basin_class" = 1', "#f2f0f7"),
-    ("basin2", "Moderate", '"basin_class" = 2', "#cbc9e2"),
-    ("basin3", "High", '"basin_class" = 3', "#9e9ac8"),
-    ("basin4", "Very high", '"basin_class" = 4', "#6a51a3"),
+    ("basin1", "Low", '"basin_class" = 1', SUITABILITY[0]),
+    ("basin2", "Moderate", '"basin_class" = 2', SUITABILITY[1]),
+    ("basin3", "High", '"basin_class" = 3', SUITABILITY[2]),
+    ("basin4", "Very high", '"basin_class" = 4', SUITABILITY[3]),
 ]
 
 
@@ -193,9 +194,9 @@ _symbols = [
         type="fill",
         layers=[
             SimpleFill(
-                color=hex_to_rgba(color, 200),
+                color=color,
                 style="solid",
-                outline_color="80,80,80",
+                outline_color=FEATURE_EDGE,
                 outline_width=0.4,
             )
         ],

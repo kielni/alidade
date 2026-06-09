@@ -1,6 +1,9 @@
 from pathlib import Path
 
+from alidade.color import Color
 from alidade.models import Layer, Rule, RuleRenderer, SimpleMarker, SvgMarker, Symbol
+
+_DARK_GRAY = Color.from_hex("#232323")
 
 _renderer = RuleRenderer(
     rules_key="{bb04642b-f9da-4f52-8c90-270a8056b0ff}",
@@ -55,8 +58,8 @@ _renderer = RuleRenderer(
             layers=[
                 SvgMarker(
                     name="transportation (NRGS NPS Respository)/svg/parking_light.svg",
-                    color="75,75,75,255,hsv:0,0,0.29285114824139774,1",
-                    outline_color="0,0,0,255,rgb:0,0,0,1",
+                    color=Color.from_hex("#4b4b4b"),
+                    outline_color=Color.from_hex("#000000"),
                     outline_width=0.4,
                 )
             ],
@@ -66,8 +69,8 @@ _renderer = RuleRenderer(
             layers=[
                 SvgMarker(
                     name="camping (NRGS NPS Respository)/svg/picnic_area_light.svg",
-                    color="25,201,148,255,hsv:0.45000000000000001,0.87450980392156863,0.78823529411764703,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#19c994"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),
@@ -76,8 +79,8 @@ _renderer = RuleRenderer(
             layers=[
                 SvgMarker(
                     name="park_buildings (NRGS NPS Respository)/svg/ranger_light.svg",
-                    color="230,100,193,255,hsv:0.88055555555555554,0.56470588235294117,0.90196078431372551,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#e664c1"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),
@@ -85,9 +88,11 @@ _renderer = RuleRenderer(
             type="marker",
             layers=[
                 SvgMarker(
-                    name="camping (NRGS NPS Respository)/svg/picnic_shelter_light.svg",
-                    color="131,175,229,255,hsv:0.59166666666666667,0.42745098039215684,0.89803921568627454,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    name=(
+                        "camping (NRGS NPS Respository)/svg/picnic_shelter_light.svg"
+                    ),
+                    color=Color.from_hex("#83afe5"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),
@@ -95,8 +100,8 @@ _renderer = RuleRenderer(
             type="marker",
             layers=[
                 SimpleMarker(
-                    color="100,34,200,255,hsv:0.73333333333333328,0.83137254901960789,0.78431372549019607,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#6422c8"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),
@@ -105,8 +110,8 @@ _renderer = RuleRenderer(
             layers=[
                 SvgMarker(
                     name="services (NRGS NPS Respository)/svg/restrooms_light.svg",
-                    color="107,221,87,255,hsv:0.30833333333333335,0.60784313725490191,0.8666666666666667,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#6bdd57"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),
@@ -114,8 +119,8 @@ _renderer = RuleRenderer(
             type="marker",
             layers=[
                 SimpleMarker(
-                    color="230,227,60,255,hsv:0.16388888888888889,0.74117647058823533,0.90196078431372551,1",  # noqa: E501
-                    outline_color="35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1",
+                    color=Color.from_hex("#e6e33c"),
+                    outline_color=_DARK_GRAY,
                 )
             ],
         ),

@@ -2,16 +2,20 @@
 
 from typing import Any
 
-
-def _rgb_color(color_str: str) -> dict[str, Any]:
-    """Return a CIMRGBColor dict from 'R,G,B,A' string. Alpha is 0-255 → 0-100."""
-    parts = color_str.split(",")
-    r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
-    a_100 = round(int(parts[3]) / 255 * 100) if len(parts) > 3 else 100
-    return {"type": "CIMRGBColor", "values": [r, g, b, a_100]}
+from alidade.color import Color
 
 
-def _solid_stroke(color_str: str, width: float) -> dict[str, Any]:
+def _rgb_color(color: Color) -> dict[str, Any]:
+    """Return a CIMRGBColor dict. Alpha is 0-255 → 0-100.
+
+    Stays here rather than on Color: encodes ArcGIS CIM specifics
+    (type name, 0-100 alpha) that color.py should not know about.
+    """
+    a_100 = round(color.a / 255 * 100)
+    return {"type": "CIMRGBColor", "values": [color.r, color.g, color.b, a_100]}
+
+
+def _solid_stroke(color: Color, width: float) -> dict[str, Any]:
     return {
         "type": "CIMSolidStroke",
         "enable": True,
@@ -22,12 +26,12 @@ def _solid_stroke(color_str: str, width: float) -> dict[str, Any]:
         "miterLimit": 10,
         "height3D": 1,
         "width": width,
-        "color": _rgb_color(color_str),
+        "color": _rgb_color(color),
     }
 
 
 def polygon_symbol(
-    fill_color: str, outline_color: str, outline_width: float
+    fill_color: Color, outline_color: Color, outline_width: float
 ) -> dict[str, Any]:
     """Return a CIMSymbolReference for a simple filled polygon.
 
@@ -51,7 +55,7 @@ def polygon_symbol(
     }
 
 
-def line_symbol(color: str, width: float) -> dict[str, Any]:
+def line_symbol(color: Color, width: float) -> dict[str, Any]:
     """Return a CIMSymbolReference for a simple line."""
     return {
         "type": "CIMSymbolReference",

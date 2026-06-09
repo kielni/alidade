@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pyproj import Transformer
 
-from alidade import colors
+from alidade.color import BLACK, DARK_GRAY, LABEL_GRAY, Color
 
 # Styling
 
@@ -13,10 +14,11 @@ from alidade import colors
 
 
 class SimpleFill(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["SimpleFill"] = "SimpleFill"
-    color: str = colors.BLACK
+    color: Color = BLACK
     style: str = "solid"
-    outline_color: str = colors.DARK_GRAY
+    outline_color: Color = DARK_GRAY
     outline_style: str = "solid"
     outline_width: float = 0.5
     outline_width_unit: str = "MM"
@@ -25,8 +27,9 @@ class SimpleFill(BaseModel):
 
 
 class SimpleLine(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["SimpleLine"] = "SimpleLine"
-    line_color: str = colors.BLACK
+    line_color: Color = BLACK
     line_style: str = "solid"
     line_width: float = 0.5
     line_width_unit: str = "MM"
@@ -36,12 +39,13 @@ class SimpleLine(BaseModel):
 
 
 class SvgMarker(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["SvgMarker"] = "SvgMarker"
     name: str  # path to SVG file
     size: float = 6.0
     size_unit: str = "MM"
-    color: str = colors.BLACK
-    outline_color: str = colors.DARK_GRAY
+    color: Color = BLACK
+    outline_color: Color = DARK_GRAY
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
@@ -50,12 +54,13 @@ class SvgMarker(BaseModel):
 
 
 class SimpleMarker(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["SimpleMarker"] = "SimpleMarker"
     name: str = "circle"  # shape: circle, square, diamond, …
     size: float = 2.0
     size_unit: str = "MM"
-    color: str = colors.BLACK
-    outline_color: str = colors.DARK_GRAY
+    color: Color = BLACK
+    outline_color: Color = DARK_GRAY
     outline_width: float = 0.0
     outline_width_unit: str = "MM"
     angle: float = 0.0
@@ -103,9 +108,9 @@ class RuleRenderer(BaseModel):
 
 
 class PaletteEntry(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     value: int
-    color: str  # "#rrggbb"
-    alpha: int = 255
+    color: Color
     label: str = ""
 
 
@@ -117,17 +122,19 @@ class PalettedRenderer(BaseModel):
 
 
 class GraduatedRange(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     lower: float
     upper: float
     label: str = ""
-    color: str  # "R,G,B,A"
+    color: Color
 
 
 class GraduatedRenderer(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     kind: Literal["graduated"] = "graduated"
     attr: str  # field name to classify on
     ranges: list[GraduatedRange]
-    outline_color: str = colors.DARK_GRAY
+    outline_color: Color = DARK_GRAY
     outline_width: float = 0.26
     outline_style: str = "solid"
 
@@ -141,11 +148,12 @@ Renderer = Annotated[
 
 
 class Label(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     field: str  # shapefile field name to display as label text
     font_family: str = "Open Sans"
     font_size: float = 10.0
     bold: bool = True
-    color: str = colors.LABEL_GRAY
+    color: Color = LABEL_GRAY
     y_offset: float = 2.0  # MM offset above the point symbol
 
 
@@ -273,6 +281,53 @@ class PrintLayout(BaseModel):
 
 # Data
 
+# ── Extent ────────────────────────────────────────────────────────────────────
+
+
+class Extent(BaseModel):
+    """Map canvas bounding box with a CRS.
+
+    Coordinates are in the units of crs (metres for UTM, degrees for WGS84).
+
+    To get values without QGIS: draw a box on boundingbox.io to get WGS84
+    degrees, then call Extent(..., crs="EPSG:4326").to_crs("EPSG:26910") to
+    reproject into the project CRS.
+
+    With a QGIS project file, run `make extent DIR=<project_dir>` after saving
+    the project file to output/project.qgs.
+    """
+
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+    crs: str
+
+    def as_tuple(self) -> tuple[float, float, float, float]:
+        return (self.xmin, self.ymin, self.xmax, self.ymax)
+
+    def to_crs(self, target_crs: str) -> "Extent":
+        """Reproject to target_crs, computing the bbox of all four corners."""
+        t = Transformer.from_crs(self.crs, target_crs, always_xy=True)
+        corners = [
+            t.transform(self.xmin, self.ymin),
+            t.transform(self.xmax, self.ymin),
+            t.transform(self.xmin, self.ymax),
+            t.transform(self.xmax, self.ymax),
+        ]
+        xs = [c[0] for c in corners]
+        ys = [c[1] for c in corners]
+        return Extent(
+            xmin=min(xs), ymin=min(ys), xmax=max(xs), ymax=max(ys), crs=target_crs
+        )
+
+    def to_wgs84(self) -> "Extent":
+        return self.to_crs("EPSG:4326")
+
+    def to_web_mercator(self) -> "Extent":
+        return self.to_crs("EPSG:3857")
+
+
 # ── Project ───────────────────────────────────────────────────────────────────
 
 
@@ -285,7 +340,7 @@ class Project(BaseModel):
     title: str
     crs: str
     layers: list[Layer]
-    extent: tuple[float, float, float, float] | None = None
+    extent: Extent | None = None
     print_layout: PrintLayout | None = None
     extra: dict[str, Any] = {}
 
