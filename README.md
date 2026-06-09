@@ -251,6 +251,24 @@ exist are skipped with a warning.
 **Raster renderers** (PalettedRenderer) cannot be applied via the REST API -
 configure color classification in Map Viewer after upload.
 
+## Static map images
+
+`make map DIR=my_project` renders each map in the project's `maps` list to a
+static PNG using matplotlib and geopandas. No GIS application needed - useful
+for quick visual review, documentation, and story maps.
+
+```bash
+make map DIR=projects/goats              # render all maps → output/map_<id>.png
+make map DIR=projects/goats MAP=slope    # render one named map
+```
+
+Output files land in `output/` alongside the built project files. WMS/tile
+basemap layers are skipped (they require a network tile server); raster layers
+are drawn from local `.tif` files.
+
+If `project.py` defines no `maps` list, the default `spec` is rendered as
+`output/map.png`.
+
 ## Build
 
 `make build DIR=my_project` runs black on the project source, loads

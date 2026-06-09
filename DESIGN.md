@@ -44,7 +44,7 @@ alidade/
     dump_qgis.py           # .qgz → layers/*.py + styles/*.xml  (QGIS only)
     render_qgis.py         # project.py → output/project.qgs   (QGIS)
     render_lyrx.py         # project.py → output/{layer.id}.lyrx  (ArcGIS Pro)
-    render_map.py          # project.py → output/{map.id}.png  (static PNG via matplotlib)
+    render_map.py          # project.py → output/map_<id>.png for each map in maps list
     lyrx/                  # CIM builder subpackage (data_connection, symbols, renderers, build)
     build.py               # entry point; dispatches on output_format
     publish_arcgis.py      # publish layers + web maps to ArcGIS Online

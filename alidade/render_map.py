@@ -28,7 +28,7 @@ from alidade.models import (
     SingleSymbol,
     SvgMarker,
 )
-from alidade.util.helpers import bind_project
+from alidade.util.helpers import bind_project, load_project_module
 
 
 def _hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[float, float, float, float]:
@@ -315,12 +315,31 @@ def render(
 
 
 def main() -> None:
-    """CLI entry point: render map.png for a project directory."""
-    parser = argparse.ArgumentParser(description="Render map.png for a project.")
+    """CLI entry point: render map PNG(s) for a project directory."""
+    parser = argparse.ArgumentParser(description="Render map PNG(s) for a project.")
     parser.add_argument("project_dir", help="Path to project directory")
+    parser.add_argument(
+        "--map",
+        dest="map_id",
+        default=None,
+        help="Render one named map by ID (default: render all maps)",
+    )
     args = parser.parse_args()
-    project_dir = (Path.cwd() / args.project_dir).resolve()
-    if not (project_dir / "project.py").exists():
-        print(f"project.py not found in {project_dir}")
-        sys.exit(1)
-    render(bind_project(project_dir))
+    project_path = (Path.cwd() / args.project_dir).resolve()
+    module = load_project_module(project_path)
+
+    project_maps = getattr(module, "maps", [])
+    if args.map_id:
+        project_maps = [m for m in project_maps if m.id == args.map_id]
+        if not project_maps:
+            print(f"Map {args.map_id!r} not found", file=sys.stderr)
+            sys.exit(1)
+
+    if project_maps:
+        for spec in project_maps:
+            bound = BoundProject(
+                **spec.model_dump(mode="python"), project_path=project_path
+            )
+            render(bound, f"map_{spec.id}")
+    else:
+        render(bind_project(project_path))
