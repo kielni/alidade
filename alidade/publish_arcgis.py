@@ -1028,7 +1028,17 @@ def main() -> None:
 
     # Load project — same resolution as bind_project / alidade-build
     project_path = (Path.cwd() / args.project_dir).resolve()
-    package = ".".join(project_path.relative_to(_REPO_ROOT).parts)
+    try:
+        rel_parts = project_path.relative_to(_REPO_ROOT).parts
+    except ValueError:
+        # project_path resolved through a symlink; find matching entry in projects/
+        for _c in (_REPO_ROOT / "projects").glob("*"):
+            if _c.is_symlink() and _c.resolve() == project_path:
+                rel_parts = _c.relative_to(_REPO_ROOT).parts
+                break
+        else:
+            raise
+    package = ".".join(rel_parts)
     module = importlib.import_module(f"{package}.project")
 
     if args.map_name:
