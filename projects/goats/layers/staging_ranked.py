@@ -13,6 +13,7 @@ import geopandas as gpd
 
 from alidade.models import (
     BoundLayer,
+    Label,
     Layer,
     PythonAction,
     Rule,
@@ -106,5 +107,6 @@ staging_ranked = Layer(
         rules=_rules,
         symbols=_symbols,
     ),
+    label=Label(field="name"),
     action=PythonAction(fn=build_staging_ranked),
 )

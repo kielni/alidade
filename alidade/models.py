@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pyproj import Transformer
 
-from alidade.color import BLACK, DARK_GRAY, LABEL_GRAY, Color
+from alidade.color import BLACK, DARK_GRAY, Color
 
 # Styling
 
@@ -153,7 +153,7 @@ class Label(BaseModel):
     font_family: str = "Open Sans"
     font_size: float = 10.0
     bold: bool = True
-    color: Color = LABEL_GRAY
+    color: Color = BLACK
     y_offset: float = 2.0  # MM offset above the point symbol
 
 

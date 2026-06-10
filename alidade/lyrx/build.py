@@ -9,9 +9,10 @@ from typing import Any
 from alidade.color import Color
 from alidade.lyrx.data_connection import build_data_connection
 from alidade.lyrx.renderers import class_break, class_breaks_renderer, simple_renderer
-from alidade.lyrx.symbols import line_symbol, point_symbol, polygon_symbol
+from alidade.lyrx.symbols import _rgb_color, line_symbol, point_symbol, polygon_symbol
 from alidade.models import (
     GraduatedRenderer,
+    Label,
     Layer,
     SimpleFill,
     SimpleLine,
@@ -31,6 +32,58 @@ def _svg_data_uri(svg_path: Path, fill_color: Color) -> str:
     svg = re.sub(r'param\(fill\)[^"]*', fill_color.hex, svg)
     b64 = base64.b64encode(svg.encode()).decode()
     return f"data:image/svg+xml;base64,{b64}"
+
+
+def _build_label_class(label: Label) -> dict[str, Any]:
+    """Return a CIMLabelClass dict for the given Label spec."""
+    font_style = "Bold" if label.bold else "Regular"
+    offset_pt = label.y_offset * _MM_TO_PT
+    return {
+        "type": "CIMLabelClass",
+        "expression": f"[{label.field}]",
+        "expressionEngine": "VBScript",
+        "featuresToLabel": "AllVisibleFeatures",
+        "maplexLabelPlacementProperties": {
+            "type": "CIMMaplexLabelPlacementProperties",
+            "featureType": "Point",
+            "primaryOffset": offset_pt,
+            "primaryOffsetUnit": "Point",
+            "pointPlacementMethod": "AroundPoint",
+        },
+        "standardLabelPlacementProperties": {
+            "type": "CIMStandardLabelPlacementProperties",
+            "featureType": "Point",
+            "featureWeight": "None",
+            "labelWeight": "High",
+            "numLabelsOption": "OneLabelPerName",
+            "pointPlacementMethod": "AroundPoint",
+        },
+        "textSymbol": {
+            "type": "CIMSymbolReference",
+            "symbol": {
+                "type": "CIMTextSymbol",
+                "fontFamilyName": label.font_family,
+                "fontStyleName": font_style,
+                "height": label.font_size,
+                "symbol": {
+                    "type": "CIMPolygonSymbol",
+                    "symbolLayers": [
+                        {
+                            "type": "CIMSolidFill",
+                            "enable": True,
+                            "color": _rgb_color(label.color),
+                        }
+                    ],
+                },
+            },
+        },
+        "useCodedValue": True,
+        "whereClause": "",
+        "name": "Class 1",
+        "priority": -1,
+        "visibility": True,
+        "iD": -1,
+    }
 
 
 def _build_renderer(layer: Layer, project_dir: Path) -> dict[str, Any] | None:
@@ -102,6 +155,9 @@ def _build_feature_layer(layer: Layer, project_dir: Path) -> dict[str, Any]:
     renderer = _build_renderer(layer, project_dir)
     if renderer is not None:
         doc["renderer"] = renderer
+    if layer.label is not None:
+        doc["labelClasses"] = [_build_label_class(layer.label)]
+        doc["labelVisibility"] = True
     return doc
 
 

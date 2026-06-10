@@ -6,6 +6,7 @@ import geopandas as gpd
 
 from alidade.models import (
     BoundLayer,
+    Label,
     Layer,
     PythonAction,
     SimpleMarker,
@@ -46,5 +47,6 @@ staging = Layer(
             ],
         )
     ),
+    label=Label(field="name"),
     action=PythonAction(fn=reproject_staging),
 )

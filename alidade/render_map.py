@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import geopandas as gpd
+import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +21,7 @@ from alidade.models import (
     BoundLayer,
     BoundProject,
     GraduatedRenderer,
+    Label,
     Layer,
     PalettedRenderer,
     RuleRenderer,
@@ -94,16 +96,56 @@ def _ms(mm: float) -> float:
     return (mm * 2.8) ** 2
 
 
+_LABEL_SCALE = 0.5  # QGIS pt → matplotlib pt; compensates for smaller figure size
+
+
+def _font_available(family: str) -> bool:
+    """Return True if matplotlib can resolve family without falling back."""
+    path = fm.findfont(fm.FontProperties(family=family), fallback_to_default=True)
+    return fm.FontProperties(fname=path).get_name().lower() == family.lower()
+
+
+def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> None:
+    """Annotate point features with text labels from a Layer's Label spec."""
+    weight = "bold" if label.bold else "normal"
+    offset_pt = label.y_offset * 2.8
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None:
+            continue
+        pt = geom.centroid
+        text = str(row[label.field]) if label.field in row.index else ""
+        if not text or text == "nan":
+            continue
+        kwargs: dict = {}
+        if _font_available(label.font_family):
+            kwargs["fontfamily"] = label.font_family
+        ax.annotate(
+            text,
+            xy=(pt.x, pt.y),
+            xytext=(0, offset_pt),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=label.font_size * _LABEL_SCALE,
+            fontweight=weight,
+            color=label.color.matplotlib_rgba,
+            zorder=zorder,
+            **kwargs,
+        )
+
+
 def _plot_layer(
     ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer, zorder: int = 1
 ) -> list[mpatches.Patch]:
     """Plot one layer onto ax; return legend patch handles for classified layers."""
     renderer = layer.renderer
+    handles: list[mpatches.Patch] = []
+
     if renderer is None:
         gdf.plot(ax=ax, color=Color(128, 128, 128, 128).matplotlib_rgba, zorder=zorder)
-        return []
 
-    if isinstance(renderer, SingleSymbol):
+    elif isinstance(renderer, SingleSymbol):
         sym = renderer.symbol.layers[0]
         if isinstance(sym, SimpleFill):
             gdf.plot(
@@ -127,13 +169,11 @@ def _plot_layer(
                 markersize=_ms(sym.size),
                 zorder=zorder,
             )
-        return []
 
-    if isinstance(renderer, GraduatedRenderer):
+    elif isinstance(renderer, GraduatedRenderer):
         ec = renderer.outline_color.matplotlib_rgba
         lw = _lw(renderer.outline_width)
         col = renderer.attr
-        handles: list[mpatches.Patch] = []
         assigned = pd.Series(False, index=gdf.index)
         for r in renderer.ranges:
             mask = (~assigned) & (gdf[col] >= r.lower) & (gdf[col] <= r.upper)
@@ -145,10 +185,8 @@ def _plot_layer(
                 )
             handles.append(mpatches.Patch(facecolor=fc, edgecolor=ec, label=r.label))
             assigned = assigned | mask
-        return handles
 
-    if isinstance(renderer, RuleRenderer):
-        handles = []
+    elif isinstance(renderer, RuleRenderer):
         matched = pd.Series(False, index=gdf.index)
         for rule in renderer.rules:
             if not rule.active:
@@ -202,9 +240,11 @@ def _plot_layer(
                         facecolor=sym.color.matplotlib_rgba, label=rule.label
                     )
                 )
-        return handles
 
-    return []
+    if layer.label is not None:
+        _plot_labels(ax, gdf, layer.label, zorder=zorder + 1)
+
+    return handles
 
 
 def render(

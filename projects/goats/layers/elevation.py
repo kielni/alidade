@@ -1,6 +1,7 @@
 """
 USGS 1/3 arc-second digital elevation model (DEM)
 
+https://www.sciencebase.gov/catalog/item/6a2776cf1ba49b927058c152
 https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38w122/USGS_13_n38w122_20250826.tif
 
 Checked in version is cropped to project area via
