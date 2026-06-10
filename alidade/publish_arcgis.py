@@ -25,6 +25,7 @@ from alidade.color import Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
+    Extent,
     GraduatedRenderer,
     PalettedRenderer,
     RuleRenderer,
@@ -432,6 +433,34 @@ def _prepare_raster(layer: BoundLayer, publish_dir: Path) -> Path:
 # ── Upload helpers ────────────────────────────────────────────────────────────
 
 
+def _delete_service(item: Any) -> None:
+    """Rename a feature service to a hex-suffixed title before deleting it.
+
+    ArcGIS Online does not immediately release a service name on delete; the
+    name stays reserved until the item is renamed away from it first.  Using
+    the original title plus a unique suffix (rather than a fixed prefix) keeps
+    the reserved name distinct from new publishes, which also use
+    {layer_id}_{hex} naming.
+    """
+    item.update(item_properties={"title": f"{item.title}_{uuid.uuid4().hex[:8]}"})
+    item.delete()
+
+
+def _publish_src_item(src_item: Any, layer_id: str, layer_name: str) -> Any:
+    """Publish a source item using a UUID-suffixed service name, then rename the
+    item title to the human-readable layer name.
+
+    A unique service name avoids conflicts with stale names reserved by
+    ArcGIS Online's soft-delete behaviour (delete does not immediately release
+    the service name).
+    """
+    service_name = f"{layer_id}_{uuid.uuid4().hex[:8]}"
+    pub_item = src_item.publish(publish_parameters={"name": service_name})
+    if pub_item.title != layer_name:
+        pub_item.update(item_properties={"title": layer_name})
+    return pub_item
+
+
 def _upload_item(
     root_folder: Any,
     gis: "GIS",
@@ -528,7 +557,7 @@ def _publish_layer(
             if known_id:
                 old = gis.content.get(known_id)
                 if old:
-                    old.delete()
+                    _delete_service(old)
                     print(f"    Deleted existing item {known_id}")
             else:
                 hits = gis.content.search(
@@ -537,7 +566,7 @@ def _publish_layer(
                 )
                 for hit in hits:
                     if hit.title == layer.name:
-                        hit.delete()
+                        _delete_service(hit)
                         print(f"    Deleted stale image service {hit.id}")
             raster_context: dict[str, Any] | None = None
             if isinstance(layer.renderer, PalettedRenderer):
@@ -580,21 +609,38 @@ def _publish_layer(
             if item and "Feature" not in item.type:
                 # Registered item is an image service (e.g. previous raster
                 # publish); delete it so we can replace with a feature layer.
-                item.delete()
+                _delete_service(item)
                 print(f"    Deleted old {item.type} (replacing with feature layer)")
                 ids = {}
                 item = None
             if item:
-                FeatureLayerCollection.fromitem(item).manager.overwrite(
-                    str(upload_path)
-                )
-                item_registry[layer.id] = {
-                    **ids,
-                    "src_mtime": stat.st_mtime,
-                    "src_size": stat.st_size,
-                }
-                _save_registry(_ARCGIS_JSON, item_registry)
-                print(f"    Overwrote {ids['feature_item_id']}")
+                try:
+                    FeatureLayerCollection.fromitem(item).manager.overwrite(
+                        str(upload_path)
+                    )
+                    item_registry[layer.id] = {
+                        **ids,
+                        "src_mtime": stat.st_mtime,
+                        "src_size": stat.st_size,
+                    }
+                    _save_registry(_ARCGIS_JSON, item_registry)
+                    print(f"    Overwrote {ids['feature_item_id']}")
+                except Exception as exc:
+                    if "name and extension" not in str(exc):
+                        raise
+                    # File format changed (e.g. shapefile → GeoJSON); delete
+                    # the existing item and fall through to re-publish below.
+                    print(
+                        f"    Format mismatch; deleting "
+                        f"{ids['feature_item_id']} and re-publishing"
+                    )
+                    src_id = ids.get("source_item_id")
+                    if src_id:
+                        old_src = gis.content.get(src_id)
+                        if old_src:
+                            old_src.delete()
+                    _delete_service(item)
+                    ids = {}
             elif ids.get("feature_item_id"):
                 print(
                     f"  Warning: feature_item_id={ids['feature_item_id']!r} "
@@ -615,7 +661,7 @@ def _publish_layer(
                 item_type=item_type,
                 upload_path=upload_path,
             )
-            pub_item = src_item.publish()
+            pub_item = _publish_src_item(src_item, layer.id, layer.name)
             item_registry[layer.id] = {
                 "source_item_id": src_item.id,
                 "feature_item_id": pub_item.id,
@@ -669,14 +715,14 @@ def _layer_item_ids_for_map(
 
 
 def _reproject_extent(
-    extent: tuple[float, float, float, float],
+    extent: Extent,
     src_crs: str,
     dst_crs: str = "EPSG:4326",
 ) -> tuple[float, float, float, float]:
-    """Reproject (xmin, ymin, xmax, ymax) from src_crs to dst_crs."""
+    """Reproject an Extent from src_crs to dst_crs."""
     tf = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
-    xmin, ymin = tf.transform(extent[0], extent[1])
-    xmax, ymax = tf.transform(extent[2], extent[3])
+    xmin, ymin = tf.transform(extent.xmin, extent.ymin)
+    xmax, ymax = tf.transform(extent.xmax, extent.ymax)
     return (xmin, ymin, xmax, ymax)
 
 
