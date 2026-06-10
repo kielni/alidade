@@ -47,7 +47,7 @@ boundary.
 
 ### The Study Area
 
-![Park boundary, staging areas, creek, roads and trails](../output/map_park.png)
+![Park boundary, staging areas, creek, roads and trails](map_park.png)
 
 Alum Rock Park occupies a narrow east-west canyon in the Diablo Range foothills. Penitencia
 Creek runs through the canyon floor. The main park road and a network of trails provide
@@ -60,7 +60,7 @@ benefits from nearby fuel reduction.
 
 ### Terrain: Where Can Goats Work?
 
-![Slope analysis derived from USGS digital elevation model](../output/map_slope.png)
+![Slope analysis derived from USGS digital elevation model](map_slope.png)
 
 A digital elevation model (DEM) is a grid of elevation measurements, in this case from
 USGS satellite data at roughly 10-meter resolution, that can be used to calculate the
@@ -80,7 +80,7 @@ and lower hillsides are manageable; much of the remote eastern part of the park 
 
 ### Vegetation: What Are the Targets?
 
-![Vegetation classification map](../output/map_vegetation.png)
+![Vegetation classification map](map_vegetation.png)
 
 The [Santa Cruz/Santa Clara fine-scale vegetation map](https://tukmangeospatial.egnyte.com/dl/DvNTI67dWG)
 classifies the park's plant communities into 121 species-level categories, as well as a lifeform field that describes the general growth form of the dominant plant
@@ -101,7 +101,7 @@ developed land, are:
 
 ### Constraints and Priority Zones
 
-![Exclusion and priority zones](../output/map_zones.png)
+![Exclusion and priority zones](map_zones.png)
 
 Before scoring candidate areas, two types of spatial rules were applied:
 
@@ -126,7 +126,7 @@ Before scoring candidate areas, two types of spatial rules were applied:
 
 ### Combined Suitability
 
-![Weighted overlay suitability surface](../output/map_suitability.png)
+![Weighted overlay suitability surface](map_suitability.png)
 
 Each location in the park was scored by combining four factors into a single suitability
 score. Each factor carries equal weight:
@@ -144,7 +144,7 @@ network on accessible slopes.
 
 ### Recommended Grazing Zones Overview
 
-![Recommended grazing zones with ranked staging areas](../output/map_targets_cluster.png)
+![Recommended grazing zones with ranked staging areas](map_targets_cluster.png)
 
 The suitability data was converted into discrete grazing zones by grouping adjacent
 high-suitability areas, smoothing edges, and filtering out patches smaller than about
@@ -160,7 +160,7 @@ cluster of accessible shrubland directly adjacent to the main trail corridor.
 
 ### Detail: Rustic Lands Priority Zone
 
-![Detail map of highest-priority area near western entrance](../output/map_detail.png)
+![Detail map of highest-priority area near western entrance](map_detail.png)
 
 This close-up view shows the area around Rustic Lands, the highest-ranked staging
 area. This staging area
