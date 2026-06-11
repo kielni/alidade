@@ -108,9 +108,19 @@ cp local.env.example local.env   # edit if QGIS is not at the default path
 ```
 
 `uv sync` installs `alidade` into the project virtualenv in editable mode, so
-the `alidade-build`, `alidade-dump`, `alidade-extent`, and `alidade-validate`
-console scripts are available via `uv run`. Project layer files import from
-`alidade.models` like any other installed package.
+the console scripts are available via `uv run`:
+
+| Script | Purpose |
+|---|---|
+| `alidade-build` | Full build: generate `GEN.mk`, invoke make, render |
+| `alidade-build-layer` | Build exactly one layer by id (called from `GEN.mk` recipes) |
+| `alidade-makefile` | Generate `output/GEN.mk` from the layer graph without running make |
+| `alidade-map` | Render map PNGs without a full rebuild |
+| `alidade-dump` | Import a `.qgz` into a project directory |
+| `alidade-extent` | Print the canvas extent from a saved `.qgs` |
+| `alidade-validate` | Check that all source and style paths exist |
+
+Project layer files import from `alidade.models` like any other installed package.
 
 ### QGIS setup
 
@@ -188,9 +198,9 @@ human-friendly names before committing.
   into the map (see [Using .lyrx files in ArcGIS Pro](#using-lyrx-files-in-arcgis-pro)).
 - Commit `project.py` and updated layer files.
 
-For derived rasters, run `make build --force DIR=my_project` when source data
-or a processing command changes. This re-runs stale transforms in dependency
-order before rendering.
+For derived rasters, run `make build-all DIR=my_project` when source data
+or a processing command changes. This forces all processing steps to re-run
+regardless of timestamps before rendering.
 
 ## Colors
 
@@ -309,9 +319,15 @@ If `project.py` defines no `maps` list, the default `spec` is rendered as
 
 ## Build
 
-`make build DIR=my_project` runs black on the project source, loads
-`project.py`, runs any stale processing steps in dependency order, and renders
-the spec. Steps whose output already exists are skipped.
+`make build DIR=my_project` generates `output/GEN.mk` from the layer graph,
+invokes make against it to run any stale processing steps in dependency order,
+then renders the spec. Each layer output is a make target; make skips it when
+the output file is newer than its source files and inputs. Formatting (`black`)
+is tracked by an `output/.formatted` stamp and runs only when a source file
+changes.
+
+`make build-all DIR=my_project` forces all processing steps to re-run
+regardless of timestamps.
 
 **QGIS output** (`QGISProject`):
 

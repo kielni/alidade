@@ -4,6 +4,7 @@ Large flat areas suitable for goat staging.
 
 import geopandas as gpd
 
+from alidade.color import WHITE
 from alidade.models import (
     BoundLayer,
     Label,
@@ -47,6 +48,6 @@ staging = Layer(
             ],
         )
     ),
-    label=Label(field="name"),
+    label=Label(field="name", halo_color=WHITE),
     action=PythonAction(fn=reproject_staging),
 )

@@ -1,15 +1,16 @@
 """Render a Project spec to a static PNG using matplotlib and geopandas."""
 
 import argparse
-import json
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+import rasterio
 
 import geopandas as gpd
 import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -35,17 +36,11 @@ from alidade.util.helpers import bind_project, load_project_module
 
 
 def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
-    """Return (xmin, ymin, xmax, ymax) for a raster via gdalinfo, or None."""
+    """Return (xmin, ymin, xmax, ymax) for a raster, or None."""
     try:
-        result = subprocess.run(
-            ["gdalinfo", "-json", str(source)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        cc = json.loads(result.stdout)["cornerCoordinates"]
-        ul, lr = cc["upperLeft"], cc["lowerRight"]
-        return ul[0], lr[1], lr[0], ul[1]
+        with rasterio.open(source) as ds:
+            b = ds.bounds
+            return b.left, b.bottom, b.right, b.top
     except Exception:
         return None
 
@@ -120,7 +115,7 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
         kwargs: dict = {}
         if _font_available(label.font_family):
             kwargs["fontfamily"] = label.font_family
-        ax.annotate(
+        ann = ax.annotate(
             text,
             xy=(pt.x, pt.y),
             xytext=(0, offset_pt),
@@ -133,6 +128,15 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
             zorder=zorder,
             **kwargs,
         )
+        if label.halo_color is not None:
+            ann.set_path_effects(
+                [
+                    pe.withStroke(
+                        linewidth=label.halo_size,
+                        foreground=label.halo_color.matplotlib_rgba,
+                    )
+                ]
+            )
 
 
 def _plot_layer(

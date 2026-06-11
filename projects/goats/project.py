@@ -173,7 +173,7 @@ map_target_zones = Project(
 7: Prioritized staging areas based on access to target zones
 """
 map_ranked_staging = Project(
-    title="Alum Rock Goat Grazing Staging",
+    title="Alum Rock Target Staging",
     id="targets_cluster",
     crs=CRS,
     extent=EXTENT,

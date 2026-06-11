@@ -8,9 +8,11 @@ import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from pathlib import Path
 
+import pyogrio  # type: ignore[import-untyped]
+
 from pyproj import CRS as ProjCRS
 
-from alidade.color import Color
+from alidade.color import BLACK, WHITE, Color
 from alidade.models import (
     BoundLayer,
     BoundProject,
@@ -109,12 +111,6 @@ def _qgs_datasource(layer: BoundLayer) -> str:
     return prefix + rel + suffix
 
 
-def _bind_for_render(layer: Layer, project_path: Path) -> BoundLayer:
-    """Bind a layer to a project_path for rendering (inputs not needed)."""
-    fields = {f: getattr(layer, f) for f in Layer.model_fields if f != "inputs"}
-    return BoundLayer(**fields, project_path=project_path)
-
-
 def _update_extent(root: ET.Element, extent: Extent) -> None:
     """Write xmin/ymin/xmax/ymax into the theMapCanvas extent element."""
     xmin, ymin, xmax, ymax = extent.xmin, extent.ymin, extent.xmax, extent.ymax
@@ -136,47 +132,52 @@ def _update_extent(root: ET.Element, extent: Extent) -> None:
             break
 
 
-def _fill_spatialrefsys(srs_el: ET.Element, authid: str) -> None:
-    """Populate an existing <spatialrefsys> element with CRS data from pyproj."""
-    crs = ProjCRS(authid)
-    epsg_code = authid.split(":")[-1]
+def _crs_attrs(crs_id: str) -> dict[str, str]:
+    """Return CRS metadata dict for crs_id, keyed by QGS spatialrefsys child tag
+    names."""
+    crs = ProjCRS(crs_id)
+    epsg_code = crs_id.split(":")[-1]
     try:
         proj4 = crs.to_proj4()
     except Exception:
         proj4 = ""
     proj_match = re.search(r"\+proj=(\S+)", proj4)
     projectionacronym = proj_match.group(1) if proj_match else ""
-    ellipsoidacronym = ""
-    if crs.ellipsoid is not None:
-        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
-    fields = [
-        ("wkt", crs.to_wkt()),
-        ("proj4", proj4),
-        ("srsid", str(_QGIS_SRSID.get(authid, 0))),
-        ("srid", epsg_code),
-        ("authid", authid),
-        ("description", crs.name),
-        ("projectionacronym", projectionacronym),
-        ("ellipsoidacronym", ellipsoidacronym),
-        ("geographicflag", "true" if crs.is_geographic else "false"),
-    ]
-    for tag, val in fields:
+    ellipsoidacronym = (
+        _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "") if crs.ellipsoid is not None else ""
+    )
+    return {
+        "wkt": crs.to_wkt(),
+        "proj4": proj4,
+        "srsid": str(_QGIS_SRSID.get(crs_id, 0)),
+        "srid": epsg_code,
+        "authid": crs_id,
+        "description": crs.name,
+        "projectionacronym": projectionacronym,
+        "ellipsoidacronym": ellipsoidacronym,
+        "geographicflag": "true" if crs.is_geographic else "false",
+    }
+
+
+def _fill_spatialrefsys(srs_el: ET.Element, crs_id: str) -> None:
+    """Populate an existing <spatialrefsys> element with CRS data from pyproj."""
+    for tag, val in _crs_attrs(crs_id).items():
         el = srs_el.find(tag)
         if el is None:
             el = ET.SubElement(srs_el, tag)
         el.text = val
 
 
-def _update_crs(root: ET.Element, authid: str) -> None:
+def _update_crs(root: ET.Element, crs_id: str) -> None:
     """Populate projectCrs and theMapCanvas/destinationsrs with the project CRS."""
     srs = root.find("projectCrs/spatialrefsys")
     if srs is not None:
-        _fill_spatialrefsys(srs, authid)
+        _fill_spatialrefsys(srs, crs_id)
     for canvas in root.findall("mapcanvas"):
         if canvas.get("name") == "theMapCanvas":
             srs = canvas.find("destinationsrs/spatialrefsys")
             if srs is not None:
-                _fill_spatialrefsys(srs, authid)
+                _fill_spatialrefsys(srs, crs_id)
             break
 
 
@@ -188,14 +189,13 @@ def _update_title(root: ET.Element, title: str) -> None:
     root.set("projectname", title)
 
 
-def _rebuild_layer_tree(root: ET.Element, spec: BoundProject) -> None:
-    """Rebuild the <layer-tree-group> in root from spec layers."""
+def _rebuild_layer_tree(root: ET.Element, layers: list[BoundLayer]) -> None:
+    """Rebuild the <layer-tree-group> in root from bound layers."""
     ltg = root.find("layer-tree-group")
     if ltg is None:
         return
 
-    for layer in spec.layers:
-        bound = _bind_for_render(layer, spec.project_path)
+    for layer in layers:
         checked = "Qt::Checked" if layer.visible else "Qt::Unchecked"
         ltl = ET.SubElement(
             ltg,
@@ -206,7 +206,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: BoundProject) -> None:
             providerKey=layer.provider,
             patch_size="-1,-1",
             id=layer.id,
-            source=_qgs_datasource(bound),
+            source=_qgs_datasource(layer),
             expanded="1",
             name=layer.name,
         )
@@ -214,18 +214,18 @@ def _rebuild_layer_tree(root: ET.Element, spec: BoundProject) -> None:
         ET.SubElement(cp, "Option")
 
     custom_order = ET.SubElement(ltg, "custom-order", enabled="0")
-    for layer in spec.layers:
+    for layer in layers:
         item = ET.SubElement(custom_order, "item")
         item.text = layer.id
 
 
-def _rebuild_legend(root: ET.Element, spec: BoundProject) -> None:
-    """Rebuild the <legend> in root from spec layers."""
+def _rebuild_legend(root: ET.Element, layers: list[BoundLayer]) -> None:
+    """Rebuild the <legend> in root from bound layers."""
     legend = root.find("legend")
     if legend is None:
         legend = ET.SubElement(root, "legend", updateDrawingOrder="true")
 
-    for layer in spec.layers:
+    for layer in layers:
         checked = "Qt::Checked" if layer.visible else "Qt::Unchecked"
         vis = "1" if layer.visible else "0"
         ll = ET.SubElement(
@@ -243,12 +243,12 @@ def _rebuild_legend(root: ET.Element, spec: BoundProject) -> None:
         )
 
 
-def _rebuild_layerorder(root: ET.Element, spec: BoundProject) -> None:
-    """Rebuild the <layerorder> in root from spec layers."""
+def _rebuild_layerorder(root: ET.Element, layers: list[BoundLayer]) -> None:
+    """Rebuild the <layerorder> in root from bound layers."""
     lo = root.find("layerorder")
     if lo is None:
         lo = ET.SubElement(root, "layerorder")
-    for layer in spec.layers:
+    for layer in layers:
         ET.SubElement(lo, "layer", id=layer.id)
 
 
@@ -257,13 +257,20 @@ def _rebuild_layerorder(root: ET.Element, spec: BoundProject) -> None:
 _SCALE = "3x:0,0,0,0,0,0"
 
 
-def _data_defined_properties() -> ET.Element:
-    """Return an empty <data_defined_properties> element used in symbol layers."""
-    el = ET.Element("data_defined_properties")
-    m = ET.SubElement(el, "Option", type="Map")
+def _empty_option_map() -> ET.Element:
+    """Return an <Option type='Map'> with the standard empty data-defined-property
+    children."""
+    m = ET.Element("Option", type="Map")
     ET.SubElement(m, "Option", name="name", value="", type="QString")
     ET.SubElement(m, "Option", name="properties")
     ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    return m
+
+
+def _data_defined_properties() -> ET.Element:
+    """Return an empty <data_defined_properties> element used in symbol layers."""
+    el = ET.Element("data_defined_properties")
+    el.append(_empty_option_map())
     return el
 
 
@@ -273,10 +280,7 @@ def _renderer_data_defined_properties() -> ET.Element:
     QGIS uses hyphens here (not underscores) and places it after <sizescale/>.
     """
     ddp = ET.Element("data-defined-properties")
-    m = ET.SubElement(ddp, "Option", type="Map")
-    ET.SubElement(m, "Option", name="name", value="", type="QString")
-    ET.SubElement(m, "Option", name="properties")
-    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    ddp.append(_empty_option_map())
     return ddp
 
 
@@ -413,6 +417,7 @@ def _render_symbol_layer(
             " skipping"
         )
         props = {}
+    # everything other than SvgMarker
     el.append(_opt_map(props))
     el.append(_data_defined_properties())
     return el
@@ -571,32 +576,12 @@ def _render_renderer(
     raise ValueError(f"Unknown renderer type: {type(renderer)}")
 
 
-def _srs_element(authid: str) -> ET.Element:
-    """Build a <srs> element for authid, using pyproj to supply WKT and metadata."""
-    crs = ProjCRS(authid)
-    epsg_code = authid.split(":")[-1]
-    try:
-        proj4 = crs.to_proj4()
-    except Exception:
-        proj4 = ""
-    proj_match = re.search(r"\+proj=(\S+)", proj4)
-    projectionacronym = proj_match.group(1) if proj_match else ""
-    ellipsoidacronym = ""
-    if crs.ellipsoid is not None:
-        ellipsoidacronym = _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "")
+def _srs_element(crs_id: str) -> ET.Element:
+    """Build a <srs> element for crs_id, using pyproj to supply WKT and metadata."""
     srs = ET.Element("srs")
     sys_el = ET.SubElement(srs, "spatialrefsys", nativeFormat="Wkt")
-    ET.SubElement(sys_el, "wkt").text = crs.to_wkt()
-    ET.SubElement(sys_el, "proj4").text = proj4
-    ET.SubElement(sys_el, "srsid").text = str(_QGIS_SRSID.get(authid, 0))
-    ET.SubElement(sys_el, "srid").text = epsg_code
-    ET.SubElement(sys_el, "authid").text = authid
-    ET.SubElement(sys_el, "description").text = crs.name
-    ET.SubElement(sys_el, "projectionacronym").text = projectionacronym
-    ET.SubElement(sys_el, "ellipsoidacronym").text = ellipsoidacronym
-    ET.SubElement(sys_el, "geographicflag").text = (
-        "true" if crs.is_geographic else "false"
-    )
+    for tag, val in _crs_attrs(crs_id).items():
+        ET.SubElement(sys_el, tag).text = val
     return srs
 
 
@@ -616,8 +601,6 @@ def _read_dbf_fields(dbf_path: Path) -> list[str]:
 
 def _read_gpkg_fields(gpkg_path: Path, layername: str) -> list[str]:
     """Return attribute field names from a GeoPackage layer via pyogrio."""
-    import pyogrio  # type: ignore[import-untyped]
-
     info = pyogrio.read_info(str(gpkg_path), layer=layername)
     return list(info["fields"])
 
@@ -1069,40 +1052,38 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     return ml
 
 
-def _inject_layers(root: ET.Element, spec: BoundProject) -> None:
-    """Insert all spec layers as <maplayer> elements into <projectlayers>."""
-    assert spec.project_path is not None
+def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:
+    """Insert all bound layers as <maplayer> elements into <projectlayers>."""
     pl = root.find("projectlayers")
     if pl is None:
         pl = ET.SubElement(root, "projectlayers")
 
-    for layer in spec.layers:
-        bound = _bind_for_render(layer, spec.project_path)
-        if layer.style_xml is None:
-            if layer.type == "vector" and layer.geometry_type:
+    for bound in layers:
+        if bound.style_xml is None:
+            if bound.type == "vector" and bound.geometry_type:
                 ml = _build_vector_maplayer(bound)
-            elif layer.type == "raster":
-                ml = _build_raster_maplayer(layer)
+            elif bound.type == "raster":
+                ml = _build_raster_maplayer(bound)
             else:
                 continue
         else:
-            xml_path = spec.project_path / layer.style_xml
+            xml_path = bound.project_path / bound.style_xml
             if not xml_path.exists():
-                print(f"  warning: {xml_path} not found, skipping {layer.name!r}")
+                print(f"  warning: {xml_path} not found, skipping {bound.name!r}")
                 continue
             ml = ET.parse(xml_path).getroot()
         id_el = ml.find("id")
         if id_el is not None:
-            id_el.text = layer.id
+            id_el.text = bound.id
         ds = ml.find("datasource")
         if ds is not None:
             ds.text = _qgs_datasource(bound)
         nm = ml.find("layername")
         if nm is not None:
-            nm.text = layer.name
-        if layer.renderer is not None and layer.type == "vector":
+            nm.text = bound.name
+        if bound.renderer is not None and bound.type == "vector":
             old = ml.find("renderer-v2")
-            new = _render_renderer(layer.renderer, spec.project_path)
+            new = _render_renderer(bound.renderer, bound.project_path)
             if old is not None:
                 children = list(ml)
                 ml.remove(old)
@@ -1129,10 +1110,11 @@ def render(spec: BoundProject) -> None:
         _update_extent(root, spec.extent)
     _update_crs(root, spec.crs)
     _update_title(root, spec.title)
-    _inject_layers(root, spec)
-    _rebuild_layer_tree(root, spec)
-    _rebuild_legend(root, spec)
-    _rebuild_layerorder(root, spec)
+    bound_layers = spec.bound_layers
+    _inject_layers(root, bound_layers)
+    _rebuild_layer_tree(root, bound_layers)
+    _rebuild_legend(root, bound_layers)
+    _rebuild_layerorder(root, bound_layers)
 
     output_dir = spec.project_path / "output"
     output_dir.mkdir(exist_ok=True)
@@ -1166,10 +1148,7 @@ def _layout_object() -> ET.Element:
     """Return a <LayoutObject> element with empty data-defined properties."""
     lo = ET.Element("LayoutObject")
     ddp = ET.SubElement(lo, "dataDefinedProperties")
-    m = ET.SubElement(ddp, "Option", type="Map")
-    ET.SubElement(m, "Option", name="name", value="", type="QString")
-    ET.SubElement(m, "Option", name="properties")
-    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    ddp.append(_empty_option_map())
     cp = ET.SubElement(lo, "customproperties")
     ET.SubElement(cp, "Option")
     return lo
@@ -1186,10 +1165,7 @@ def _frame_bg(el: ET.Element) -> None:
 def _dd_props() -> ET.Element:
     """Return a <dd_properties> element with an empty data-defined property Map."""
     el = ET.Element("dd_properties")
-    m = ET.SubElement(el, "Option", type="Map")
-    ET.SubElement(m, "Option", name="name", value="", type="QString")
-    ET.SubElement(m, "Option", name="properties")
-    ET.SubElement(m, "Option", name="type", value="collection", type="QString")
+    el.append(_empty_option_map())
     return el
 
 
@@ -1351,127 +1327,60 @@ def _text_style(
     return ts
 
 
-def _solid_fill_sym(color: str, name: str = "") -> ET.Element:
+def _solid_fill_sym(color: Color, name: str = "") -> ET.Element:
     """Return a solid-color SimpleFill <symbol> element."""
-    sym = ET.Element(
-        "symbol",
-        alpha="1",
-        type="fill",
-        is_animated="0",
-        name=name,
-        clip_to_extent="1",
-        frame_rate="10",
-        force_rhr="0",
+    return _render_symbol(
+        Symbol(type="fill", layers=[SimpleFill(color=color, outline_style="no")]),
+        name,
     )
-    sym.append(_data_defined_properties())
-    lay = ET.SubElement(
-        sym,
-        "layer",
-        locked="0",
-        enabled="1",
-        id="",
-        **{"class": "SimpleFill", "pass": "0"},  # type: ignore[arg-type]
-    )
-    lay.append(
-        _opt_map(
-            {
-                "border_width_map_unit_scale": _SCALE,
-                "color": color,
-                "joinstyle": "bevel",
-                "offset": "0,0",
-                "offset_map_unit_scale": _SCALE,
-                "offset_unit": "MM",
-                "outline_color": ("35,35,35,255,rgb:0.1372549,0.1372549,0.1372549,1"),
-                "outline_style": "no",
-                "outline_width": "0.26",
-                "outline_width_unit": "MM",
-                "style": "solid",
-            }
-        )
-    )
-    lay.append(_data_defined_properties())
-    return sym
 
 
 def _simple_line_sym(name: str = "") -> ET.Element:
     """Return a thin black SimpleLine <symbol> element."""
-    sym = ET.Element(
-        "symbol",
-        alpha="1",
-        type="line",
-        is_animated="0",
-        name=name,
-        clip_to_extent="1",
-        frame_rate="10",
-        force_rhr="0",
+    return _render_symbol(
+        Symbol(
+            type="line",
+            layers=[SimpleLine(line_color=BLACK, line_width=0.3, joinstyle="miter")],
+        ),
+        name,
     )
-    sym.append(_data_defined_properties())
-    lay = ET.SubElement(
-        sym,
-        "layer",
-        locked="0",
-        enabled="1",
-        id="",
-        **{"class": "SimpleLine", "pass": "0"},  # type: ignore[arg-type]
-    )
-    lay.append(
-        _opt_map(
-            {
-                "align_dash_pattern": "0",
-                "capstyle": "square",
-                "customdash": "5;2",
-                "customdash_map_unit_scale": _SCALE,
-                "customdash_unit": "MM",
-                "dash_pattern_offset": "0",
-                "dash_pattern_offset_map_unit_scale": _SCALE,
-                "dash_pattern_offset_unit": "MM",
-                "draw_inside_polygon": "0",
-                "joinstyle": "miter",
-                "line_color": "0,0,0,255,rgb:0,0,0,1",
-                "line_style": "solid",
-                "line_width": "0.3",
-                "line_width_unit": "MM",
-                "offset": "0",
-                "offset_map_unit_scale": _SCALE,
-                "offset_unit": "MM",
-                "ring_filter": "0",
-                "trim_distance_end": "0",
-                "trim_distance_end_map_unit_scale": _SCALE,
-                "trim_distance_end_unit": "MM",
-                "trim_distance_start": "0",
-                "trim_distance_start_map_unit_scale": _SCALE,
-                "trim_distance_start_unit": "MM",
-                "tweak_dash_pattern_on_corners": "0",
-                "use_custom_dash": "0",
-                "width_map_unit_scale": _SCALE,
-            }
-        )
-    )
-    lay.append(_data_defined_properties())
-    return sym
 
 
 # ── QPT item builders ─────────────────────────────────────────────────────────
 
 
-def _qpt_page_collection(page: PrintPage) -> ET.Element:
-    """Return a <PageCollection> element for the print layout page."""
-    pc = ET.Element("PageCollection")
-    pc.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
-    page_uuid = _qpt_uuid()
-    pi = ET.SubElement(
-        pc,
+def _layout_item(
+    type_id: str,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    z: int,
+    uuid: str,
+    *,
+    item_id: str = "",
+    background: str = "false",
+    **extra: str,
+) -> ET.Element:
+    """Return a <LayoutItem> with standard boilerplate attributes, _frame_bg, and
+    _layout_object.
+
+    type_id, (x, y), (w, h), z, and uuid vary per item.  item_id maps to the
+    XML id= attribute (renamed to avoid shadowing the builtin).  Any additional
+    XML attributes pass through via **extra.
+    """
+    el = ET.Element(
         "LayoutItem",
-        position=_pos(0, 0),
-        size=_sz(page.width_mm, page.height_mm),
-        uuid=page_uuid,
-        templateUuid=page_uuid,
-        type="65638",
-        positionOnPage=_pos(0, 0),
-        zValue="0",
+        type=type_id,
+        position=_pos(x, y),
+        size=_sz(w, h),
+        uuid=uuid,
+        templateUuid=uuid,
+        positionOnPage=_pos(x, y),
+        zValue=str(z),
         frame="false",
         visibility="1",
-        background="true",
+        background=background,
         outlineWidthM="0.3,mm",
         referencePoint="0",
         itemRotation="0",
@@ -1481,11 +1390,24 @@ def _qpt_page_collection(page: PrintPage) -> ET.Element:
         frameJoinStyle="miter",
         excludeFromExports="0",
         groupUuid="",
-        id="",
+        id=item_id,
+        **extra,  # type: ignore[arg-type]
     )
-    _frame_bg(pi)
-    pi.append(_layout_object())
-    pi.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
+    _frame_bg(el)
+    el.append(_layout_object())
+    return el
+
+
+def _qpt_page_collection(page: PrintPage) -> ET.Element:
+    """Return a <PageCollection> element for the print layout page."""
+    pc = ET.Element("PageCollection")
+    pc.append(_solid_fill_sym(WHITE))
+    page_uuid = _qpt_uuid()
+    pi = _layout_item(
+        "65638", 0, 0, page.width_mm, page.height_mm, 0, page_uuid, background="true"
+    )
+    pc.append(pi)
+    pi.append(_solid_fill_sym(WHITE))
     ET.SubElement(pc, "GuideCollection", visible="1")
     return pc
 
@@ -1503,29 +1425,14 @@ def _qpt_label(
     named_style: str = "",
 ) -> ET.Element:
     """Return a <LayoutItem> text label positioned at (x, y) with size (w, h)."""
-    item_uuid = _qpt_uuid()
-    el = ET.Element(
-        "LayoutItem",
-        type="65641",
-        position=_pos(x, y),
-        size=_sz(w, h),
-        uuid=item_uuid,
-        templateUuid=item_uuid,
-        positionOnPage=_pos(x, y),
-        zValue=str(z),
-        frame="false",
-        visibility="1",
-        background="false",
-        outlineWidthM="0.3,mm",
-        referencePoint="0",
-        itemRotation="0",
-        positionLock="false",
-        opacity="1",
-        blendMode="0",
-        frameJoinStyle="miter",
-        excludeFromExports="0",
-        groupUuid="",
-        id="",
+    el = _layout_item(
+        "65641",
+        x,
+        y,
+        w,
+        h,
+        z,
+        _qpt_uuid(),
         labelText=text,
         halign=str(halign),
         valign=str(valign),
@@ -1533,37 +1440,21 @@ def _qpt_label(
         marginX="0",
         marginY="0",
     )
-    _frame_bg(el)
-    el.append(_layout_object())
     el.append(_text_style(font_size, named_style=named_style))
     return el
 
 
 def _qpt_north_arrow(na: PrintNorthArrow, map_uuid: str, z: int) -> ET.Element:
     """Return a <LayoutItem> north arrow element linked to map_uuid."""
-    item_uuid = _qpt_uuid()
-    el = ET.Element(
-        "LayoutItem",
-        type="65640",
-        position=_pos(na.x_mm, na.y_mm),
-        size=_sz(na.width_mm, na.height_mm),
-        uuid=item_uuid,
-        templateUuid=item_uuid,
-        positionOnPage=_pos(na.x_mm, na.y_mm),
-        zValue=str(z),
-        frame="false",
-        visibility="1",
-        background="false",
-        outlineWidthM="0.3,mm",
-        referencePoint="0",
-        itemRotation="0",
-        positionLock="false",
-        opacity="1",
-        blendMode="0",
-        frameJoinStyle="miter",
-        excludeFromExports="0",
-        groupUuid="",
-        id="North Arrow",
+    return _layout_item(
+        "65640",
+        na.x_mm,
+        na.y_mm,
+        na.width_mm,
+        na.height_mm,
+        z,
+        _qpt_uuid(),
+        item_id="North Arrow",
         file=na.svg,
         mapUuid=map_uuid,
         northMode="0",
@@ -1578,39 +1469,21 @@ def _qpt_north_arrow(na: PrintNorthArrow, map_uuid: str, z: int) -> ET.Element:
         resizeMode="0",
         mode="2",
     )
-    _frame_bg(el)
-    el.append(_layout_object())
-    return el
 
 
 def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
     """Return a <LayoutItem> scale bar element linked to map_uuid."""
-    item_uuid = _qpt_uuid()
-    el = ET.Element(
-        "LayoutItem",
-        type="65646",
-        position=_pos(sb.x_mm, sb.y_mm),
-        size=_sz(45.5859, 13.0962),
-        uuid=item_uuid,
-        templateUuid=item_uuid,
-        positionOnPage=_pos(sb.x_mm, sb.y_mm),
-        zValue=str(z),
-        frame="false",
-        visibility="1",
-        background="false",
-        outlineWidthM="0.3,mm",
+    el = _layout_item(
+        "65646",
+        sb.x_mm,
+        sb.y_mm,
+        45.5859,
+        13.0962,
+        z,
+        _qpt_uuid(),
         outlineWidth="0.3",
-        referencePoint="0",
-        itemRotation="0",
-        positionLock="false",
-        opacity="1",
-        blendMode="0",
-        frameJoinStyle="miter",
         lineJoinStyle="miter",
         lineCapStyle="square",
-        excludeFromExports="0",
-        groupUuid="",
-        id="",
         mapUuid=map_uuid,
         unitType=sb.unit_type,
         unitLabel=sb.unit_type,
@@ -1633,8 +1506,6 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
         segmentMillimeters="0",
         alignment="0",
     )
-    _frame_bg(el)
-    el.append(_layout_object())
     el.append(_text_style(12))
     ET.SubElement(el, "strokeColor", alpha="255", blue="0", red="0", green="0")
     nf = ET.SubElement(el, "numericFormat", id="basic")
@@ -1656,9 +1527,9 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
         wrapper = ET.SubElement(el, tag)
         wrapper.append(_simple_line_sym())
     fs1 = ET.SubElement(el, "fillSymbol1")
-    fs1.append(_solid_fill_sym("0,0,0,255,rgb:0,0,0,1"))
+    fs1.append(_solid_fill_sym(BLACK))
     fs2 = ET.SubElement(el, "fillSymbol2")
-    fs2.append(_solid_fill_sym("255,255,255,255,rgb:1,1,1,1"))
+    fs2.append(_solid_fill_sym(WHITE))
     return el
 
 
@@ -1666,29 +1537,15 @@ def _qpt_legend(
     leg: PrintLegend, spec: BoundProject, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> legend element linked to map_uuid."""
-    item_uuid = _qpt_uuid()
-    el = ET.Element(
-        "LayoutItem",
-        type="65642",
-        position=_pos(leg.x_mm, leg.y_mm),
-        size=_sz(52.8029, 23.4825),
-        uuid=item_uuid,
-        templateUuid=item_uuid,
-        positionOnPage=_pos(leg.x_mm, leg.y_mm),
-        zValue=str(z),
-        frame="false",
-        visibility="1",
+    el = _layout_item(
+        "65642",
+        leg.x_mm,
+        leg.y_mm,
+        52.8029,
+        23.4825,
+        z,
+        _qpt_uuid(),
         background="true",
-        outlineWidthM="0.3,mm",
-        referencePoint="0",
-        itemRotation="0",
-        positionLock="false",
-        opacity="1",
-        blendMode="0",
-        frameJoinStyle="miter",
-        excludeFromExports="0",
-        groupUuid="",
-        id="",
         map_uuid=map_uuid,
         resizeToContents="1",
         title="",
@@ -1711,8 +1568,6 @@ def _qpt_legend(
         symbolAlignment="1",
         titleAlignment="1",
     )
-    _frame_bg(el)
-    el.append(_layout_object())
 
     styles = ET.SubElement(el, "styles")
     legend_styles = [
@@ -1773,27 +1628,7 @@ def _qpt_map_frame(
     mf: PrintMapFrame, spec: BoundProject, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
-    attrs: dict[str, str] = dict(
-        type="65639",
-        position=_pos(mf.x_mm, mf.y_mm),
-        size=_sz(mf.width_mm, mf.height_mm),
-        uuid=map_uuid,
-        templateUuid=map_uuid,
-        positionOnPage=_pos(mf.x_mm, mf.y_mm),
-        zValue=str(z),
-        frame="false",
-        visibility="1",
-        background="true",
-        outlineWidthM="0.3,mm",
-        referencePoint="0",
-        itemRotation="0",
-        positionLock="false",
-        opacity="1",
-        blendMode="0",
-        frameJoinStyle="miter",
-        excludeFromExports="0",
-        groupUuid="",
-        id="Map 1",
+    extra: dict[str, str] = dict(
         mapFlags="0",
         enableZRange="0",
         drawCanvasItems="true",
@@ -1805,10 +1640,19 @@ def _qpt_map_frame(
         labelMargin="0,mm",
     )
     if mf.scale is not None:
-        attrs["scale"] = str(mf.scale)
-    el = ET.Element("LayoutItem", **attrs)  # type: ignore[arg-type]
-    _frame_bg(el)
-    el.append(_layout_object())
+        extra["scale"] = str(mf.scale)
+    el = _layout_item(
+        "65639",
+        mf.x_mm,
+        mf.y_mm,
+        mf.width_mm,
+        mf.height_mm,
+        z,
+        map_uuid,
+        item_id="Map 1",
+        background="true",
+        **extra,
+    )
     if spec.extent:
         e = spec.extent
         ET.SubElement(

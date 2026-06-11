@@ -11,6 +11,7 @@ pale yellow = other.
 
 import geopandas as gpd
 
+from alidade.color import WHITE
 from alidade.models import (
     BoundLayer,
     Label,
@@ -107,6 +108,6 @@ staging_ranked = Layer(
         rules=_rules,
         symbols=_symbols,
     ),
-    label=Label(field="name"),
+    label=Label(field="name", halo_color=WHITE),
     action=PythonAction(fn=build_staging_ranked),
 )

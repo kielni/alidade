@@ -309,6 +309,29 @@ files.
 
 ---
 
+## Step 19 — ArcGIS Online label styling
+
+Added `background_color: Color | None` field to `Label` (default `None`).
+When set, `publish_arcgis._build_labeling_info` includes `backgroundColor`
+in the `esriTS` symbol so ArcGIS Online renders a box behind the text.
+
+`staging.py` sets `halo_color=WHITE` so staging area names are legible over
+the basemap. Switched from `backgroundColor` (fixed-padding rectangle, too wide)
+to `haloColor`/`haloSize` (traces letter shapes, much tighter).
+
+Also fixed `labelExpressionInfo`: was using `{"value": "[field]"}` (treated as
+literal text by ArcGIS Online); corrected to `{"expression": "$feature[\"field\"]"}`
+(Arcade field reference).
+
+**Files changed:**
+- `alidade/models.py` — added `Label.halo_color` / `Label.halo_size` (default 1.5 pt)
+- `alidade/publish_arcgis.py` — `_build_labeling_info` emits `haloColor`/`haloSize`;
+  fixed `labelExpressionInfo` to use Arcade `expression` key
+- `layers/staging.py` — `Label(field="name", halo_color=WHITE)`
+- `layers/staging_ranked.py` — `Label(field="name", halo_color=WHITE)`
+
+---
+
 ## Step 18 — Color system refactor
 
 Replaced scattered color format strings (QGIS `"R,G,B,A"` strings, hex
