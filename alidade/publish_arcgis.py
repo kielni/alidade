@@ -27,6 +27,7 @@ from alidade.models import (
     BoundProject,
     Extent,
     GraduatedRenderer,
+    Label,
     PalettedRenderer,
     RuleRenderer,
     SimpleFill,
@@ -207,6 +208,40 @@ def _classify_filter(
     if _CMP_RE.search(filter_expr):
         return "catchall", []
     return "unknown", []
+
+
+# ── Label translation ────────────────────────────────────────────────────────
+
+
+def _build_labeling_info(label: Label) -> dict[str, Any]:
+    """Build an ArcGIS REST labelingInfo entry for a Label spec."""
+    weight = "bold" if label.bold else "normal"
+    return {
+        "labelExpression": f"[{label.field}]",
+        "labelExpressionInfo": {"expression": f'$feature["{label.field}"]'},
+        "useCodedValues": True,
+        "maxScale": 0,
+        "minScale": 0,
+        "where": None,
+        "labelPlacement": "esriServerPointLabelPlacementAboveRight",
+        "symbol": {
+            "type": "esriTS",
+            "color": _color_to_arcgis(label.color),
+            "haloColor": (
+                _color_to_arcgis(label.halo_color)
+                if label.halo_color is not None
+                else None
+            ),
+            "haloSize": label.halo_size if label.halo_color is not None else None,
+            "font": {
+                "family": label.font_family,
+                "size": label.font_size,
+                "style": "normal",
+                "weight": weight,
+                "decoration": "none",
+            },
+        },
+    }
 
 
 # ── Renderer translation ──────────────────────────────────────────────────────
@@ -686,9 +721,12 @@ def _publish_layer(
     item = gis.content.get(fid)  # type: ignore[union-attr]
     if item:
         flc = FeatureLayerCollection.fromitem(item)
-        flc.layers[0].manager.update_definition(
-            {"drawingInfo": {"renderer": arcgis_renderer}}
-        )
+        drawing_info: dict[str, Any] = {"renderer": arcgis_renderer}
+        layer_def: dict[str, Any] = {"drawingInfo": drawing_info}
+        if layer.label is not None:
+            drawing_info["labelingInfo"] = [_build_labeling_info(layer.label)]
+            layer_def["showLabels"] = True
+        flc.layers[0].manager.update_definition(layer_def)
         print(f"    Applied {layer.renderer.kind} renderer")
 
     return size_mb

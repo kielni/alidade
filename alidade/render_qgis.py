@@ -109,12 +109,6 @@ def _qgs_datasource(layer: BoundLayer) -> str:
     return prefix + rel + suffix
 
 
-def _bind_for_render(layer: Layer, project_path: Path) -> BoundLayer:
-    """Bind a layer to a project_path for rendering (inputs not needed)."""
-    fields = {f: getattr(layer, f) for f in Layer.model_fields if f != "inputs"}
-    return BoundLayer(**fields, project_path=project_path)
-
-
 def _update_extent(root: ET.Element, extent: Extent) -> None:
     """Write xmin/ymin/xmax/ymax into the theMapCanvas extent element."""
     xmin, ymin, xmax, ymax = extent.xmin, extent.ymin, extent.xmax, extent.ymax
@@ -195,7 +189,7 @@ def _rebuild_layer_tree(root: ET.Element, spec: BoundProject) -> None:
         return
 
     for layer in spec.layers:
-        bound = _bind_for_render(layer, spec.project_path)
+        bound = layer.bind(spec.project_path)
         checked = "Qt::Checked" if layer.visible else "Qt::Unchecked"
         ltl = ET.SubElement(
             ltg,
@@ -1077,7 +1071,7 @@ def _inject_layers(root: ET.Element, spec: BoundProject) -> None:
         pl = ET.SubElement(root, "projectlayers")
 
     for layer in spec.layers:
-        bound = _bind_for_render(layer, spec.project_path)
+        bound = layer.bind(spec.project_path)
         if layer.style_xml is None:
             if layer.type == "vector" and layer.geometry_type:
                 ml = _build_vector_maplayer(bound)

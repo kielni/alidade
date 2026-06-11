@@ -154,6 +154,8 @@ class Label(BaseModel):
     font_size: float = 10.0
     bold: bool = True
     color: Color = BLACK
+    halo_color: Color | None = None
+    halo_size: float = 1.5
     y_offset: float = 2.0  # MM offset above the point symbol
 
 
@@ -351,13 +353,7 @@ class BoundProject(Project):
     @property
     def bound_layers(self) -> list[BoundLayer]:
         """Return all layers in this project with project_path set on them."""
-        return [
-            BoundLayer(
-                **{f: getattr(layer, f) for f in Layer.model_fields if f != "inputs"},
-                project_path=self.project_path,
-            )
-            for layer in self.layers
-        ]
+        return [layer.bind(self.project_path) for layer in self.layers]
 
     @property
     def output_path(self) -> Path:
@@ -424,6 +420,16 @@ class Layer(BaseModel):
         """
         part = self.datasource.split("|")[0].split("?")[0].lstrip("./")
         return (project_path / part).resolve()
+
+    def bind(self, project_path: Path, *, with_inputs: bool = False) -> "BoundLayer":
+        """Return a BoundLayer bound to project_path."""
+        fields = {f: getattr(self, f) for f in Layer.model_fields if f != "inputs"}
+        if with_inputs:
+            bound_inputs = [
+                inp.bind(project_path, with_inputs=True) for inp in self.inputs
+            ]
+            return BoundLayer(**fields, project_path=project_path, inputs=bound_inputs)
+        return BoundLayer(**fields, project_path=project_path)
 
     @field_validator("id")
     @classmethod

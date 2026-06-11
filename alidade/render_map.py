@@ -10,6 +10,7 @@ from pathlib import Path
 import geopandas as gpd
 import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -120,7 +121,7 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
         kwargs: dict = {}
         if _font_available(label.font_family):
             kwargs["fontfamily"] = label.font_family
-        ax.annotate(
+        ann = ax.annotate(
             text,
             xy=(pt.x, pt.y),
             xytext=(0, offset_pt),
@@ -133,6 +134,15 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
             zorder=zorder,
             **kwargs,
         )
+        if label.halo_color is not None:
+            ann.set_path_effects(
+                [
+                    pe.withStroke(
+                        linewidth=label.halo_size,
+                        foreground=label.halo_color.matplotlib_rgba,
+                    )
+                ]
+            )
 
 
 def _plot_layer(

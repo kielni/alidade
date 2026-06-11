@@ -15,6 +15,14 @@ After adding, removing, or restyling a layer (any edit to a `layers/*.py`
 file inside a project directory), update that project's `workflow.md` in the
 same session. Do not wait for the user to ask.
 
+The build system uses make for dependency tracking. `alidade-build` generates
+`output/GEN.mk` from the layer graph and invokes make against it. Each layer
+output is a make target; formatting (`black`) is tracked by an
+`output/.formatted` stamp. Do not add manual `black` or formatting calls to
+build-related code — make handles it. Use `alidade-makefile <dir>` to inspect
+the generated Makefile, and `alidade-build-layer <dir> <layer_id>` to build
+exactly one layer.
+
 When writing scratch exploration code in `claude.py`, import helpers from
 `alidade.util.claude_toolbox` instead of writing new implementations. Available
 helpers:
