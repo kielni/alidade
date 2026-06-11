@@ -1,11 +1,11 @@
 """Render a Project spec to a static PNG using matplotlib and geopandas."""
 
 import argparse
-import json
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+import rasterio
 
 import geopandas as gpd
 import matplotlib.font_manager as fm
@@ -36,17 +36,11 @@ from alidade.util.helpers import bind_project, load_project_module
 
 
 def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
-    """Return (xmin, ymin, xmax, ymax) for a raster via gdalinfo, or None."""
+    """Return (xmin, ymin, xmax, ymax) for a raster, or None."""
     try:
-        result = subprocess.run(
-            ["gdalinfo", "-json", str(source)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        cc = json.loads(result.stdout)["cornerCoordinates"]
-        ul, lr = cc["upperLeft"], cc["lowerRight"]
-        return ul[0], lr[1], lr[0], ul[1]
+        with rasterio.open(source) as ds:
+            b = ds.bounds
+            return b.left, b.bottom, b.right, b.top
     except Exception:
         return None
 

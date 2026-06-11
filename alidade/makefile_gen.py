@@ -1,49 +1,39 @@
 """Generate a per-project GEN.mk from the layer graph."""
 
 import argparse
+import re
+from graphlib import TopologicalSorter
 from pathlib import Path
 
 from alidade.models import BoundProject, Layer
 from alidade.util.helpers import bind_project
 
 
-def _visit(
-    layer_id: str,
-    steps: dict[str, Layer],
-    visited: set[str],
-    ordered: list[Layer],
-) -> None:
-    """Add layer_id and its unvisited dependencies to ordered in topological order."""
-    if layer_id in visited:
-        return
-    visited.add(layer_id)
-    layer = steps.get(layer_id)
-    if layer is None:
-        return
-    assert layer.action is not None
-    for inp in layer.inputs:
-        _visit(inp.id, steps, visited, ordered)
-    ordered.append(layer)
-
-
 def _topo_sort(spec: BoundProject) -> list[Layer]:
     """Return layers-with-actions in dependency order."""
     steps = {layer.id: layer for layer in spec.layers if layer.action}
-    ordered: list[Layer] = []
-    visited: set[str] = set()
-    for layer in spec.layers:
-        if layer.action is not None:
-            _visit(layer.id, steps, visited, ordered)
-    return ordered
+    ts = TopologicalSorter(
+        {
+            layer.id: [inp.id for inp in layer.inputs]
+            for layer in spec.layers
+            if layer.action
+        }
+    )
+    return [steps[layer_id] for layer_id in ts.static_order() if layer_id in steps]
 
 
-def _find_layer_source(layer_id: str, layers_dir: Path) -> Path | None:
-    """Find the layers/*.py file that defines layer_id."""
-    needle = f'id="{layer_id}"'
+# TODO: replace regex operations on layer fields with Layer objects
+# Matches id="..." in layer source files to map layer IDs to their defining file.
+LAYER_ID_PATTERN = re.compile(r'id="([^"]+)"')
+
+
+def _build_source_index(layers_dir: Path) -> dict[str, Path]:
+    """Build {layer_id: source_file} by reading each layers/*.py file once."""
+    index: dict[str, Path] = {}
     for f in sorted(layers_dir.glob("*.py")):
-        if needle in f.read_text():
-            return f
-    return None
+        for m in LAYER_ID_PATTERN.finditer(f.read_text()):
+            index.setdefault(m.group(1), f)
+    return index
 
 
 def generate(spec: BoundProject) -> str:
@@ -75,6 +65,7 @@ def generate(spec: BoundProject) -> str:
     lines.append("")
 
     ordered = _topo_sort(spec)
+    source_index = _build_source_index(layers_dir) if layers_dir.exists() else {}
     all_outputs: list[str] = []
 
     for layer in ordered:
@@ -83,7 +74,7 @@ def generate(spec: BoundProject) -> str:
         all_outputs.append(str(output))
 
         prereqs: list[str] = [formatted_stamp]
-        src = _find_layer_source(layer.id, layers_dir)
+        src = source_index.get(layer.id)
         if src is not None:
             prereqs.append(str(src))
         if util_py.exists():

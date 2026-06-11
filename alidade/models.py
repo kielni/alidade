@@ -337,14 +337,12 @@ class Project(BaseModel):
     """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    model_config = ConfigDict(extra="allow")
     output_format: Literal["qgis", "lyrx"] = "qgis"
     title: str
     crs: str
     layers: list[Layer]
     extent: Extent | None = None
     print_layout: PrintLayout | None = None
-    extra: dict[str, Any] = {}
 
 
 class BoundProject(Project):
@@ -383,7 +381,6 @@ StepAction = Annotated[
 
 
 class Layer(BaseModel):
-    model_config = ConfigDict(extra="allow")
     id: str
     name: str
     type: Literal["vector", "raster"]
@@ -411,7 +408,6 @@ class Layer(BaseModel):
     source_description: str | None = None
     # provenance of the raw data (dataset name, agency, download source)
     source_origin: str | None = None
-    extra: dict[str, Any] = {}
 
     def path_for(self, project_path: Path) -> Path:
         """Resolve datasource to an absolute path against project_path.
@@ -423,13 +419,14 @@ class Layer(BaseModel):
 
     def bind(self, project_path: Path, *, with_inputs: bool = False) -> "BoundLayer":
         """Return a BoundLayer bound to project_path."""
-        fields = {f: getattr(self, f) for f in Layer.model_fields if f != "inputs"}
+        data = self.model_dump(mode="python")
+        data.pop("inputs")
         if with_inputs:
             bound_inputs = [
                 inp.bind(project_path, with_inputs=True) for inp in self.inputs
             ]
-            return BoundLayer(**fields, project_path=project_path, inputs=bound_inputs)
-        return BoundLayer(**fields, project_path=project_path)
+            return BoundLayer(**data, project_path=project_path, inputs=bound_inputs)
+        return BoundLayer(**data, project_path=project_path)
 
     @field_validator("id")
     @classmethod
@@ -462,7 +459,8 @@ class BoundLayer(Layer):
     @property
     def raw_path(self) -> Path:
         """Resolved path to raw_file."""
-        assert self.raw_file is not None, f"raw_file not set on layer {self.id!r}"
+        if self.raw_file is None:
+            raise ValueError(f"raw_file not set on layer {self.id!r}")
         return (self.project_path / self.raw_file).resolve()
 
     @property

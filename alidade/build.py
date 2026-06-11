@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from alidade.makefile_gen import write
+from alidade.models import PythonAction, ShellAction
 from alidade.readme import update_readme
 from alidade.render_lyrx import render_lyrx
 from alidade.render_map import render as render_map
@@ -23,10 +24,10 @@ def build_layer(project_path: Path, layer_id: str) -> None:
     bound.path.parent.mkdir(parents=True, exist_ok=True)
     action = layer.action
     assert action is not None
-    if hasattr(action, "fn"):
+    if isinstance(action, PythonAction):
         print(f"  [python] building {layer.name!r}")
         action.fn(bound)
-    else:
+    elif isinstance(action, ShellAction):
         fmt = {
             "output": bound.path,
             **{
