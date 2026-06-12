@@ -2,7 +2,10 @@
 
 Habitat suitability analysis for goat grazing at Alum Rock Park. Identifies grazeable patches from terrain, vegetation, and proximity data; ranks staging areas by distance-weighted access to high-priority grazing terrain.
 
+[Illustrated analysis](https://github.com/kielni/alidade/blob/main/projects/goats/story/README.md)
+
 CRS: EPSG:26910 (NAD83 / UTM Zone 10N)
+
 
 <!-- auto:begin -->
 ## Data Sources
