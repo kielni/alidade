@@ -15,7 +15,7 @@ from alidade.models import (
     SvgMarker,
     Symbol,
 )
-from alidade.publish_arcgis import _renderer_to_arcgis
+from alidade.publish_arcgis import _renderer
 
 
 def _make_single_symbol(sym_layer):
@@ -26,7 +26,7 @@ def test_single_symbol_simple_fill():
     renderer = _make_single_symbol(
         SimpleFill(color=Color.from_hex("#aabbcc"), outline_color=Color(0, 0, 0))
     )
-    result = _renderer_to_arcgis(renderer, "Polygon")
+    result = _renderer(renderer, "Polygon")
     assert result is not None
     assert result["type"] == "simple"
     sym = result["symbol"]
@@ -36,7 +36,7 @@ def test_single_symbol_simple_fill():
 
 def test_single_symbol_simple_line():
     renderer = _make_single_symbol(SimpleLine(line_color=Color.from_hex("#112233")))
-    result = _renderer_to_arcgis(renderer, "LineString")
+    result = _renderer(renderer, "LineString")
     assert result is not None
     assert result["type"] == "simple"
     sym = result["symbol"]
@@ -48,7 +48,7 @@ def test_single_symbol_simple_marker():
     renderer = _make_single_symbol(
         SimpleMarker(name="circle", color=Color.from_hex("#ff0000"), size=3.0)
     )
-    result = _renderer_to_arcgis(renderer, "Point")
+    result = _renderer(renderer, "Point")
     assert result is not None
     assert result["type"] == "simple"
     sym = result["symbol"]
@@ -61,7 +61,7 @@ def test_single_symbol_svg_marker_fallback():
     renderer = _make_single_symbol(
         SvgMarker(name="test.svg", color=Color.from_hex("#0000ff"), size=5.0)
     )
-    result = _renderer_to_arcgis(renderer, "Point")
+    result = _renderer(renderer, "Point")
     assert result is not None
     assert result["type"] == "simple"
     sym = result["symbol"]
@@ -81,7 +81,7 @@ def test_graduated_renderer():
             ),
         ],
     )
-    result = _renderer_to_arcgis(renderer, "Polygon")
+    result = _renderer(renderer, "Polygon")
     assert result is not None
     assert result["type"] == "classBreaks"
     assert result["field"] == "score"
@@ -108,7 +108,7 @@ def test_rule_renderer_equality_filters():
             ),
         ],
     )
-    result = _renderer_to_arcgis(renderer, "Point")
+    result = _renderer(renderer, "Point")
     assert result is not None
     assert result["type"] == "uniqueValue"
     assert result["field1"] == "rank"
@@ -125,7 +125,7 @@ def test_paletted_renderer():
             PaletteEntry(value=2, color=Color.from_hex("#fdae61"), label="Steep"),
         ]
     )
-    result = _renderer_to_arcgis(renderer, None)
+    result = _renderer(renderer, None)
     assert result is not None
     assert result["type"] == "uniqueValue"
     uv_infos = result["uniqueValueInfos"]
@@ -135,4 +135,4 @@ def test_paletted_renderer():
 
 
 def test_none_renderer_returns_none():
-    assert _renderer_to_arcgis(None, "Polygon") is None
+    assert _renderer(None, "Polygon") is None

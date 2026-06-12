@@ -8,6 +8,11 @@ from pyproj import Transformer
 
 from alidade.color import BLACK, DARK_GRAY, Color
 
+# ── CRS constants ─────────────────────────────────────────────────────────────
+
+CRS_WGS84 = "EPSG:4326"
+CRS_WEBMERCATOR = "EPSG:3857"
+
 # Styling
 
 # ── Symbol layers ─────────────────────────────────────────────────────────────
@@ -324,10 +329,10 @@ class Extent(BaseModel):
         )
 
     def to_wgs84(self) -> "Extent":
-        return self.to_crs("EPSG:4326")
+        return self.to_crs(CRS_WGS84)
 
     def to_web_mercator(self) -> "Extent":
-        return self.to_crs("EPSG:3857")
+        return self.to_crs(CRS_WEBMERCATOR)
 
 
 # ── Map ───────────────────────────────────────────────────────────────────────

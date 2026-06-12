@@ -2,9 +2,6 @@
 
 import warnings
 
-import pytest
-from pydantic import ValidationError
-
 from alidade.models import Extent, Layer
 
 

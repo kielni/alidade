@@ -3,9 +3,8 @@
 import os
 import re
 import uuid
-import warnings
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import pyogrio  # type: ignore[import-untyped]
@@ -16,6 +15,7 @@ from alidade.color import BLACK, WHITE, Color
 from alidade.models import (
     BoundLayer,
     BoundMap,
+    CRS_WGS84,
     Extent,
     GraduatedRenderer,
     Label,
@@ -39,14 +39,14 @@ from alidade.models import (
 
 HERE = Path(__file__).parent  # alidade/
 
-_QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
+QGS_DOCTYPE = "<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n"
 
 # Fallback colors for graduated renderers with no ranges defined.
 GRADUATED_SOURCE_FILL = Color(200, 200, 200, 180)
 GRADUATED_RAMP_START = Color(255, 255, 178)
 GRADUATED_RAMP_END = Color(189, 0, 38)
 
-_ELLIPSOID_EPSG: dict[str, str] = {
+ELLIPSOID_EPSG: dict[str, str] = {
     "GRS 1980": "EPSG:7019",
     "WGS 84": "EPSG:7030",
     "Clarke 1866": "EPSG:7008",
@@ -54,13 +54,13 @@ _ELLIPSOID_EPSG: dict[str, str] = {
     "Krassowsky 1940": "EPSG:7024",
 }
 
-_QGIS_SRSID: dict[str, int] = {
+QGIS_SRSID: dict[str, int] = {
     "EPSG:2227": 209,
-    "EPSG:4326": 3452,
+    CRS_WGS84: 3452,
 }
 
 # QGIS geometry attribute (display string) and wkbType (string name).
-_GEOMETRY_ATTR: dict[str, str] = {
+GEOMETRY_ATTR: dict[str, str] = {
     "Point": "Point",
     "LineString": "Line",
     "Polygon": "Polygon",
@@ -68,7 +68,7 @@ _GEOMETRY_ATTR: dict[str, str] = {
     "MultiLineString": "Line",
     "MultiPolygon": "Polygon",
 }
-_WKB_TYPE: dict[str, str] = {
+WKB_TYPE: dict[str, str] = {
     "Point": "Point",
     "LineString": "LineString",
     "Polygon": "Polygon",
@@ -144,12 +144,12 @@ def _crs_attrs(crs_id: str) -> dict[str, str]:
     proj_match = re.search(r"\+proj=(\S+)", proj4)
     projectionacronym = proj_match.group(1) if proj_match else ""
     ellipsoidacronym = (
-        _ELLIPSOID_EPSG.get(crs.ellipsoid.name, "") if crs.ellipsoid is not None else ""
+        ELLIPSOID_EPSG.get(crs.ellipsoid.name, "") if crs.ellipsoid is not None else ""
     )
     return {
         "wkt": crs.to_wkt(),
         "proj4": proj4,
-        "srsid": str(_QGIS_SRSID.get(crs_id, 0)),
+        "srsid": str(QGIS_SRSID.get(crs_id, 0)),
         "srid": epsg_code,
         "authid": crs_id,
         "description": crs.name,
@@ -254,7 +254,7 @@ def _rebuild_layerorder(root: ET.Element, layers: list[BoundLayer]) -> None:
 
 # ── Renderer serialization ────────────────────────────────────────────────────
 
-_SCALE = "3x:0,0,0,0,0,0"
+SCALE = "3x:0,0,0,0,0,0"
 
 
 def _empty_option_map() -> ET.Element:
@@ -300,6 +300,151 @@ def _opt_map(props: Mapping[str, str]) -> ET.Element:
     return el
 
 
+def _make_symbol_layer_el(symbol_layer: SymbolLayer) -> ET.Element:
+    """Create the outer <layer> shell element for any symbol layer type."""
+    return ET.Element(
+        "layer",
+        locked="0",
+        enabled="1",
+        **{  # type: ignore[arg-type]
+            "class": symbol_layer.kind,
+            "pass": "0",
+            "id": "{" + str(uuid.uuid4()) + "}",
+        },
+    )
+
+
+def _render_simple_fill(symbol_layer: SimpleFill, map_path: Path | None) -> ET.Element:
+    el = _make_symbol_layer_el(symbol_layer)
+    el.append(
+        _opt_map(
+            {
+                "border_width_map_unit_scale": SCALE,
+                "color": _color(symbol_layer.color),
+                "joinstyle": symbol_layer.joinstyle,
+                "offset": symbol_layer.offset,
+                "offset_map_unit_scale": SCALE,
+                "offset_unit": "MM",
+                "outline_color": _color(symbol_layer.outline_color),
+                "outline_style": symbol_layer.outline_style,
+                "outline_width": str(symbol_layer.outline_width),
+                "outline_width_unit": symbol_layer.outline_width_unit,
+                "style": symbol_layer.style,
+            }
+        )
+    )
+    el.append(_data_defined_properties())
+    return el
+
+
+def _render_simple_line(symbol_layer: SimpleLine, map_path: Path | None) -> ET.Element:
+    el = _make_symbol_layer_el(symbol_layer)
+    el.append(
+        _opt_map(
+            {
+                "capstyle": symbol_layer.capstyle,
+                "customdash": "5;2",
+                "customdash_map_unit_scale": SCALE,
+                "customdash_unit": "MM",
+                "draw_inside_polygon": "0",
+                "joinstyle": symbol_layer.joinstyle,
+                "line_color": _color(symbol_layer.line_color),
+                "line_style": symbol_layer.line_style,
+                "line_width": str(symbol_layer.line_width),
+                "line_width_unit": symbol_layer.line_width_unit,
+                "offset": symbol_layer.offset,
+                "offset_map_unit_scale": SCALE,
+                "offset_unit": "MM",
+                "ring_filter": "0",
+                "use_custom_dash": "0",
+                "width_map_unit_scale": SCALE,
+            }
+        )
+    )
+    el.append(_data_defined_properties())
+    return el
+
+
+def _render_svg_marker(symbol_layer: SvgMarker, map_path: Path | None) -> ET.Element:
+    el = _make_symbol_layer_el(symbol_layer)
+    svg_name = symbol_layer.name
+    if map_path is not None and (
+        svg_name.startswith("data/") or svg_name.startswith("./")
+    ):
+        abs_svg = (map_path / svg_name).resolve()
+        output_dir = map_path / "output"
+        svg_name = os.path.relpath(str(abs_svg), str(output_dir))
+    props = {
+        "angle": f"{symbol_layer.angle:g}",
+        "color": _color(symbol_layer.color),
+        "fixedAspectRatio": "0",
+        "horizontal_anchor_point": "1",
+        "name": svg_name,
+        "offset": symbol_layer.offset,
+        "offset_map_unit_scale": SCALE,
+        "offset_unit": symbol_layer.offset_unit,
+        "outline_color": _color(symbol_layer.outline_color),
+        "outline_width": f"{symbol_layer.outline_width:g}",
+        "outline_width_map_unit_scale": SCALE,
+        "outline_width_unit": symbol_layer.outline_width_unit,
+        "scale_method": "diameter",
+        "size": f"{symbol_layer.size:g}",
+        "size_map_unit_scale": SCALE,
+        "size_unit": symbol_layer.size_unit,
+        "vertical_anchor_point": "1",
+    }
+    opt_el = _opt_map(props)
+    # QGIS requires a bare <Option name="parameters"/> for SvgMarker;
+    # insert it after outline_width_unit (alphabetical order).
+    keys = list(props.keys())
+    insert_after = keys.index("outline_width_unit")
+    opt_el.insert(insert_after + 1, ET.Element("Option", name="parameters"))
+    el.append(opt_el)
+    el.append(_data_defined_properties())
+    return el
+
+
+def _render_simple_marker(
+    symbol_layer: SimpleMarker, map_path: Path | None
+) -> ET.Element:
+    el = _make_symbol_layer_el(symbol_layer)
+    el.append(
+        _opt_map(
+            {
+                "angle": f"{symbol_layer.angle:g}",
+                "cap_style": symbol_layer.cap_style,
+                "color": _color(symbol_layer.color),
+                "horizontal_anchor_point": "1",
+                "joinstyle": symbol_layer.joinstyle,
+                "name": symbol_layer.name,
+                "offset": symbol_layer.offset,
+                "offset_map_unit_scale": SCALE,
+                "offset_unit": symbol_layer.offset_unit,
+                "outline_color": _color(symbol_layer.outline_color),
+                "outline_style": "solid",
+                "outline_width": f"{symbol_layer.outline_width:g}",
+                "outline_width_map_unit_scale": SCALE,
+                "outline_width_unit": symbol_layer.outline_width_unit,
+                "scale_method": "diameter",
+                "size": f"{symbol_layer.size:g}",
+                "size_map_unit_scale": SCALE,
+                "size_unit": symbol_layer.size_unit,
+                "vertical_anchor_point": "1",
+            }
+        )
+    )
+    el.append(_data_defined_properties())
+    return el
+
+
+SYMBOL_LAYER_RENDERERS: dict[type, Callable[..., ET.Element]] = {
+    SimpleFill: _render_simple_fill,
+    SimpleLine: _render_simple_line,
+    SvgMarker: _render_svg_marker,
+    SimpleMarker: _render_simple_marker,
+}
+
+
 def _render_symbol_layer(
     symbol_layer: SymbolLayer,
     map_path: Path | None = None,
@@ -310,117 +455,7 @@ def _render_symbol_layer(
     when called via _render_graduated_renderer, which builds only SimpleFill symbols
     and never holds a map_path. When None, SVG path relativisation is skipped.
     """
-    el = ET.Element(
-        "layer",
-        locked="0",
-        enabled="1",
-        **{  # type: ignore[arg-type]
-            "class": symbol_layer.kind,
-            "pass": "0",
-            "id": "{" + str(uuid.uuid4()) + "}",
-        },
-    )
-    if isinstance(symbol_layer, SimpleFill):
-        props = {
-            "border_width_map_unit_scale": _SCALE,
-            "color": _color(symbol_layer.color),
-            "joinstyle": symbol_layer.joinstyle,
-            "offset": symbol_layer.offset,
-            "offset_map_unit_scale": _SCALE,
-            "offset_unit": "MM",
-            "outline_color": _color(symbol_layer.outline_color),
-            "outline_style": symbol_layer.outline_style,
-            "outline_width": str(symbol_layer.outline_width),
-            "outline_width_unit": symbol_layer.outline_width_unit,
-            "style": symbol_layer.style,
-        }
-    elif isinstance(symbol_layer, SimpleLine):
-        props = {
-            "capstyle": symbol_layer.capstyle,
-            "customdash": "5;2",
-            "customdash_map_unit_scale": _SCALE,
-            "customdash_unit": "MM",
-            "draw_inside_polygon": "0",
-            "joinstyle": symbol_layer.joinstyle,
-            "line_color": _color(symbol_layer.line_color),
-            "line_style": symbol_layer.line_style,
-            "line_width": str(symbol_layer.line_width),
-            "line_width_unit": symbol_layer.line_width_unit,
-            "offset": symbol_layer.offset,
-            "offset_map_unit_scale": _SCALE,
-            "offset_unit": "MM",
-            "ring_filter": "0",
-            "use_custom_dash": "0",
-            "width_map_unit_scale": _SCALE,
-        }
-    elif isinstance(symbol_layer, SvgMarker):
-        svg_name = symbol_layer.name
-        if map_path is not None and (
-            svg_name.startswith("data/") or svg_name.startswith("./")
-        ):
-            abs_svg = (map_path / svg_name).resolve()
-            output_dir = map_path / "output"
-            svg_name = os.path.relpath(str(abs_svg), str(output_dir))
-        props = {
-            "angle": f"{symbol_layer.angle:g}",
-            "color": _color(symbol_layer.color),
-            "fixedAspectRatio": "0",
-            "horizontal_anchor_point": "1",
-            "name": svg_name,
-            "offset": symbol_layer.offset,
-            "offset_map_unit_scale": _SCALE,
-            "offset_unit": symbol_layer.offset_unit,
-            "outline_color": _color(symbol_layer.outline_color),
-            "outline_width": f"{symbol_layer.outline_width:g}",
-            "outline_width_map_unit_scale": _SCALE,
-            "outline_width_unit": symbol_layer.outline_width_unit,
-            "scale_method": "diameter",
-            "size": f"{symbol_layer.size:g}",
-            "size_map_unit_scale": _SCALE,
-            "size_unit": symbol_layer.size_unit,
-            "vertical_anchor_point": "1",
-        }
-        opt_el = _opt_map(props)
-        # QGIS requires a bare <Option name="parameters"/> for SvgMarker;
-        # insert it after outline_width_unit (alphabetical order).
-        keys = list(props.keys())
-        insert_after = keys.index("outline_width_unit")
-        opt_el.insert(insert_after + 1, ET.Element("Option", name="parameters"))
-        el.append(opt_el)
-        el.append(_data_defined_properties())
-        return el
-    elif isinstance(symbol_layer, SimpleMarker):
-        props = {
-            "angle": f"{symbol_layer.angle:g}",
-            "cap_style": symbol_layer.cap_style,
-            "color": _color(symbol_layer.color),
-            "horizontal_anchor_point": "1",
-            "joinstyle": symbol_layer.joinstyle,
-            "name": symbol_layer.name,
-            "offset": symbol_layer.offset,
-            "offset_map_unit_scale": _SCALE,
-            "offset_unit": symbol_layer.offset_unit,
-            "outline_color": _color(symbol_layer.outline_color),
-            "outline_style": "solid",
-            "outline_width": f"{symbol_layer.outline_width:g}",
-            "outline_width_map_unit_scale": _SCALE,
-            "outline_width_unit": symbol_layer.outline_width_unit,
-            "scale_method": "diameter",
-            "size": f"{symbol_layer.size:g}",
-            "size_map_unit_scale": _SCALE,
-            "size_unit": symbol_layer.size_unit,
-            "vertical_anchor_point": "1",
-        }
-    else:
-        warnings.warn(
-            f"Unrecognized symbol layer type {type(symbol_layer).__name__!r};"
-            " skipping"
-        )
-        props = {}
-    # everything other than SvgMarker
-    el.append(_opt_map(props))
-    el.append(_data_defined_properties())
-    return el
+    return SYMBOL_LAYER_RENDERERS[type(symbol_layer)](symbol_layer, map_path)
 
 
 def _render_symbol(sym: Symbol, name: str, map_path: Path | None = None) -> ET.Element:
@@ -446,7 +481,9 @@ def _render_symbol(sym: Symbol, name: str, map_path: Path | None = None) -> ET.E
     return el
 
 
-def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
+def _render_graduated_renderer(
+    renderer: GraduatedRenderer, map_path: Path | None = None
+) -> ET.Element:
     """Serialize a GraduatedRenderer to its QGS <renderer-v2> element."""
     base = dict(
         forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
@@ -526,67 +563,68 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     return el
 
 
-def _render_renderer(renderer: Renderer, map_path: Path | None = None) -> ET.Element:
-    """Serialize a Renderer model to its QGS <renderer-v2> element.
+RENDERER_BASE = dict(
+    forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
+)
 
-    map_path is always non-None here (caller is _inject_layers with
-    spec.map_path). GraduatedRenderer is dispatched to _render_graduated_renderer,
-    which does not receive map_path and calls _render_symbol without it — that is
-    where None enters the chain.
-    """
-    base = dict(
-        forceraster="0", referencescale="-1", symbollevels="0", enableorderby="0"
+
+def _render_single_symbol_renderer(
+    renderer: SingleSymbol, map_path: Path | None
+) -> ET.Element:
+    el = ET.Element(
+        "renderer-v2", type="singleSymbol", **RENDERER_BASE  # type: ignore[arg-type]
     )
-    if isinstance(renderer, SingleSymbol):
-        el = ET.Element(
-            "renderer-v2", type="singleSymbol", **base  # type: ignore[arg-type]
-        )
-        syms = ET.SubElement(el, "symbols")
-        syms.append(_render_symbol(renderer.symbol, "0", map_path))
-        ET.SubElement(el, "rotation")
-        ET.SubElement(el, "sizescale")
-        el.append(_renderer_data_defined_properties())
-        return el
-    if isinstance(renderer, RuleRenderer):
-        el = ET.Element(
-            "renderer-v2", type="RuleRenderer", **base  # type: ignore[arg-type]
-        )
-        rules_el = ET.SubElement(el, "rules", key=renderer.rules_key)
-        for rule in renderer.rules:
-            attrs: dict[str, str] = {
-                "key": rule.key,
-                "label": rule.label,
-                "filter": rule.filter,
-                "symbol": str(rule.symbol_index),
-            }
-            if not rule.active:
-                attrs["checkstate"] = "0"
-            ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
-        syms = ET.SubElement(el, "symbols")
-        for i, sym in enumerate(renderer.symbols):
-            syms.append(_render_symbol(sym, str(i), map_path))
-        el.append(_renderer_data_defined_properties())
-        return el
-    if isinstance(renderer, GraduatedRenderer):
-        return _render_graduated_renderer(renderer)
-    raise ValueError(f"Unknown renderer type: {type(renderer)}")
+    syms = ET.SubElement(el, "symbols")
+    syms.append(_render_symbol(renderer.symbol, "0", map_path))
+    ET.SubElement(el, "rotation")
+    ET.SubElement(el, "sizescale")
+    el.append(_renderer_data_defined_properties())
+    return el
+
+
+def _render_rule_based_renderer(
+    renderer: RuleRenderer, map_path: Path | None
+) -> ET.Element:
+    el = ET.Element(
+        "renderer-v2", type="RuleRenderer", **RENDERER_BASE  # type: ignore[arg-type]
+    )
+    rules_el = ET.SubElement(el, "rules", key=renderer.rules_key)
+    for rule in renderer.rules:
+        attrs: dict[str, str] = {
+            "key": rule.key,
+            "label": rule.label,
+            "filter": rule.filter,
+            "symbol": str(rule.symbol_index),
+        }
+        if not rule.active:
+            attrs["checkstate"] = "0"
+        ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
+    syms = ET.SubElement(el, "symbols")
+    for i, sym in enumerate(renderer.symbols):
+        syms.append(_render_symbol(sym, str(i), map_path))
+    el.append(_renderer_data_defined_properties())
+    return el
+
+
+def _render_paletted_renderer_vector(
+    renderer: PalettedRenderer, map_path: Path | None
+) -> ET.Element:
+    raise ValueError("PalettedRenderer is raster-only; cannot render as vector layer")
 
 
 # ── Dispatch tables (importable by test_completeness) ─────────────────────────
 
-SYMBOL_LAYER_RENDERERS: dict[type, None] = {
-    SimpleFill: None,
-    SimpleLine: None,
-    SvgMarker: None,
-    SimpleMarker: None,
+RENDERERS: dict[type, Callable[..., ET.Element]] = {
+    SingleSymbol: _render_single_symbol_renderer,
+    RuleRenderer: _render_rule_based_renderer,
+    GraduatedRenderer: _render_graduated_renderer,
+    PalettedRenderer: _render_paletted_renderer_vector,
 }
 
-RENDERERS: dict[type, object] = {
-    SingleSymbol: None,
-    RuleRenderer: None,
-    GraduatedRenderer: _render_graduated_renderer,
-    PalettedRenderer: None,  # raster-only; vector layers raise ValueError
-}
+
+def _render_renderer(renderer: Renderer, map_path: Path | None = None) -> ET.Element:
+    """Serialize a Renderer model to its QGS <renderer-v2> element."""
+    return RENDERERS[type(renderer)](renderer, map_path)
 
 
 def _srs_element(crs_id: str) -> ET.Element:
@@ -795,8 +833,8 @@ def _build_labeling(label: Label) -> ET.Element:
 def _build_vector_maplayer(layer: BoundLayer) -> ET.Element:
     """Build a <maplayer type='vector'> element for layer."""
     assert layer.geometry_type is not None
-    geom_attr = _GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
-    wkb_type = _WKB_TYPE.get(layer.geometry_type, layer.geometry_type)
+    geom_attr = GEOMETRY_ATTR.get(layer.geometry_type, layer.geometry_type)
+    wkb_type = WKB_TYPE.get(layer.geometry_type, layer.geometry_type)
     ml = ET.Element(
         "maplayer",
         type="vector",
@@ -973,6 +1011,61 @@ def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
     return pipe
 
 
+def _build_singlebandgray_pipe(layer: Layer) -> ET.Element:
+    """Build the <pipe> element for a singlebandgray raster renderer."""
+    pipe = ET.Element("pipe")
+    provider_el = ET.SubElement(pipe, "provider")
+    ET.SubElement(
+        provider_el,
+        "resampling",
+        maxOversampling="2",
+        enabled="false",
+        zoomedInResamplingMethod="nearestNeighbour",
+        zoomedOutResamplingMethod="nearestNeighbour",
+    )
+    r = ET.SubElement(
+        pipe,
+        "rasterrenderer",
+        type="singlebandgray",
+        grayBand="1",
+        alphaBand=str(layer.alpha_band) if layer.alpha_band is not None else "-1",
+        opacity="1",
+        gradient="BlackToWhite",
+        nodataColor="",
+    )
+    ET.SubElement(r, "rasterTransparency")
+    mmo = ET.SubElement(r, "minMaxOrigin")
+    for tag, val in [
+        ("limits", "MinMax"),
+        ("extent", "WholeRaster"),
+        ("statAccuracy", "Estimated"),
+        ("cumulativeCutLower", "0.02"),
+        ("cumulativeCutUpper", "0.98"),
+        ("stdDevFactor", "2"),
+    ]:
+        ET.SubElement(mmo, tag).text = val
+    ce = ET.SubElement(r, "contrastEnhancement")
+    ET.SubElement(ce, "minValue").text = "0"
+    ET.SubElement(ce, "maxValue").text = "1"
+    ET.SubElement(ce, "algorithm").text = "StretchToMinimumMaximum"
+    ET.SubElement(pipe, "brightnesscontrast", gamma="1", contrast="0", brightness="0")
+    ET.SubElement(
+        pipe,
+        "huesaturation",
+        colorizeRed="255",
+        colorizeGreen="128",
+        invertColors="0",
+        colorizeOn="0",
+        grayscaleMode="0",
+        saturation="0",
+        colorizeStrength="100",
+        colorizeBlue="128",
+    )
+    ET.SubElement(pipe, "rasterresampler", maxOversampling="2")
+    ET.SubElement(pipe, "resamplingStage").text = "resamplingFilter"
+    return pipe
+
+
 def _build_raster_maplayer(layer: Layer) -> ET.Element:
     """Build a minimal <maplayer type='raster'> element for layer."""
     ml = ET.Element(
@@ -1009,67 +1102,16 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     if isinstance(layer.renderer, PalettedRenderer):
         ml.append(_build_paletted_pipe(layer.renderer))
     else:
-        pipe = ET.SubElement(ml, "pipe")
-        provider_el = ET.SubElement(pipe, "provider")
-        ET.SubElement(
-            provider_el,
-            "resampling",
-            maxOversampling="2",
-            enabled="false",
-            zoomedInResamplingMethod="nearestNeighbour",
-            zoomedOutResamplingMethod="nearestNeighbour",
-        )
-        r = ET.SubElement(
-            pipe,
-            "rasterrenderer",
-            type="singlebandgray",
-            grayBand="1",
-            alphaBand=str(layer.alpha_band) if layer.alpha_band is not None else "-1",
-            opacity="1",
-            gradient="BlackToWhite",
-            nodataColor="",
-        )
-        ET.SubElement(r, "rasterTransparency")
-        mmo = ET.SubElement(r, "minMaxOrigin")
-        for tag, val in [
-            ("limits", "MinMax"),
-            ("extent", "WholeRaster"),
-            ("statAccuracy", "Estimated"),
-            ("cumulativeCutLower", "0.02"),
-            ("cumulativeCutUpper", "0.98"),
-            ("stdDevFactor", "2"),
-        ]:
-            ET.SubElement(mmo, tag).text = val
-        ce = ET.SubElement(r, "contrastEnhancement")
-        ET.SubElement(ce, "minValue").text = "0"
-        ET.SubElement(ce, "maxValue").text = "1"
-        ET.SubElement(ce, "algorithm").text = "StretchToMinimumMaximum"
-        ET.SubElement(
-            pipe, "brightnesscontrast", gamma="1", contrast="0", brightness="0"
-        )
-        ET.SubElement(
-            pipe,
-            "huesaturation",
-            colorizeRed="255",
-            colorizeGreen="128",
-            invertColors="0",
-            colorizeOn="0",
-            grayscaleMode="0",
-            saturation="0",
-            colorizeStrength="100",
-            colorizeBlue="128",
-        )
-        ET.SubElement(pipe, "rasterresampler", maxOversampling="2")
-        ET.SubElement(pipe, "resamplingStage").text = "resamplingFilter"
+        ml.append(_build_singlebandgray_pipe(layer))
     ET.SubElement(ml, "blendMode").text = "0"
     return ml
 
 
-RASTER_RENDERERS: dict[type, object] = {
+RASTER_RENDERERS: dict[type, Callable] = {
     PalettedRenderer: _build_paletted_pipe,
-    SingleSymbol: None,
-    RuleRenderer: None,
-    GraduatedRenderer: None,
+    SingleSymbol: _build_singlebandgray_pipe,
+    RuleRenderer: _build_singlebandgray_pipe,
+    GraduatedRenderer: _build_singlebandgray_pipe,
 }
 
 
@@ -1140,7 +1182,7 @@ def render(spec: BoundMap) -> None:
     output_dir = spec.map_path / "output"
     output_dir.mkdir(exist_ok=True)
     out = output_dir / "project.qgs"
-    out.write_text(_QGS_DOCTYPE + ET.tostring(root, encoding="unicode"))
+    out.write_text(QGS_DOCTYPE + ET.tostring(root, encoding="unicode"))
     print(f"Wrote {out}")
 
     if spec.print_layout is not None:
@@ -1155,12 +1197,12 @@ def _qpt_uuid() -> str:
     return "{" + str(uuid.uuid4()) + "}"
 
 
-def _pos(x: float, y: float) -> str:
+def _layout_position(x: float, y: float) -> str:
     """Return a QGIS position string 'x,y,mm'."""
     return f"{x},{y},mm"
 
 
-def _sz(w: float, h: float) -> str:
+def _layout_size(w: float, h: float) -> str:
     """Return a QGIS size string 'w,h,mm'."""
     return f"{w},{h},mm"
 
@@ -1196,14 +1238,14 @@ def _text_bg() -> ET.Element:
         "background",
         shapeRadiiX="0",
         shapeRadiiY="0",
-        shapeOffsetMapUnitScale=_SCALE,
+        shapeOffsetMapUnitScale=SCALE,
         shapeOpacity="1",
         shapeRotationType="0",
         shapeJoinStyle="64",
         shapeDraw="0",
         shapeSizeUnit="MM",
         shapeSizeType="0",
-        shapeRadiiMapUnitScale=_SCALE,
+        shapeRadiiMapUnitScale=SCALE,
         shapeBorderWidthUnit="MM",
         shapeRadiiUnit="MM",
         shapeSizeX="0",
@@ -1215,11 +1257,11 @@ def _text_bg() -> ET.Element:
         shapeFillColor="255,255,255,255,rgb:1,1,1,1",
         shapeType="0",
         shapeRotation="0",
-        shapeSizeMapUnitScale=_SCALE,
+        shapeSizeMapUnitScale=SCALE,
         shapeOffsetX="0",
         shapeBorderColor="128,128,128,255,rgb:0.5019608,0.5019608,0.5019608,1",
         shapeOffsetY="0",
-        shapeBorderWidthMapUnitScale=_SCALE,
+        shapeBorderWidthMapUnitScale=SCALE,
     )
     sym = ET.SubElement(
         bg,
@@ -1244,11 +1286,11 @@ def _text_bg() -> ET.Element:
     lay.append(
         _opt_map(
             {
-                "border_width_map_unit_scale": _SCALE,
+                "border_width_map_unit_scale": SCALE,
                 "color": "255,255,255,255,rgb:1,1,1,1",
                 "joinstyle": "bevel",
                 "offset": "0,0",
-                "offset_map_unit_scale": _SCALE,
+                "offset_map_unit_scale": SCALE,
                 "offset_unit": "MM",
                 "outline_color": (
                     "128,128,128,255,rgb:0.5019608,0.5019608,0.5019608,1"
@@ -1272,7 +1314,7 @@ def _text_style(
         "text-style",
         allowHtml="0",
         capitalization="0",
-        tabStopDistanceMapUnitScale=_SCALE,
+        tabStopDistanceMapUnitScale=SCALE,
         tabStopDistanceUnit="Percentage",
         forcedItalic="0",
         fontLetterSpacing="0",
@@ -1285,7 +1327,7 @@ def _text_style(
         namedStyle=named_style,
         fontWordSpacing="0",
         fontFamily=".AppleSystemUIFont",
-        fontSizeMapUnitScale=_SCALE,
+        fontSizeMapUnitScale=SCALE,
         previewBkgrdColor="255,255,255,255,rgb:1,1,1,1",
         multilineHeightUnit="Percentage",
         fontUnderline="0",
@@ -1302,7 +1344,7 @@ def _text_style(
         ts,
         "text-buffer",
         bufferColor="255,255,255,255,rgb:1,1,1,1",
-        bufferSizeMapUnitScale=_SCALE,
+        bufferSizeMapUnitScale=SCALE,
         bufferBlendMode="0",
         bufferSizeUnits="MM",
         bufferNoFill="1",
@@ -1314,7 +1356,7 @@ def _text_style(
     ET.SubElement(
         ts,
         "text-mask",
-        maskSizeMapUnitScale=_SCALE,
+        maskSizeMapUnitScale=SCALE,
         maskedSymbolLayers="",
         maskSize="1.5",
         maskSizeUnits="MM",
@@ -1328,12 +1370,12 @@ def _text_style(
     ET.SubElement(
         ts,
         "shadow",
-        shadowRadiusMapUnitScale=_SCALE,
+        shadowRadiusMapUnitScale=SCALE,
         shadowRadiusAlphaOnly="0",
         shadowOpacity="0.69999999999999996",
         shadowOffsetGlobal="1",
         shadowOffsetDist="1",
-        shadowOffsetMapUnitScale=_SCALE,
+        shadowOffsetMapUnitScale=SCALE,
         shadowUnder="0",
         shadowRadius="1.5",
         shadowRadiusUnit="MM",
@@ -1348,7 +1390,7 @@ def _text_style(
     return ts
 
 
-def _solid_fill_sym(color: Color, name: str = "") -> ET.Element:
+def _solid_fill_symbol(color: Color, name: str = "") -> ET.Element:
     """Return a solid-color SimpleFill <symbol> element."""
     return _render_symbol(
         Symbol(type="fill", layers=[SimpleFill(color=color, outline_style="no")]),
@@ -1356,7 +1398,7 @@ def _solid_fill_sym(color: Color, name: str = "") -> ET.Element:
     )
 
 
-def _simple_line_sym(name: str = "") -> ET.Element:
+def _simple_line_symbol(name: str = "") -> ET.Element:
     """Return a thin black SimpleLine <symbol> element."""
     return _render_symbol(
         Symbol(
@@ -1393,11 +1435,11 @@ def _layout_item(
     el = ET.Element(
         "LayoutItem",
         type=type_id,
-        position=_pos(x, y),
-        size=_sz(w, h),
+        position=_layout_position(x, y),
+        size=_layout_size(w, h),
         uuid=uuid,
         templateUuid=uuid,
-        positionOnPage=_pos(x, y),
+        positionOnPage=_layout_position(x, y),
         zValue=str(z),
         frame="false",
         visibility="1",
@@ -1422,13 +1464,13 @@ def _layout_item(
 def _qpt_page_collection(page: PrintPage) -> ET.Element:
     """Return a <PageCollection> element for the print layout page."""
     pc = ET.Element("PageCollection")
-    pc.append(_solid_fill_sym(WHITE))
+    pc.append(_solid_fill_symbol(WHITE))
     page_uuid = _qpt_uuid()
     pi = _layout_item(
         "65638", 0, 0, page.width_mm, page.height_mm, 0, page_uuid, background="true"
     )
     pc.append(pi)
-    pi.append(_solid_fill_sym(WHITE))
+    pi.append(_solid_fill_symbol(WHITE))
     ET.SubElement(pc, "GuideCollection", visible="1")
     return pc
 
@@ -1546,11 +1588,11 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
     ET.SubElement(el, "fillColor2", alpha="255", blue="255", red="255", green="255")
     for tag in ("lineSymbol", "divisionLineSymbol", "subdivisionLineSymbol"):
         wrapper = ET.SubElement(el, tag)
-        wrapper.append(_simple_line_sym())
+        wrapper.append(_simple_line_symbol())
     fs1 = ET.SubElement(el, "fillSymbol1")
-    fs1.append(_solid_fill_sym(BLACK))
+    fs1.append(_solid_fill_symbol(BLACK))
     fs2 = ET.SubElement(el, "fillSymbol2")
-    fs2.append(_solid_fill_sym(WHITE))
+    fs2.append(_solid_fill_symbol(WHITE))
     return el
 
 
