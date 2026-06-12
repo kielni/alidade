@@ -1,24 +1,24 @@
 from pathlib import Path
 
 
-def project_dir(project_file: str) -> Path:
-    """Return the project directory containing project_file.
+def map_dir(map_file: str) -> Path:
+    """Return the map directory containing map_file.
 
-    Usage in a project-level file (project.py, main.py, etc.):
-        from alidade import project_dir
-        _DIR = project_dir(__file__)
+    Usage in a map-level file (main.py, etc.):
+        from alidade import map_dir
+        _DIR = map_dir(__file__)
     """
-    return Path(project_file).parent
+    return Path(map_file).parent
 
 
-def project_data_dir(layer_file: str) -> Path:
-    """Return the data/ directory for the project containing layer_file.
+def map_data_dir(layer_file: str) -> Path:
+    """Return the data/ directory for the map containing layer_file.
 
     Assumes the standard layout: projects/<name>/layers/<layer>.py
     with source data at projects/<name>/data/.
 
     Usage in a layer file:
-        from alidade import project_data_dir
-        _CSV = project_data_dir(__file__) / "malls.csv"
+        from alidade import map_data_dir
+        _CSV = map_data_dir(__file__) / "malls.csv"
     """
     return Path(layer_file).parent.parent / "data"

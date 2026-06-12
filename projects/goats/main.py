@@ -1,4 +1,4 @@
-from alidade.models import Extent, Project
+from alidade.models import Extent, Map
 from projects.goats.layers.basemap import basemap
 from projects.goats.layers.basemap_satellite import basemap_satellite
 from projects.goats.layers.border import border
@@ -29,7 +29,7 @@ EXTENT = Extent(
 ).to_crs(CRS)
 
 # build all layers
-map_all = Project(
+map_all = Map(
     title="Alum Rock Goat Grazing",
     crs=CRS,
     extent=EXTENT,
@@ -58,7 +58,7 @@ map_all = Project(
 """
 1: Park overview: staging areas, creek, roads/trails, developed zone
 """
-map_park = Project(
+map_park = Map(
     id="park",
     title="Alum Rock Park",
     crs=CRS,
@@ -76,7 +76,7 @@ map_park = Project(
 """
 2: Slope analysis derived from USGS DEM
 """
-map_slope = Project(
+map_slope = Map(
     id="slope",
     title="Alum Rock Park: Slopes",
     crs=CRS,
@@ -94,7 +94,7 @@ map_slope = Project(
 """
 3: Vegetation classification; lifeform classes grouped into 6 classes, plus developed
 """
-map_veg = Project(
+map_veg = Map(
     title="Alum Rock: Vegetation",
     id="vegetation",
     crs=CRS,
@@ -112,7 +112,7 @@ map_veg = Project(
 """
 4: Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
 """
-map_zones = Project(
+map_zones = Map(
     title="Alum Rock Goat Priority and Exclusion Zones",
     id="zones",
     crs=CRS,
@@ -132,7 +132,7 @@ map_zones = Project(
 """
 5: Weighted overlay for suitability from priority/exclusion zones, slope, and vegetation
 """
-map_suitability = Project(
+map_suitability = Map(
     title="Alum Rock Goat Grazing Suitability",
     id="suitability",
     crs=CRS,
@@ -152,7 +152,7 @@ map_suitability = Project(
 """
 6: Group and smooth suitability outputs into target zones
 """
-map_target_zones = Project(
+map_target_zones = Map(
     title="Alum Rock Goat Grazing Target Zones",
     id="patches",
     crs=CRS,
@@ -172,7 +172,7 @@ map_target_zones = Project(
 """
 7: Prioritized staging areas based on access to target zones
 """
-map_ranked_staging = Project(
+map_ranked_staging = Map(
     title="Alum Rock Target Staging",
     id="targets_cluster",
     crs=CRS,
@@ -201,7 +201,7 @@ EXTENT_DETAIL = Extent(
     crs="EPSG:4326",
 ).to_crs(CRS)
 
-map_detail = Project(
+map_detail = Map(
     title="Alum Rock Rustic Lands area",
     id="detail",
     crs=CRS,

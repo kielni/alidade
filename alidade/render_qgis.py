@@ -1,4 +1,4 @@
-"""Render project.py → output/project.qgs."""
+"""Render a map project → output/project.qgs."""
 
 import os
 import re
@@ -15,7 +15,7 @@ from pyproj import CRS as ProjCRS
 from alidade.color import BLACK, WHITE, Color
 from alidade.models import (
     BoundLayer,
-    BoundProject,
+    BoundMap,
     Extent,
     GraduatedRenderer,
     Label,
@@ -302,13 +302,13 @@ def _opt_map(props: Mapping[str, str]) -> ET.Element:
 
 def _render_symbol_layer(
     symbol_layer: SymbolLayer,
-    project_path: Path | None = None,
+    map_path: Path | None = None,
 ) -> ET.Element:
     """Serialize a SymbolLayer model to its QGS <layer> element.
 
-    project_path is None when the symbol cannot contain an SvgMarker — specifically
+    map_path is None when the symbol cannot contain an SvgMarker — specifically
     when called via _render_graduated_renderer, which builds only SimpleFill symbols
-    and never holds a project_path. When None, SVG path relativisation is skipped.
+    and never holds a map_path. When None, SVG path relativisation is skipped.
     """
     el = ET.Element(
         "layer",
@@ -355,11 +355,11 @@ def _render_symbol_layer(
         }
     elif isinstance(symbol_layer, SvgMarker):
         svg_name = symbol_layer.name
-        if project_path is not None and (
+        if map_path is not None and (
             svg_name.startswith("data/") or svg_name.startswith("./")
         ):
-            abs_svg = (project_path / svg_name).resolve()
-            output_dir = project_path / "output"
+            abs_svg = (map_path / svg_name).resolve()
+            output_dir = map_path / "output"
             svg_name = os.path.relpath(str(abs_svg), str(output_dir))
         props = {
             "angle": f"{symbol_layer.angle:g}",
@@ -423,12 +423,10 @@ def _render_symbol_layer(
     return el
 
 
-def _render_symbol(
-    sym: Symbol, name: str, project_path: Path | None = None
-) -> ET.Element:
+def _render_symbol(sym: Symbol, name: str, map_path: Path | None = None) -> ET.Element:
     """Serialize a Symbol model to its QGS <symbol> element.
 
-    project_path is None when called from _render_graduated_renderer (SimpleFill only,
+    map_path is None when called from _render_graduated_renderer (SimpleFill only,
     no SVG). Non-None when called from _render_renderer for SingleSymbol/RuleRenderer,
     which may contain SvgMarker layers requiring path relativisation.
     """
@@ -444,7 +442,7 @@ def _render_symbol(
     )
     el.append(_data_defined_properties())
     for sl in sym.layers:
-        el.append(_render_symbol_layer(sl, project_path))
+        el.append(_render_symbol_layer(sl, map_path))
     return el
 
 
@@ -528,14 +526,12 @@ def _render_graduated_renderer(renderer: GraduatedRenderer) -> ET.Element:
     return el
 
 
-def _render_renderer(
-    renderer: Renderer, project_path: Path | None = None
-) -> ET.Element:
+def _render_renderer(renderer: Renderer, map_path: Path | None = None) -> ET.Element:
     """Serialize a Renderer model to its QGS <renderer-v2> element.
 
-    project_path is always non-None here (caller is _inject_layers with
-    spec.project_path). GraduatedRenderer is dispatched to _render_graduated_renderer,
-    which does not receive project_path and calls _render_symbol without it — that is
+    map_path is always non-None here (caller is _inject_layers with
+    spec.map_path). GraduatedRenderer is dispatched to _render_graduated_renderer,
+    which does not receive map_path and calls _render_symbol without it — that is
     where None enters the chain.
     """
     base = dict(
@@ -546,7 +542,7 @@ def _render_renderer(
             "renderer-v2", type="singleSymbol", **base  # type: ignore[arg-type]
         )
         syms = ET.SubElement(el, "symbols")
-        syms.append(_render_symbol(renderer.symbol, "0", project_path))
+        syms.append(_render_symbol(renderer.symbol, "0", map_path))
         ET.SubElement(el, "rotation")
         ET.SubElement(el, "sizescale")
         el.append(_renderer_data_defined_properties())
@@ -568,7 +564,7 @@ def _render_renderer(
             ET.SubElement(rules_el, "rule", **attrs)  # type: ignore[arg-type]
         syms = ET.SubElement(el, "symbols")
         for i, sym in enumerate(renderer.symbols):
-            syms.append(_render_symbol(sym, str(i), project_path))
+            syms.append(_render_symbol(sym, str(i), map_path))
         el.append(_renderer_data_defined_properties())
         return el
     if isinstance(renderer, GraduatedRenderer):
@@ -1067,7 +1063,7 @@ def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:
             else:
                 continue
         else:
-            xml_path = bound.project_path / bound.style_xml
+            xml_path = bound.map_path / bound.style_xml
             if not xml_path.exists():
                 print(f"  warning: {xml_path} not found, skipping {bound.name!r}")
                 continue
@@ -1083,7 +1079,7 @@ def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:
             nm.text = bound.name
         if bound.renderer is not None and bound.type == "vector":
             old = ml.find("renderer-v2")
-            new = _render_renderer(bound.renderer, bound.project_path)
+            new = _render_renderer(bound.renderer, bound.map_path)
             if old is not None:
                 children = list(ml)
                 ml.remove(old)
@@ -1093,10 +1089,10 @@ def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:
         pl.append(ml)
 
 
-def render(spec: BoundProject) -> None:
-    """Render project spec to output/project.qgs inside spec.project_path."""
-    assert spec.project_path is not None
-    base_path = spec.project_path / "styles" / "base.qgs"
+def render(spec: BoundMap) -> None:
+    """Render map spec to output/project.qgs inside spec.map_path."""
+    assert spec.map_path is not None
+    base_path = spec.map_path / "styles" / "base.qgs"
     if not base_path.exists():
         base_path = HERE / "util" / "base.qgs"
 
@@ -1116,7 +1112,7 @@ def render(spec: BoundProject) -> None:
     _rebuild_legend(root, bound_layers)
     _rebuild_layerorder(root, bound_layers)
 
-    output_dir = spec.project_path / "output"
+    output_dir = spec.map_path / "output"
     output_dir.mkdir(exist_ok=True)
     out = output_dir / "project.qgs"
     out.write_text(_QGS_DOCTYPE + ET.tostring(root, encoding="unicode"))
@@ -1533,9 +1529,7 @@ def _qpt_scale_bar(sb: PrintScaleBar, map_uuid: str, z: int) -> ET.Element:
     return el
 
 
-def _qpt_legend(
-    leg: PrintLegend, spec: BoundProject, map_uuid: str, z: int
-) -> ET.Element:
+def _qpt_legend(leg: PrintLegend, spec: BoundMap, map_uuid: str, z: int) -> ET.Element:
     """Return a <LayoutItem> legend element linked to map_uuid."""
     el = _layout_item(
         "65642",
@@ -1625,7 +1619,7 @@ def _qpt_legend(
 
 
 def _qpt_map_frame(
-    mf: PrintMapFrame, spec: BoundProject, map_uuid: str, z: int
+    mf: PrintMapFrame, spec: BoundMap, map_uuid: str, z: int
 ) -> ET.Element:
     """Return a <LayoutItem> map frame element containing spec's extent."""
     extra: dict[str, str] = dict(
@@ -1688,9 +1682,9 @@ def _qpt_map_frame(
     return el
 
 
-def render_print_layout(spec: BoundProject) -> None:
-    """Render spec's print_layout to output/print.qpt inside spec.project_path."""
-    assert spec.project_path is not None
+def render_print_layout(spec: BoundMap) -> None:
+    """Render spec's print_layout to output/print.qpt inside spec.map_path."""
+    assert spec.map_path is not None
     assert spec.print_layout is not None
     pl = spec.print_layout
     map_uuid = _qpt_uuid()
@@ -1827,7 +1821,7 @@ def render_print_layout(spec: BoundProject) -> None:
     )
 
     ET.indent(root, space=" ")
-    output_dir = spec.project_path / "output"
+    output_dir = spec.map_path / "output"
     output_dir.mkdir(exist_ok=True)
     out = output_dir / f"{pl.name}.qpt"
     out.write_text(ET.tostring(root, encoding="unicode"))

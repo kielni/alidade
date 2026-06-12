@@ -55,14 +55,14 @@ trailer access). Saved as `data/staging.geojson`.
 
 ## Step 2 — Project scaffold and basemaps
 
-Created project scaffold. Two basemap layers: CartoDB Positron
+Created map scaffold. Two basemap layers: CartoDB Positron
 (`basemaps.cartocdn.com/light_all`) used in most maps; ESRI World Imagery
 (`server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer`)
 used in `map_detail` for satellite context.
 
 **Files created:**
 - `__init__.py`, `util.py`
-- `project.py`
+- `main.py`
 - `layers/__init__.py`
 - `layers/basemap.py` — CartoDB Positron XYZ tile service
 - `layers/basemap_satellite.py` — ESRI World Imagery XYZ tile service
@@ -268,7 +268,7 @@ replaced by the distance-decay approach in `staging_ranked.py`.
 
 ## Step 16 — Multiple output maps
 
-Defined 8 sub-maps in `project.py` sharing layer objects, each focused on one
+Defined 8 sub-maps in `main.py` sharing layer objects, each focused on one
 analysis stage.
 
 | ID | Title | Key layers |
@@ -286,7 +286,7 @@ analysis stage.
 are used for final output and the story map.
 
 **Files changed:**
-- `project.py` — all 8 map definitions; `spec = map_all`
+- `main.py` — all 8 map definitions; `spec = map_all`
 
 ---
 
@@ -358,3 +358,19 @@ literals, matplotlib float tuples) with a single canonical `Color` type.
 - `util.py` — `VegetationZone.color: str` → `Color`; `VEGETATION_ZONES` uses
   palette constants
 - All 17 `layers/*.py` files
+
+---
+
+## Step 20 — Project → Map rename
+
+Renamed `Project` → `Map` and `BoundProject` → `BoundMap` throughout the
+alidade library. `BoundLayer.project_path` renamed to `map_path`. The
+entry-point file `project.py` renamed to `main.py` (git mv).
+`projects/goats/map.py` updated to import `BoundMap` and reference
+`projects.goats.main`.
+
+**Files changed:**
+- `main.py` (renamed from `project.py`) — `from alidade.models import Map`;
+  all `Project(...)` → `Map(...)`
+- `map.py` — `BoundProject` → `BoundMap`, `project_path` → `map_path`,
+  import updated to `projects.goats.main`

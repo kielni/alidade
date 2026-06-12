@@ -16,7 +16,7 @@ from alidade.color import BLACK, DARK_GRAY, Color
 from alidade.models import (
     Extent,
     Layer,
-    Project,
+    Map,
     Renderer,
     Rule,
     RuleRenderer,
@@ -417,13 +417,13 @@ def _write_layer_py(
     return True
 
 
-def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) -> None:
-    """Write slim project.py that imports from layers/ and assembles Project."""
+def _write_main_py(spec: Map, human_ids: list[str], project_dir: Path) -> None:
+    """Write slim main.py that imports from layers/ and assembles Map."""
     import_lines = [f"from .layers.{hid} import {hid}" for hid in human_ids]
     model_import = (
-        "from alidade.models import Extent, Project"
+        "from alidade.models import Extent, Map"
         if spec.extent
-        else "from alidade.models import Project"
+        else "from alidade.models import Map"
     )
     if spec.extent:
         e = spec.extent
@@ -445,7 +445,7 @@ def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) ->
         "",
         *import_lines,
         "",
-        "spec = Project(",
+        "spec = Map(",
         f"    title={spec.title!r},",
         f"    crs={spec.crs!r},",
         *extent_lines,
@@ -455,7 +455,7 @@ def _write_project_py(spec: Project, human_ids: list[str], project_dir: Path) ->
         ")",
         "",
     ]
-    (project_dir / "project.py").write_text("\n".join(lines))
+    (project_dir / "main.py").write_text("\n".join(lines))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -600,10 +600,10 @@ def _load_xml(project_file: Path) -> bytes:
 # ── Terminal summary ──────────────────────────────────────────────────────────
 
 
-def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
-    """Print a human-readable summary of the parsed project to stdout."""
+def _print_summary(spec: Map, pairs: list[tuple[str, Layer]]) -> None:
+    """Print a human-readable summary of the parsed map to stdout."""
     print()
-    print(f"Project : {spec.title!r}")
+    print(f"Map     : {spec.title!r}")
     print(f"CRS     : {spec.crs}")
     if spec.extent:
         e = spec.extent
@@ -619,7 +619,7 @@ def _print_summary(spec: Project, pairs: list[tuple[str, Layer]]) -> None:
 
 
 def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) -> None:
-    """Parse a QGIS project file and write layers/*.py and project.py to project_dir."""
+    """Parse a QGIS project file and write layers/*.py and main.py to project_dir."""
     project_file = project_file.resolve()
     project_dir = project_dir.resolve()
     qgz_dir = project_file.parent
@@ -661,26 +661,26 @@ def dump(project_file: Path, project_dir: Path, force_layer: str | None = None) 
                     pass
             break
 
-    spec = Project(
+    spec = Map(
         title=title,
         crs=project_crs,
         extent=extent,
         layers=[layer for _, layer in pairs],
     )
-    _write_project_py(spec, human_ids, project_dir)
-    print(f"Wrote {project_dir / 'project.py'}")
+    _write_main_py(spec, human_ids, project_dir)
+    print(f"Wrote {project_dir / 'main.py'}")
 
     _print_summary(spec, pairs)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Dump project layers.")
-    parser.add_argument("project_dir", help="Path to project directory")
+    parser = argparse.ArgumentParser(description="Dump map layers.")
+    parser.add_argument("map_dir", help="Path to map directory")
     parser.add_argument(
         "--force", metavar="LAYER_ID", help="Force re-fetch of a specific layer"
     )
     args = parser.parse_args()
-    project_dir = Path(args.project_dir)
+    project_dir = Path(args.map_dir)
     project_file = _find_project_file(project_dir)
     dump(project_file, project_dir, force_layer=args.force)
 

@@ -1,11 +1,11 @@
-# Generate or update a project's README.md from the current project spec.
+# Generate or update a map's README.md from the current map spec.
 # Called by build.py after render(). Replaces the section between the
 # <!-- auto:begin --> / <!-- auto:end --> markers; everything outside is preserved.
 
 from pathlib import Path
 
 from alidade.models import (
-    BoundProject,
+    BoundMap,
     Layer,
     PythonAction,
 )
@@ -99,7 +99,7 @@ def _topo_sort(derived: list[Layer]) -> list[Layer]:
     return order
 
 
-def _auto_section(spec: BoundProject) -> str:
+def _auto_section(spec: BoundMap) -> str:
     """Build the auto-generated README section text for spec."""
     lines: list[str] = []
 
@@ -145,10 +145,10 @@ def _auto_section(spec: BoundProject) -> str:
     return "\n".join(lines)
 
 
-def update_readme(spec: BoundProject) -> None:
+def update_readme(spec: BoundMap) -> None:
     """Write or update the auto-generated section of README.md."""
-    assert spec.project_path is not None
-    readme_path = spec.project_path / "README.md"
+    assert spec.map_path is not None
+    readme_path = spec.map_path / "README.md"
     section = f"{_BEGIN}\n{_auto_section(spec)}{_END}\n"
 
     if not readme_path.exists():

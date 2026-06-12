@@ -1,4 +1,4 @@
-"""Render a Project spec to a static PNG using matplotlib and geopandas."""
+"""Render a Map spec to a static PNG using matplotlib and geopandas."""
 
 import argparse
 import re
@@ -20,7 +20,7 @@ from PIL import Image
 from alidade.color import Color
 from alidade.models import (
     BoundLayer,
-    BoundProject,
+    BoundMap,
     GraduatedRenderer,
     Label,
     Layer,
@@ -32,7 +32,7 @@ from alidade.models import (
     SingleSymbol,
     SvgMarker,
 )
-from alidade.util.helpers import bind_project, load_project_module
+from alidade.util.helpers import bind_map, load_map_module
 
 
 def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
@@ -252,7 +252,7 @@ def _plot_layer(
 
 
 def render(
-    spec: BoundProject,
+    spec: BoundMap,
     name: str = "map",
     dpi: int = 150,
 ) -> None:
@@ -346,9 +346,9 @@ def render(
 
 
 def main() -> None:
-    """CLI entry point: render map PNG(s) for a project directory."""
-    parser = argparse.ArgumentParser(description="Render map PNG(s) for a project.")
-    parser.add_argument("project_dir", help="Path to project directory")
+    """CLI entry point: render map PNG(s) for a map directory."""
+    parser = argparse.ArgumentParser(description="Render map PNG(s) for a map.")
+    parser.add_argument("map_dir", help="Path to map directory")
     parser.add_argument(
         "--map",
         dest="map_id",
@@ -356,21 +356,19 @@ def main() -> None:
         help="Render one named map by ID (default: render all maps)",
     )
     args = parser.parse_args()
-    project_path = (Path.cwd() / args.project_dir).resolve()
-    module = load_project_module(project_path)
+    map_path = (Path.cwd() / args.map_dir).resolve()
+    module = load_map_module(map_path)
 
-    project_maps = getattr(module, "maps", [])
+    map_specs = getattr(module, "maps", [])
     if args.map_id:
-        project_maps = [m for m in project_maps if m.id == args.map_id]
-        if not project_maps:
+        map_specs = [m for m in map_specs if m.id == args.map_id]
+        if not map_specs:
             print(f"Map {args.map_id!r} not found", file=sys.stderr)
             sys.exit(1)
 
-    if project_maps:
-        for spec in project_maps:
-            bound = BoundProject(
-                **spec.model_dump(mode="python"), project_path=project_path
-            )
+    if map_specs:
+        for spec in map_specs:
+            bound = BoundMap(**spec.model_dump(mode="python"), map_path=map_path)
             render(bound, f"map_{spec.id}")
     else:
-        render(bind_project(project_path))
+        render(bind_map(map_path))

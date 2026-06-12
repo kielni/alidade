@@ -172,7 +172,7 @@ class Label(BaseModel):
 #   │  legend          scale bar          credits 10pt  │
 #   └──────────────────────────────────────────────────┘
 #
-# Add a print layout in project.py:
+# Add a print layout in map.py:
 #
 #   print_layout=PrintLayout(
 #       title_text="My Map",
@@ -295,7 +295,7 @@ class Extent(BaseModel):
     degrees, then call Extent(..., crs="EPSG:4326").to_crs("EPSG:26910") to
     reproject into the project CRS.
 
-    With a QGIS project file, run `make extent DIR=<project_dir>` after saving
+    With a QGIS project file, run `make extent DIR=<map_dir>` after saving
     the project file to output/project.qgs.
     """
 
@@ -330,11 +330,11 @@ class Extent(BaseModel):
         return self.to_crs("EPSG:3857")
 
 
-# ── Project ───────────────────────────────────────────────────────────────────
+# ── Map ───────────────────────────────────────────────────────────────────────
 
 
-class Project(BaseModel):
-    """Project spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
+class Map(BaseModel):
+    """Map spec; renders to QGIS or ArcGIS Pro lyrx depending on output_format."""
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     output_format: Literal["qgis", "lyrx"] = "qgis"
@@ -345,17 +345,17 @@ class Project(BaseModel):
     print_layout: PrintLayout | None = None
 
 
-class BoundProject(Project):
-    project_path: Path
+class BoundMap(Map):
+    map_path: Path
 
     @property
     def bound_layers(self) -> list[BoundLayer]:
-        """Return all layers in this project with project_path set on them."""
-        return [layer.bind(self.project_path) for layer in self.layers]
+        """Return all layers in this map with map_path set on them."""
+        return [layer.bind(self.map_path) for layer in self.layers]
 
     @property
     def output_path(self) -> Path:
-        return self.project_path / "output"
+        return self.map_path / "output"
 
 
 # ── Processing step ───────────────────────────────────────────────────────────
@@ -409,24 +409,22 @@ class Layer(BaseModel):
     # provenance of the raw data (dataset name, agency, download source)
     source_origin: str | None = None
 
-    def path_for(self, project_path: Path) -> Path:
-        """Resolve datasource to an absolute path against project_path.
+    def path_for(self, map_path: Path) -> Path:
+        """Resolve datasource to an absolute path against map_path.
 
         Strips OGR/CSV suffixes (|layername=…, ?type=csv&…) before resolving.
         """
         part = self.datasource.split("|")[0].split("?")[0].lstrip("./")
-        return (project_path / part).resolve()
+        return (map_path / part).resolve()
 
-    def bind(self, project_path: Path, *, with_inputs: bool = False) -> "BoundLayer":
-        """Return a BoundLayer bound to project_path."""
+    def bind(self, map_path: Path, *, with_inputs: bool = False) -> "BoundLayer":
+        """Return a BoundLayer bound to map_path."""
         data = self.model_dump(mode="python")
         data.pop("inputs")
         if with_inputs:
-            bound_inputs = [
-                inp.bind(project_path, with_inputs=True) for inp in self.inputs
-            ]
-            return BoundLayer(**data, project_path=project_path, inputs=bound_inputs)
-        return BoundLayer(**data, project_path=project_path)
+            bound_inputs = [inp.bind(map_path, with_inputs=True) for inp in self.inputs]
+            return BoundLayer(**data, map_path=map_path, inputs=bound_inputs)
+        return BoundLayer(**data, map_path=map_path)
 
     @field_validator("id")
     @classmethod
@@ -448,21 +446,21 @@ Layer.model_rebuild()
 
 
 class BoundLayer(Layer):
-    project_path: Path
+    map_path: Path
     inputs: list["BoundLayer"] = []  # type: ignore[assignment]
 
     @property
     def path(self) -> Path:
         """Resolved file this layer represents."""
-        return self.path_for(self.project_path)
+        return self.path_for(self.map_path)
 
     @property
     def raw_path(self) -> Path:
         """Resolved path to raw_file."""
         if self.raw_file is None:
             raise ValueError(f"raw_file not set on layer {self.id!r}")
-        return (self.project_path / self.raw_file).resolve()
+        return (self.map_path / self.raw_file).resolve()
 
     @property
     def output_path(self) -> Path:
-        return self.project_path / "output"
+        return self.map_path / "output"

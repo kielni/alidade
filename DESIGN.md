@@ -6,7 +6,7 @@ architecture decisions. Read this before writing any code.
 ## Goal
 
 Treat GIS projects as build output, not source. Source of truth is Python in
-this repo. A build script renders either a `.qgs` file (QGIS) or a `.aprx` file
+this repo. A build script renders either a `.qgs` file (QGIS) or `.lyrx` files
 (ArcGIS Pro) from the same Python spec. The GIS application is used as a viewer;
 edits happen in code.
 
@@ -40,11 +40,11 @@ Generalize after friction, not before.
 ```
 alidade/
   alidade/
-    models.py              # Pydantic: Project, Layer, renderers, symbols
+    models.py              # Pydantic: Map, Layer, renderers, symbols
     dump_qgis.py           # .qgz → layers/*.py + styles/*.xml  (QGIS only)
-    render_qgis.py         # project.py → output/project.qgs   (QGIS)
-    render_lyrx.py         # project.py → output/{layer.id}.lyrx  (ArcGIS Pro)
-    render_map.py          # project.py → output/map_<id>.png for each map in maps list
+    render_qgis.py         # main.py → output/project.qgs   (QGIS)
+    render_lyrx.py         # main.py → output/{layer.id}.lyrx  (ArcGIS Pro)
+    render_map.py          # main.py → output/map_<id>.png for each map in maps list
     lyrx/                  # CIM builder subpackage (data_connection, symbols, renderers, build)
     build.py               # entry point; dispatches on output_format
     publish_arcgis.py      # publish layers + web maps to ArcGIS Online
@@ -54,44 +54,61 @@ alidade/
   local.env.example        # template
 
   projects/                # one subdirectory per project
-    <project_dir>/
-      project.py           # assembles Project (output_format="qgis" or "lyrx")
+    <name>/
+      __init__.py          # from .main import maps, spec
+      main.py              # Map declarations; maps = [...]; spec = <default>
+      palette.py           # all Color constants for the project
+      util.py              # CRS string, buffer distances, shared clip helpers
       layers/              # one .py file per layer, named by layer ID
-      styles/              # per-layer XML extracted from .qgz, committed (QGIS only)
-      output/              # gitignored; derived data and project files
+      styles/              # basemap XML files (cartodb_positron.xml, etc.)
+      data/                # raw input files (geojson, gpkg, tif, ...)
+      output/              # gitignored; derived data and generated files
+      workflow.md          # LLM session log
 ```
 
 ### Dispatch
 
-`build.py` reads `project.py` to determine the output format via `spec.output_format`:
+`build.py` reads `main.py` to determine the output format via `spec.output_format`:
 
 - `"qgis"` → `render_qgis.py` → `output/project.qgs` + optional `output/print.qpt`
 - `"lyrx"` → `render_lyrx.py` → `output/{layer.id}.lyrx` (one file per layer)
 
 Both share `_run_processing_steps` (format-agnostic).
 
+`make map` renders `output/map_<id>.png` for each map in the `maps` list using
+`render_map.py`. `make publish` calls `publish_arcgis.py` for each map.
+
 ### Key choices
 
-**Pydantic models, hybrid typing.** Typed fields for things we touch; `extra="allow"`
-for everything else. Expand the typed surface as we hit specific needs.
+**Pydantic models, no extra fields.** Typed fields for things we touch. Expand
+the typed surface as we hit specific needs.
 
 **`.qgs` not `.qgz`.** Uncompressed XML output, gitignored. Compressed projects
 defeat diffing.
 
 **Derived data is gitignored, regenerated from recorded transforms.** Each
-`Layer` with a `ProcessingStep` records the shell command and its inputs.
+`Layer` with an `action` records the Python function or shell command and its
+inputs.
 
 ## Models
 
 ```python
+class Map(BaseModel):
+    id: str                               # auto-generated UUID hex if omitted
+    output_format: Literal["qgis", "lyrx"] = "qgis"
+    title: str
+    crs: str
+    layers: list[Layer]
+    extent: Extent | None = None
+    print_layout: PrintLayout | None = None  # QGIS only
+
 class Layer(BaseModel):
-    model_config = ConfigDict(extra="allow")
     id: str                           # human-friendly, e.g. "slope"
     name: str                         # display name
     type: Literal["vector", "raster"]
     datasource: str                   # relative path, e.g. "data/boundary.geojson"
     provider: str = "ogr"             # "ogr" (default), "gdal", "wms"
-    style_xml: Path | None = None     # QGIS-only
+    style_xml: Path | None = None     # QGIS-only; full <maplayer> XML file
     crs: str | None = None
     geometry_type: str | None = None  # "Polygon", "LineString", "Point"
     alpha_band: int | None = None     # QGIS raster alpha band
@@ -103,31 +120,33 @@ class Layer(BaseModel):
     raw_file: str | None = None       # path to unprocessed source data
     source_description: str | None = None
     source_origin: str | None = None
-    extra: dict[str, Any] = {}
-
-class Project(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    output_format: Literal["qgis", "lyrx"] = "qgis"
-    title: str
-    crs: str
-    layers: list[Layer]
-    extent: tuple[float, float, float, float] | None = None
-    print_layout: PrintLayout | None = None  # QGIS only
-    extra: dict[str, Any] = {}
 ```
 
 When constructing a `Layer`, omit fields that use the default value. Common defaults
 to leave out: `provider="ogr"`, `visible=True`. Only pass fields that differ from
 the model default.
 
-**`project.py` pattern** - import `Project` and set `output_format`:
+**`main.py` pattern** — declare each named map with a description string above it,
+collect into `maps`, and assign the default build target to `spec`:
 
 ```python
-from alidade.models import Project
+from alidade.models import Extent, Map
+from projects.myproject.util import CRS
 
-spec = Project(output_format="qgis", title="My Map", crs="EPSG:3857", layers=[...])
-# or
-spec = Project(output_format="lyrx", title="My Map", crs="EPSG:3857", layers=[...])
+EXTENT = Extent(xmin=..., ymin=..., xmax=..., ymax=..., crs="EPSG:4326").to_crs(CRS)
+
+"""
+1: Park overview — boundary, roads, water
+"""
+map_park = Map(id="park", title="My Park", crs=CRS, extent=EXTENT, layers=[...])
+
+"""
+2: Slope analysis derived from USGS DEM
+"""
+map_slope = Map(id="slope", title="My Park: Slopes", crs=CRS, extent=EXTENT, layers=[...])
+
+maps = [map_park, map_slope]
+spec = map_park
 ```
 
 ## Colors
@@ -204,8 +223,8 @@ auto-pads short IDs to `{id}_{uuid[:8]}` and emits a warning.
 
 ## QGIS output
 
-No PyQGIS - generate XML directly. `render_qgis.py` builds a `.qgs` XML tree from the
-`QGISProject` spec and writes `output/project.qgs`. Style is embedded from
+No PyQGIS - generate XML directly. `render_qgis.py` builds a `.qgs` XML tree from
+the `Map` spec and writes `output/project.qgs`. Style is embedded from
 `styles/*.xml` or rendered from typed `Renderer` models.
 
 Supported renderers in QGIS path:
@@ -256,7 +275,7 @@ because it encodes ArcGIS CIM specifics (type name, 0–100 alpha scale) that
 
 ### Data connections
 
-`build_data_connection(layer, project_dir)` derives workspace and dataset from
+`build_data_connection(layer, map_dir)` derives workspace and dataset from
 `layer.source` (uses the shapefile stem, not `layer.id`):
 
 ```json
@@ -280,6 +299,7 @@ only - no per-project secrets committed.
 |---|---|---|
 | `SingleSymbol` + `SimpleFill` | `CIMSimpleRenderer` → `CIMPolygonSymbol` | ✓ |
 | `SingleSymbol` + `SimpleLine` | `CIMSimpleRenderer` → `CIMLineSymbol` | ✓ |
+| `SingleSymbol` + `SvgMarker` | `CIMSimpleRenderer` → `CIMPointSymbol` | ✓ |
 | `GraduatedRenderer` | `CIMClassBreaksRenderer` (GraduatedColor) | ✓ |
 | `SingleSymbol` + `SimpleMarker` | `CIMSimpleRenderer` → `CIMPointSymbol` | deferred |
 | `RuleRenderer` | `CIMUniqueValueRenderer` | deferred |
@@ -298,21 +318,28 @@ In `CIMPolygonSymbol.symbolLayers`: `CIMSolidStroke` first (index 0),
 
 | Target | What it does |
 |---|---|
-| `make build DIR=...` | Builds `.qgs` or `.lyrx` files depending on project type |
-| `make build-all DIR=...` | Force rebuild even if up to date |
-| `make dump DIR=...` | Extracts layers from a `.qgz` (QGIS only) |
-| `make lint` | black + flake8 + mypy |
-| `make extent DIR=...` | Prints bounding box of project data |
+| `make build DIR=...` | Full build: process layers, render `.qgs` or `.lyrx` files |
+| `make build-all DIR=...` | Force rebuild even if outputs are up to date |
+| `make map DIR=...` | Render static PNG maps without a full rebuild |
+| `make publish DIR=...` | Publish layers and web maps to ArcGIS Online |
+| `make dump DIR=...` | Extract layers from a `.qgz` (QGIS only) |
+| `make extent DIR=...` | Print bounding box from a saved `.qgs` |
+| `make validate DIR=...` | Check that all source and style paths exist |
+| `make lint` | Run black + flake8 + mypy |
+| `make clean DIR=...` | Remove `output/` |
 
 ## One layer per file
 
 Each layer lives in `layers/{layer_id}.py` and exports a single variable with
-the same name as the file. `project.py` only imports layers and assembles the spec.
+the same name as the file. `main.py` only imports layers and assembles the spec.
+Project-wide colors go in `palette.py`; CRS constants, buffer distances, and
+shared helpers go in `util.py`.
 
 ## Processing steps
 
-Derived layers are produced by running a Python function or a shell command (GDAL/GRASS). `build.py` runs them in topological order, skipping steps
-whose output already exists (pass `--force` to re-run all).
+Derived layers are produced by running a Python function or a shell command (GDAL/GRASS).
+`build.py` runs them in topological order, skipping steps whose output already exists
+(pass `--force` to re-run all).
 
 Prefer Python (geopandas) over shell for vector operations;
 reserve shell commands for raster tools like `gdaldem slope` or `gdalwarp`.
@@ -382,9 +409,11 @@ Update in the same session as the work - not retroactively.
 
 | File | Written by | Human edits? |
 |---|---|---|
-| `layers/*.py` | dump (once, bootstrap) | yes - source of truth |
+| `layers/*.py` | dump (once, bootstrap) or LLM | yes - source of truth |
 | `styles/*.xml` | dump / QGIS Save Style | no - treat as opaque |
-| `project.py` | human | yes |
+| `palette.py` | LLM + human | yes |
+| `util.py` | LLM + human | yes |
+| `main.py` | human | yes |
 | `workflow.md` | LLM + human | yes |
 | `output/` | build | no - gitignored |
 
@@ -401,12 +430,6 @@ Update in the same session as the work - not retroactively.
 | File Geodatabase API | github.com/Esri/file-geodatabase-api | C++/Java read+write |
 | GDAL OpenFileGDB driver | GDAL docs | Open-source .gdb read+write |
 | Shapefile spec | ESRI 1998 white paper | Still authoritative |
-
-## Update documentation
-
-Update DESIGN.md, README.md, Makefile to reflect the new layout.
-
-Add a section to README with a styled ArcGIS layer.
 
 ## Deferred
 

@@ -28,14 +28,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Print the extent from output/project.qgs."
     )
-    parser.add_argument("project_dir", help="Path to project directory")
+    parser.add_argument("map_dir", help="Path to map directory")
     args = parser.parse_args()
 
-    project_dir = (Path.cwd() / args.project_dir).resolve()
-    qgs_path = project_dir / "output" / "project.qgs"
+    map_dir = (Path.cwd() / args.map_dir).resolve()
+    qgs_path = map_dir / "output" / "project.qgs"
 
     if not qgs_path.exists():
-        print(f"output/project.qgs not found in {project_dir} — run 'make build' first")
+        print(f"output/project.qgs not found in {map_dir} — run 'make build' first")
         sys.exit(1)
 
     xmin, ymin, xmax, ymax = _read_extent(qgs_path)

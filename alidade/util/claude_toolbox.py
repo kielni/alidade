@@ -181,9 +181,9 @@ def compute_layer_extent(
     return result
 
 
-def audit_project_crs(project_dir: str | Path) -> None:
+def audit_map_crs(map_dir: str | Path) -> None:
     """Audit CRS consistency across shapefiles, project.qgs, and transform context."""
-    base = Path(project_dir)
+    base = Path(map_dir)
     qgs_path = base / "output" / "project.qgs"
 
     print("=== Shapefile CRS ===")

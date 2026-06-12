@@ -1,10 +1,10 @@
-"""Validate that all file paths referenced in a project exist on disk."""
+"""Validate that all file paths referenced in a map exist on disk."""
 
 import argparse
 import sys
 from pathlib import Path
 
-from alidade.util.helpers import bind_project
+from alidade.util.helpers import bind_map
 
 
 def _is_file_source(source: str) -> bool:
@@ -22,39 +22,39 @@ def _is_file_source(source: str) -> bool:
     return True
 
 
-def validate(project_dir: Path) -> bool:
-    """Validate that all source and style paths for a project exist on disk."""
-    spec = bind_project(project_dir)
+def validate(map_dir: Path) -> bool:
+    """Validate that all source and style paths for a map exist on disk."""
+    spec = bind_map(map_dir)
     errors: list[str] = []
 
     for layer in spec.layers:
         if layer.style_xml is not None:
-            xml_path = project_dir / layer.style_xml
+            xml_path = map_dir / layer.style_xml
             if not xml_path.exists():
                 errors.append(f"  [{layer.id}] style_xml not found: {xml_path}")
 
         if _is_file_source(layer.datasource):
-            abs_path = layer.path_for(project_dir)
+            abs_path = layer.path_for(map_dir)
             if not abs_path.exists():
                 errors.append(f"  [{layer.id}] source not found: {abs_path}")
 
     if errors:
-        print(f"validation failed ({project_dir.name}):")
+        print(f"validation failed ({map_dir.name}):")
         for e in errors:
             print(e)
         return False
 
-    print(f"ok ({project_dir.name}, {len(spec.layers)} layers)")
+    print(f"ok ({map_dir.name}, {len(spec.layers)} layers)")
     return True
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Validate that all source and style paths for a project exist."
+        description="Validate that all source and style paths for a map exist."
     )
-    parser.add_argument("project_dir", help="Path to project directory")
+    parser.add_argument("map_dir", help="Path to map directory")
     args = parser.parse_args()
-    ok = validate((Path.cwd() / args.project_dir).resolve())
+    ok = validate((Path.cwd() / args.map_dir).resolve())
     sys.exit(0 if ok else 1)
 
 

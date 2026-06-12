@@ -1,4 +1,4 @@
-"""Publish alidade project layers to ArcGIS Online."""
+"""Publish alidade map layers to ArcGIS Online."""
 
 import argparse
 import importlib
@@ -24,7 +24,7 @@ from arcgis.raster.analytics import copy_raster
 from alidade.color import Color
 from alidade.models import (
     BoundLayer,
-    BoundProject,
+    BoundMap,
     Extent,
     GraduatedRenderer,
     Label,
@@ -736,7 +736,7 @@ def _publish_layer(
 
 
 def _layer_item_ids_for_map(
-    bound: "BoundProject",
+    bound: "BoundMap",
     item_registry: dict[str, dict],
 ) -> list[str]:
     """Return feature_item_ids for all publishable, registered layers in a map."""
@@ -852,15 +852,13 @@ def _create_web_map(
     map_spec: Any,
     gis: GIS | None,
     item_registry: dict[str, dict],
-    project_path: Path,
+    map_path: Path,
     *,
     dry_run: bool,
 ) -> bool:
     """Create or update a web map for one map spec. Returns True if newly created."""
     map_key = f"map:{map_spec.id}"
-    bound = BoundProject(
-        **map_spec.model_dump(mode="python"), project_path=project_path
-    )
+    bound = BoundMap(**map_spec.model_dump(mode="python"), map_path=map_path)
     layer_ids = _layer_item_ids_for_map(bound, item_registry)
 
     if not layer_ids:
@@ -1064,11 +1062,11 @@ def _add_maps_to_story(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Publish alidade project layers to ArcGIS Online."
+        description="Publish alidade map layers to ArcGIS Online."
     )
     parser.add_argument(
-        "project_dir",
-        help="Project directory, e.g. projects/goats",
+        "map_dir",
+        help="Map directory, e.g. projects/goats",
     )
     parser.add_argument(
         "--map",
@@ -1094,7 +1092,7 @@ def main() -> None:
         action="store_true",
         help=(
             "After publishing layers, create ArcGIS web maps from the "
-            "project's maps list. Maps whose layer set is unchanged are skipped."
+            "map's maps list. Maps whose layer set is unchanged are skipped."
         ),
     )
     parser.add_argument(
@@ -1110,20 +1108,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Load project — same resolution as bind_project / alidade-build
-    project_path = (Path.cwd() / args.project_dir).resolve()
+    # Load map — same resolution as bind_map / alidade-build
+    map_path = (Path.cwd() / args.map_dir).resolve()
     try:
-        rel_parts = project_path.relative_to(_REPO_ROOT).parts
+        rel_parts = map_path.relative_to(_REPO_ROOT).parts
     except ValueError:
-        # project_path resolved through a symlink; find matching entry in projects/
+        # map_path resolved through a symlink; find matching entry in projects/
         for _c in (_REPO_ROOT / "projects").glob("*"):
-            if _c.is_symlink() and _c.resolve() == project_path:
+            if _c.is_symlink() and _c.resolve() == map_path:
                 rel_parts = _c.relative_to(_REPO_ROOT).parts
                 break
         else:
             raise
     package = ".".join(rel_parts)
-    module = importlib.import_module(f"{package}.project")
+    module = importlib.import_module(f"{package}.main")
 
     if args.map_name:
         maps = {m.id: m for m in module.maps}
@@ -1137,10 +1135,10 @@ def main() -> None:
         spec = maps[args.map_name]
     else:
         spec = module.spec
-    bound = BoundProject(**spec.model_dump(mode="python"), project_path=project_path)
-    publish_dir = project_path / "publish"
+    bound = BoundMap(**spec.model_dump(mode="python"), map_path=map_path)
+    publish_dir = map_path / "publish"
 
-    print(f"Project: {spec.title!r}  ({len(spec.layers)} layers)")
+    print(f"Map: {spec.title!r}  ({len(spec.layers)} layers)")
     if args.dry_run:
         print("Dry run — preparing files only, no ArcGIS API calls")
 
@@ -1211,30 +1209,30 @@ def main() -> None:
             print(f"  {layer_id}: {msg}")
 
     # Create web maps (--create-maps or implied by --story-map-id)
-    project_maps = getattr(module, "maps", [])
+    map_specs = getattr(module, "maps", [])
     do_create_maps = args.create_maps or bool(story_map_id)
     if do_create_maps:
-        if not project_maps:
-            print("\nNo maps defined in project module; skipping web map creation.")
+        if not map_specs:
+            print("\nNo maps defined in map module; skipping web map creation.")
         else:
-            print(f"\nCreating web maps ({len(project_maps)} map(s)):")
-            for map_spec in project_maps:
+            print(f"\nCreating web maps ({len(map_specs)} map(s)):")
+            for map_spec in map_specs:
                 try:
                     _create_web_map(
                         map_spec,
                         gis,
                         item_registry,
-                        project_path,
+                        map_path,
                         dry_run=args.dry_run,
                     )
                 except Exception as exc:
                     print(f"  {map_spec.id}: ERROR — {exc}")
 
     # Add new web maps to story map
-    if story_map_id and project_maps:
+    if story_map_id and map_specs:
         print(f"\nUpdating story map {story_map_id!r}:")
         _add_maps_to_story(
-            project_maps,
+            map_specs,
             story_map_id,
             gis,
             item_registry,
