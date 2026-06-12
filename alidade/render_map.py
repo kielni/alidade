@@ -34,6 +34,22 @@ from alidade.models import (
 )
 from alidade.util.helpers import bind_map, load_map_module
 
+# ── Dispatch tables (importable by test_completeness) ─────────────────────────
+
+RENDERERS: dict[type, None] = {
+    SingleSymbol: None,
+    GraduatedRenderer: None,
+    RuleRenderer: None,
+    PalettedRenderer: None,
+}
+
+SYMBOL_LAYER_RENDERERS: dict[type, None] = {
+    SimpleFill: None,
+    SimpleLine: None,
+    SimpleMarker: None,
+    SvgMarker: None,
+}
+
 
 def _raster_bounds(source: Path) -> tuple[float, float, float, float] | None:
     """Return (xmin, ymin, xmax, ymax) for a raster, or None."""
@@ -251,19 +267,13 @@ def _plot_layer(
     return handles
 
 
-def render(
-    spec: BoundMap,
-    name: str = "map",
-    dpi: int = 150,
-) -> None:
-    """Render spec to spec.output_path/<name>.png.
+def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
+    """Construct and return a (Figure, Axes) for spec without saving or closing.
 
     Layers are drawn bottom-to-top (spec.layers reversed). WMS/raster layers
     and PrintLayout are ignored. Extent and figsize are derived from the data
     bounds so all visible features fit without clipping.
     """
-    # Read all visible layers to compute the combined data extent.
-    # Each entry is (layer, gdf) for vector or (layer, Path) for raster.
     layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
     for layer in reversed(spec.bound_layers):
@@ -338,6 +348,16 @@ def render(
     if legend_handles:
         ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
 
+    return fig, ax
+
+
+def render(
+    spec: BoundMap,
+    name: str = "map",
+    dpi: int = 150,
+) -> None:
+    """Render spec to spec.output_path/<name>.png."""
+    fig, _ = _build_figure(spec)
     output_path = spec.output_path / f"{name}.png"
     output_path.parent.mkdir(exist_ok=True, parents=True)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")

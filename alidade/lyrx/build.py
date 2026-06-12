@@ -14,8 +14,11 @@ from alidade.models import (
     GraduatedRenderer,
     Label,
     Layer,
+    PalettedRenderer,
+    RuleRenderer,
     SimpleFill,
     SimpleLine,
+    SimpleMarker,
     SingleSymbol,
     SvgMarker,
 )
@@ -122,6 +125,23 @@ def _build_renderer(layer: Layer, project_dir: Path) -> dict[str, Any] | None:
         stacklevel=3,
     )
     return None
+
+
+# ── Dispatch tables (importable by test_completeness) ─────────────────────────
+
+SYMBOL_LAYER_RENDERERS: dict[type, None] = {
+    SimpleFill: None,
+    SimpleLine: None,
+    SvgMarker: None,
+    SimpleMarker: None,  # deferred: not yet supported
+}
+
+RENDERERS: dict[type, None] = {
+    SingleSymbol: None,
+    GraduatedRenderer: None,
+    RuleRenderer: None,  # deferred: not yet supported
+    PalettedRenderer: None,  # deferred: not yet supported
+}
 
 
 def _build_feature_layer(layer: Layer, project_dir: Path) -> dict[str, Any]:

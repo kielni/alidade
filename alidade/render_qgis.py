@@ -572,6 +572,23 @@ def _render_renderer(renderer: Renderer, map_path: Path | None = None) -> ET.Ele
     raise ValueError(f"Unknown renderer type: {type(renderer)}")
 
 
+# ── Dispatch tables (importable by test_completeness) ─────────────────────────
+
+SYMBOL_LAYER_RENDERERS: dict[type, None] = {
+    SimpleFill: None,
+    SimpleLine: None,
+    SvgMarker: None,
+    SimpleMarker: None,
+}
+
+RENDERERS: dict[type, object] = {
+    SingleSymbol: None,
+    RuleRenderer: None,
+    GraduatedRenderer: _render_graduated_renderer,
+    PalettedRenderer: None,  # raster-only; vector layers raise ValueError
+}
+
+
 def _srs_element(crs_id: str) -> ET.Element:
     """Build a <srs> element for crs_id, using pyproj to supply WKT and metadata."""
     srs = ET.Element("srs")
@@ -1046,6 +1063,14 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
         ET.SubElement(pipe, "resamplingStage").text = "resamplingFilter"
     ET.SubElement(ml, "blendMode").text = "0"
     return ml
+
+
+RASTER_RENDERERS: dict[type, object] = {
+    PalettedRenderer: _build_paletted_pipe,
+    SingleSymbol: None,
+    RuleRenderer: None,
+    GraduatedRenderer: None,
+}
 
 
 def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:

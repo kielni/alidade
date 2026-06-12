@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "staging_ranked",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "name": "Entrance", "score": 0.029750196702195496, "score_norm": 0.392, "rank": 6 }, "geometry": { "type": "Point", "coordinates": [ -121.825638, 37.395806 ] } },
+{ "type": "Feature", "properties": { "name": "Eagle Rock", "score": 0.063700928964747577, "score_norm": 0.839, "rank": 2 }, "geometry": { "type": "Point", "coordinates": [ -121.815921, 37.393683 ] } },
+{ "type": "Feature", "properties": { "name": "Rustic Lands", "score": 0.075940946897568917, "score_norm": 1.0, "rank": 1 }, "geometry": { "type": "Point", "coordinates": [ -121.811669, 37.394281 ] } },
+{ "type": "Feature", "properties": { "name": "Mineral Springs East", "score": 0.055420031703600769, "score_norm": 0.73, "rank": 4 }, "geometry": { "type": "Point", "coordinates": [ -121.798248, 37.397038 ] } },
+{ "type": "Feature", "properties": { "name": "Mineral Springs West", "score": 0.056005045706984988, "score_norm": 0.737, "rank": 3 }, "geometry": { "type": "Point", "coordinates": [ -121.804507, 37.396763 ] } },
+{ "type": "Feature", "properties": { "name": "Peacock Gap", "score": 0.050697678878281076, "score_norm": 0.668, "rank": 5 }, "geometry": { "type": "Point", "coordinates": [ -121.807861, 37.39226 ] } }
+]
+}

@@ -163,6 +163,14 @@ def _sym_layer_to_arcgis(sym_layer: Any) -> dict[str, Any]:
     raise TypeError(f"Unknown symbol layer type: {type(sym_layer).__name__}")
 
 
+SYMBOL_LAYER_RENDERERS: dict[type, None] = {
+    SimpleFill: None,
+    SimpleLine: None,
+    SimpleMarker: None,
+    SvgMarker: None,
+}
+
+
 def _symbol_to_arcgis(symbol: Symbol) -> dict[str, Any]:
     if len(symbol.layers) > 1:
         print(
@@ -357,6 +365,14 @@ def _renderer_to_arcgis(
         }
 
     return None
+
+
+RENDERERS: dict[type, None] = {
+    SingleSymbol: None,
+    GraduatedRenderer: None,
+    RuleRenderer: None,
+    PalettedRenderer: None,
+}
 
 
 # ── Data preparation ──────────────────────────────────────────────────────────

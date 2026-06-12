@@ -283,6 +283,19 @@ def _parse_renderer(maplayer_el: ET.Element) -> Renderer | None:
     return None
 
 
+# ── Dispatch table (importable by test_completeness) ──────────────────────────
+# Only singleSymbol and RuleRenderer are round-trippable; the other types are
+# intentionally absent from dump output (no write-back for raster renderers or
+# graduated symbolisation read from .qgs).
+
+RENDERER_GENERATORS: dict[type, None] = {
+    SingleSymbol: None,
+    RuleRenderer: None,
+    # GraduatedRenderer: intentionally excluded — dump_qgis does not emit it
+    # PalettedRenderer: intentionally excluded — raster-only, no dump support
+}
+
+
 # ── Code generation ───────────────────────────────────────────────────────────
 
 

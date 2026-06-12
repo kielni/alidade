@@ -9,7 +9,7 @@ SHELL := /bin/bash
 
 LOG ?= lint.log
 
-.PHONY: help dump build build-all map extent validate lint publish clean
+.PHONY: help dump build build-all map extent validate lint test publish clean
 
 help:
 	@echo "Targets:"
@@ -54,6 +54,9 @@ lint:
 	uv run black . 2>&1 | tee $(LOG)
 	uv run flake8 . 2>&1 | tee -a $(LOG)
 	uv run mypy . 2>&1 | tee -a $(LOG)
+
+test:
+	uv run pytest tests/ -x --tb=short
 
 publish:
 	@if [ -z "$(DIR)" ]; then echo "Usage: make publish DIR=project_dir [MAP=map_id]"; exit 1; fi
