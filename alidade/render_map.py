@@ -3,6 +3,8 @@
 import argparse
 import re
 import sys
+import warnings
+from collections.abc import Callable
 from pathlib import Path
 
 import rasterio
@@ -72,7 +74,7 @@ def _plot_paletted_raster(
 
 
 def _qgis_to_pandas_expr(expr: str) -> str:
-    """Translate a QGIS filter expression string to a pandas eval() expression.
+    """Translate a rule filter expression (Rule.filter) to a pandas eval() expression.
 
     Handles double-quoted field names, bare = equality, AND/OR keywords.
     """
@@ -81,17 +83,17 @@ def _qgis_to_pandas_expr(expr: str) -> str:
     return result.replace(" AND ", " and ").replace(" OR ", " or ")
 
 
-def _lw(mm: float) -> float:
+def _mm_to_linewidth(mm: float) -> float:
     """Approximate QGIS outline width in MM to matplotlib linewidth in points."""
     return mm * 1.5
 
 
-def _ms(mm: float) -> float:
+def _mm_to_scatter_size(mm: float) -> float:
     """Approximate QGIS marker size in MM to matplotlib scatter size in pt²."""
     return (mm * 2.8) ** 2
 
 
-_LABEL_SCALE = 0.5  # QGIS pt → matplotlib pt; compensates for smaller figure size
+LABEL_SCALE = 0.5  # QGIS pt → matplotlib pt; compensates for smaller figure size
 
 
 def _font_available(family: str) -> bool:
@@ -122,7 +124,7 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=label.font_size * _LABEL_SCALE,
+            fontsize=label.font_size * LABEL_SCALE,
             fontweight=weight,
             color=label.color.matplotlib_rgba,
             zorder=zorder,
@@ -139,6 +141,150 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
             )
 
 
+def _plot_simple_fill(
+    ax: Axes,
+    subset: gpd.GeoDataFrame,
+    sym: SimpleFill,
+    zorder: int,
+    label: str = "",
+) -> list[mpatches.Patch]:
+    fc = sym.color.matplotlib_rgba
+    ec = sym.outline_color.matplotlib_rgba
+    subset.plot(
+        ax=ax,
+        facecolor=fc,
+        edgecolor=ec,
+        linewidth=_mm_to_linewidth(sym.outline_width),
+        zorder=zorder,
+    )
+    return [mpatches.Patch(facecolor=fc, edgecolor=ec, label=label)] if label else []
+
+
+def _plot_simple_line(
+    ax: Axes,
+    subset: gpd.GeoDataFrame,
+    sym: SimpleLine,
+    zorder: int,
+    label: str = "",
+) -> list[mpatches.Patch]:
+    subset.plot(
+        ax=ax,
+        color=sym.line_color.matplotlib_rgba,
+        linewidth=_mm_to_linewidth(sym.line_width),
+        zorder=zorder,
+    )
+    return []
+
+
+def _plot_marker(
+    ax: Axes,
+    subset: gpd.GeoDataFrame,
+    sym: SimpleMarker | SvgMarker,
+    zorder: int,
+    label: str = "",
+) -> list[mpatches.Patch]:
+    subset.plot(
+        ax=ax,
+        color=sym.color.matplotlib_rgba,
+        markersize=_mm_to_scatter_size(sym.size),
+        zorder=zorder,
+    )
+    return (
+        [mpatches.Patch(facecolor=sym.color.matplotlib_rgba, label=label)]
+        if label
+        else []
+    )
+
+
+SYMBOL_LAYER_RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
+    SimpleFill: _plot_simple_fill,
+    SimpleLine: _plot_simple_line,
+    SimpleMarker: _plot_marker,
+    SvgMarker: _plot_marker,
+}
+
+
+def _plot_single_symbol_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: SingleSymbol, zorder: int
+) -> list[mpatches.Patch]:
+    sym = renderer.symbol.layers[0]
+    handler = SYMBOL_LAYER_RENDERERS.get(type(sym))
+    if handler is None:
+        return []
+    return handler(ax, gdf, sym, zorder)
+
+
+def _plot_graduated_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: GraduatedRenderer, zorder: int
+) -> list[mpatches.Patch]:
+    ec = renderer.outline_color.matplotlib_rgba
+    lw = _mm_to_linewidth(renderer.outline_width)
+    col = renderer.attr
+    assigned = pd.Series(False, index=gdf.index)
+    handles: list[mpatches.Patch] = []
+    for r in renderer.ranges:
+        mask = (~assigned) & (gdf[col] >= r.lower) & (gdf[col] <= r.upper)
+        fc = r.color.matplotlib_rgba
+        subset = gdf[mask]
+        if not subset.empty:
+            subset.plot(ax=ax, facecolor=fc, edgecolor=ec, linewidth=lw, zorder=zorder)
+        handles.append(mpatches.Patch(facecolor=fc, edgecolor=ec, label=r.label))
+        assigned = assigned | mask
+    return handles
+
+
+def _plot_rule_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: RuleRenderer, zorder: int
+) -> list[mpatches.Patch]:
+    matched = pd.Series(False, index=gdf.index)
+    handles: list[mpatches.Patch] = []
+    for rule in renderer.rules:
+        if not rule.active:
+            continue
+        sym = renderer.symbols[rule.symbol_index].layers[0]
+        if rule.filter == "ELSE":
+            subset = gdf[~matched]  # type: ignore[assignment]
+        elif rule.filter:
+            try:
+                mask: pd.Series[bool] = gdf.eval(  # type: ignore[assignment]
+                    _qgis_to_pandas_expr(rule.filter)
+                )
+                matched = matched | mask
+                subset = gdf[mask]  # type: ignore[assignment]
+            except Exception as exc:
+                print(f"  rule filter {rule.filter!r} failed: {exc}")
+                continue
+        else:
+            subset = gdf
+        if subset.empty:
+            continue
+        handler = SYMBOL_LAYER_RENDERERS.get(type(sym))
+        if handler is not None:
+            handles.extend(handler(ax, subset, sym, zorder, label=rule.label))
+    return handles
+
+
+def _plot_paletted_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: PalettedRenderer, zorder: int
+) -> list[mpatches.Patch]:
+    warnings.warn(
+        "PalettedRenderer is not yet supported for map rendering; "
+        "layer will be skipped.",
+        stacklevel=3,
+    )
+    return []
+
+
+# ── Dispatch tables (importable by test_completeness) ─────────────────────────
+
+RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
+    SingleSymbol: _plot_single_symbol_renderer,
+    GraduatedRenderer: _plot_graduated_renderer,
+    RuleRenderer: _plot_rule_renderer,
+    PalettedRenderer: _plot_paletted_renderer,
+}
+
+
 def _plot_layer(
     ax: Axes, gdf: gpd.GeoDataFrame, layer: Layer, zorder: int = 1
 ) -> list[mpatches.Patch]:
@@ -148,102 +294,10 @@ def _plot_layer(
 
     if renderer is None:
         gdf.plot(ax=ax, color=Color(128, 128, 128, 128).matplotlib_rgba, zorder=zorder)
-
-    elif isinstance(renderer, SingleSymbol):
-        sym = renderer.symbol.layers[0]
-        if isinstance(sym, SimpleFill):
-            gdf.plot(
-                ax=ax,
-                facecolor=sym.color.matplotlib_rgba,
-                edgecolor=sym.outline_color.matplotlib_rgba,
-                linewidth=_lw(sym.outline_width),
-                zorder=zorder,
-            )
-        elif isinstance(sym, SimpleLine):
-            gdf.plot(
-                ax=ax,
-                color=sym.line_color.matplotlib_rgba,
-                linewidth=_lw(sym.line_width),
-                zorder=zorder,
-            )
-        elif isinstance(sym, (SimpleMarker, SvgMarker)):
-            gdf.plot(
-                ax=ax,
-                color=sym.color.matplotlib_rgba,
-                markersize=_ms(sym.size),
-                zorder=zorder,
-            )
-
-    elif isinstance(renderer, GraduatedRenderer):
-        ec = renderer.outline_color.matplotlib_rgba
-        lw = _lw(renderer.outline_width)
-        col = renderer.attr
-        assigned = pd.Series(False, index=gdf.index)
-        for r in renderer.ranges:
-            mask = (~assigned) & (gdf[col] >= r.lower) & (gdf[col] <= r.upper)
-            fc = r.color.matplotlib_rgba
-            subset = gdf[mask]
-            if not subset.empty:
-                subset.plot(
-                    ax=ax, facecolor=fc, edgecolor=ec, linewidth=lw, zorder=zorder
-                )
-            handles.append(mpatches.Patch(facecolor=fc, edgecolor=ec, label=r.label))
-            assigned = assigned | mask
-
-    elif isinstance(renderer, RuleRenderer):
-        matched = pd.Series(False, index=gdf.index)
-        for rule in renderer.rules:
-            if not rule.active:
-                continue
-            sym = renderer.symbols[rule.symbol_index].layers[0]
-            if rule.filter == "ELSE":
-                subset = gdf[~matched]  # type: ignore[assignment]
-            elif rule.filter:
-                try:
-                    mask = gdf.eval(  # type: ignore[assignment]
-                        _qgis_to_pandas_expr(rule.filter)
-                    )
-                    matched = matched | mask
-                    subset = gdf[mask]  # type: ignore[assignment]
-                except Exception as exc:
-                    print(f"  rule filter {rule.filter!r} failed: {exc}")
-                    continue
-            else:
-                subset = gdf
-            if subset.empty:
-                continue
-            if isinstance(sym, SimpleFill):
-                fc = sym.color.matplotlib_rgba
-                ec = sym.outline_color.matplotlib_rgba
-                subset.plot(
-                    ax=ax,
-                    facecolor=fc,
-                    edgecolor=ec,
-                    linewidth=_lw(sym.outline_width),
-                    zorder=zorder,
-                )
-                handles.append(
-                    mpatches.Patch(facecolor=fc, edgecolor=ec, label=rule.label)
-                )
-            elif isinstance(sym, SimpleLine):
-                subset.plot(
-                    ax=ax,
-                    color=sym.line_color.matplotlib_rgba,
-                    linewidth=_lw(sym.line_width),
-                    zorder=zorder,
-                )
-            elif isinstance(sym, (SimpleMarker, SvgMarker)):
-                subset.plot(
-                    ax=ax,
-                    color=sym.color.matplotlib_rgba,
-                    markersize=_ms(sym.size),
-                    zorder=zorder,
-                )
-                handles.append(
-                    mpatches.Patch(
-                        facecolor=sym.color.matplotlib_rgba, label=rule.label
-                    )
-                )
+    else:
+        handler = RENDERERS.get(type(renderer))
+        if handler is not None:
+            handles = handler(ax, gdf, renderer, zorder)
 
     if layer.label is not None:
         _plot_labels(ax, gdf, layer.label, zorder=zorder + 1)
@@ -251,19 +305,13 @@ def _plot_layer(
     return handles
 
 
-def render(
-    spec: BoundMap,
-    name: str = "map",
-    dpi: int = 150,
-) -> None:
-    """Render spec to spec.output_path/<name>.png.
+def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
+    """Construct and return a (Figure, Axes) for spec without saving or closing.
 
     Layers are drawn bottom-to-top (spec.layers reversed). WMS/raster layers
     and PrintLayout are ignored. Extent and figsize are derived from the data
     bounds so all visible features fit without clipping.
     """
-    # Read all visible layers to compute the combined data extent.
-    # Each entry is (layer, gdf) for vector or (layer, Path) for raster.
     layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
     for layer in reversed(spec.bound_layers):
@@ -338,6 +386,16 @@ def render(
     if legend_handles:
         ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
 
+    return fig, ax
+
+
+def render(
+    spec: BoundMap,
+    name: str = "map",
+    dpi: int = 150,
+) -> None:
+    """Render spec to spec.output_path/<name>.png."""
+    fig, _ = _build_figure(spec)
     output_path = spec.output_path / f"{name}.png"
     output_path.parent.mkdir(exist_ok=True, parents=True)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import uuid
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,6 @@ import geopandas as gpd
 import rasterio
 import rasterio.features
 from arcgis.apps.storymap import StoryMap
-from pyproj import Transformer
 from arcgis.apps.storymap import _utils as _sm_utils
 from arcgis.features import FeatureLayerCollection
 from arcgis.gis import GIS, ItemProperties, ItemTypeEnum
@@ -36,13 +36,18 @@ from alidade.models import (
     SingleSymbol,
     SvgMarker,
     Symbol,
+    CRS_WGS84,
+    CRS_WEBMERCATOR,
 )
 
-_REPO_ROOT = Path(__file__).parent.parent
-_LOCAL_ENV = _REPO_ROOT / "local.env"
-_ARCGIS_JSON = _REPO_ROOT / "local.arcgis.json"
-_ARCGIS_TAG = "alidade"
-_MM_TO_PT = 2.835
+REPO_ROOT = Path(__file__).parent.parent
+LOCAL_ENV = REPO_ROOT / "local.env"
+ARCGIS_JSON = REPO_ROOT / "local.arcgis.json"
+ARCGIS_TAG = "alidade"
+MM_TO_PT = 2.835
+WEBMERCATOR_ESRI_WKID = 102100  # ESRI legacy WKID for Web Mercator
+WEBMERCATOR_WKID = 3857  # EPSG WKID for Web Mercator
+WEBMERCATOR_SR = {"wkid": WEBMERCATOR_ESRI_WKID, "latestWkid": WEBMERCATOR_WKID}
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +84,7 @@ def _save_registry(path: Path, registry: dict[str, dict]) -> None:
 # ── Color / size ──────────────────────────────────────────────────────────────
 
 
-def _color_to_arcgis(color: Color) -> list[int]:
+def _color(color: Color) -> list[int]:
     """Convert a Color to [R, G, B, A].
 
     Stays here rather than on Color: the [R, G, B, A] list is the
@@ -89,12 +94,12 @@ def _color_to_arcgis(color: Color) -> list[int]:
 
 
 def _mm_to_pt(mm: float) -> float:
-    return round(mm * _MM_TO_PT, 1)
+    return round(mm * MM_TO_PT, 1)
 
 
 # ── Symbol translation ────────────────────────────────────────────────────────
 
-_MARKER_STYLES: dict[str, str] = {
+MARKER_STYLES: dict[str, str] = {
     "circle": "esriSMSCircle",
     "square": "esriSMSSquare",
     "diamond": "esriSMSDiamond",
@@ -104,83 +109,100 @@ _MARKER_STYLES: dict[str, str] = {
 }
 
 
-def _sym_layer_to_arcgis(sym_layer: Any) -> dict[str, Any]:
-    if isinstance(sym_layer, SimpleFill):
-        return {
-            "type": "esriSFS",
-            "style": "esriSFSSolid",
-            "color": _color_to_arcgis(sym_layer.color),
-            "outline": {
-                "type": "esriSLS",
-                "style": "esriSLSSolid",
-                "color": _color_to_arcgis(sym_layer.outline_color),
-                "width": _mm_to_pt(sym_layer.outline_width),
-            },
-        }
-    if isinstance(sym_layer, SimpleLine):
-        return {
+def _simple_fill(sym_layer: SimpleFill) -> dict[str, Any]:
+    return {
+        "type": "esriSFS",
+        "style": "esriSFSSolid",
+        "color": _color(sym_layer.color),
+        "outline": {
             "type": "esriSLS",
             "style": "esriSLSSolid",
-            "color": _color_to_arcgis(sym_layer.line_color),
-            "width": _mm_to_pt(sym_layer.line_width),
-        }
-    if isinstance(sym_layer, SimpleMarker):
-        style = _MARKER_STYLES.get(sym_layer.name)
-        if style is None:
-            print(
-                f"  Warning: unknown marker shape {sym_layer.name!r}, " "using circle"
-            )
-            style = "esriSMSCircle"
-        return {
-            "type": "esriSMS",
-            "style": style,
-            "color": _color_to_arcgis(sym_layer.color),
-            "size": _mm_to_pt(sym_layer.size),
-            "outline": {
-                "type": "esriSLS",
-                "style": "esriSLSSolid",
-                "color": _color_to_arcgis(sym_layer.outline_color),
-                "width": _mm_to_pt(sym_layer.outline_width),
-            },
-        }
-    if isinstance(sym_layer, SvgMarker):
-        print(
-            f"  Warning: SvgMarker {sym_layer.name!r} not portable to ArcGIS; "
-            "using circle fallback"
-        )
-        return {
-            "type": "esriSMS",
-            "style": "esriSMSCircle",
-            "color": _color_to_arcgis(sym_layer.color),
-            "size": _mm_to_pt(sym_layer.size),
-            "outline": {
-                "type": "esriSLS",
-                "style": "esriSLSSolid",
-                "color": _color_to_arcgis(sym_layer.outline_color),
-                "width": _mm_to_pt(sym_layer.outline_width),
-            },
-        }
-    raise TypeError(f"Unknown symbol layer type: {type(sym_layer).__name__}")
+            "color": _color(sym_layer.outline_color),
+            "width": _mm_to_pt(sym_layer.outline_width),
+        },
+    }
 
 
-def _symbol_to_arcgis(symbol: Symbol) -> dict[str, Any]:
+def _simple_line(sym_layer: SimpleLine) -> dict[str, Any]:
+    return {
+        "type": "esriSLS",
+        "style": "esriSLSSolid",
+        "color": _color(sym_layer.line_color),
+        "width": _mm_to_pt(sym_layer.line_width),
+    }
+
+
+def _simple_marker(sym_layer: SimpleMarker) -> dict[str, Any]:
+    style = MARKER_STYLES.get(sym_layer.name)
+    if style is None:
+        print(f"  Warning: unknown marker shape {sym_layer.name!r}, using circle")
+        style = "esriSMSCircle"
+    return {
+        "type": "esriSMS",
+        "style": style,
+        "color": _color(sym_layer.color),
+        "size": _mm_to_pt(sym_layer.size),
+        "outline": {
+            "type": "esriSLS",
+            "style": "esriSLSSolid",
+            "color": _color(sym_layer.outline_color),
+            "width": _mm_to_pt(sym_layer.outline_width),
+        },
+    }
+
+
+def _svg_marker(sym_layer: SvgMarker) -> dict[str, Any]:
+    print(
+        f"  Warning: SvgMarker {sym_layer.name!r} not portable to ArcGIS; "
+        "using circle fallback"
+    )
+    return {
+        "type": "esriSMS",
+        "style": "esriSMSCircle",
+        "color": _color(sym_layer.color),
+        "size": _mm_to_pt(sym_layer.size),
+        "outline": {
+            "type": "esriSLS",
+            "style": "esriSLSSolid",
+            "color": _color(sym_layer.outline_color),
+            "width": _mm_to_pt(sym_layer.outline_width),
+        },
+    }
+
+
+SYMBOL_LAYER_RENDERERS: dict[type, Callable[..., dict[str, Any]]] = {
+    SimpleFill: _simple_fill,
+    SimpleLine: _simple_line,
+    SimpleMarker: _simple_marker,
+    SvgMarker: _svg_marker,
+}
+
+
+def _sym_layer(sym_layer: Any) -> dict[str, Any]:
+    handler = SYMBOL_LAYER_RENDERERS.get(type(sym_layer))
+    if handler is None:
+        raise TypeError(f"Unknown symbol layer type: {type(sym_layer).__name__}")
+    return handler(sym_layer)
+
+
+def _symbol(symbol: Symbol) -> dict[str, Any]:
     if len(symbol.layers) > 1:
         print(
             f"  Warning: symbol has {len(symbol.layers)} layers; "
             "only the first is translated"
         )
-    return _sym_layer_to_arcgis(symbol.layers[0])
+    return _sym_layer(symbol.layers[0])
 
 
 # ── Filter parsing ────────────────────────────────────────────────────────────
 
-_EQ_RE = re.compile(r'^"([^"]+)"\s*=\s*(?:\'([^\']*)\'|(\S+))$')
-_CMP_RE = re.compile(r"[><!]")
+EQUALITY_EXPR_RE = re.compile(r'^"([^"]+)"\s*=\s*(?:\'([^\']*)\'|(\S+))$')
+COMPARISON_OP_RE = re.compile(r"[><!]")
 
 
 def _parse_equality(expr: str) -> tuple[str, str] | None:
     """Parse '"field" = value' → (field, value_str), or None."""
-    m = _EQ_RE.match(expr.strip())
+    m = EQUALITY_EXPR_RE.match(expr.strip())
     if not m:
         return None
     return m.group(1), m.group(2) if m.group(2) is not None else m.group(3)
@@ -190,7 +212,7 @@ def _classify_filter(
     filter_expr: str,
 ) -> tuple[str, list[tuple[str, str]]]:
     """
-    Classify a QGIS rule filter expression.
+    Classify a rule filter expression (Rule.filter).
 
     Returns (kind, pairs) where kind is one of:
       'equality' — single "field" = value
@@ -205,7 +227,7 @@ def _classify_filter(
     if all(p is not None for p in pairs):
         kind = "equality" if len(pairs) == 1 else "or"
         return kind, [p for p in pairs if p is not None]
-    if _CMP_RE.search(filter_expr):
+    if COMPARISON_OP_RE.search(filter_expr):
         return "catchall", []
     return "unknown", []
 
@@ -226,11 +248,9 @@ def _build_labeling_info(label: Label) -> dict[str, Any]:
         "labelPlacement": "esriServerPointLabelPlacementAboveRight",
         "symbol": {
             "type": "esriTS",
-            "color": _color_to_arcgis(label.color),
+            "color": _color(label.color),
             "haloColor": (
-                _color_to_arcgis(label.halo_color)
-                if label.halo_color is not None
-                else None
+                _color(label.halo_color) if label.halo_color is not None else None
             ),
             "haloSize": label.halo_size if label.halo_color is not None else None,
             "font": {
@@ -247,116 +267,130 @@ def _build_labeling_info(label: Label) -> dict[str, Any]:
 # ── Renderer translation ──────────────────────────────────────────────────────
 
 
-def _renderer_to_arcgis(
-    renderer: Any, geometry_type: str | None
-) -> dict[str, Any] | None:
-    """Translate an alidade renderer to an ArcGIS REST drawingInfo renderer."""
-    if isinstance(renderer, SingleSymbol):
-        return {"type": "simple", "symbol": _symbol_to_arcgis(renderer.symbol)}
+def _single_symbol(renderer: SingleSymbol, geometry_type: str | None) -> dict[str, Any]:
+    return {"type": "simple", "symbol": _symbol(renderer.symbol)}
 
-    if isinstance(renderer, GraduatedRenderer):
-        is_line = geometry_type in ("LineString", "MultiLineString")
-        outline = {
-            "type": "esriSLS",
-            "style": "esriSLSSolid",
-            "color": _color_to_arcgis(renderer.outline_color),
-            "width": _mm_to_pt(renderer.outline_width),
+
+def _graduated_renderer(
+    renderer: GraduatedRenderer, geometry_type: str | None
+) -> dict[str, Any]:
+    is_line = geometry_type in ("LineString", "MultiLineString")
+    outline = {
+        "type": "esriSLS",
+        "style": "esriSLSSolid",
+        "color": _color(renderer.outline_color),
+        "width": _mm_to_pt(renderer.outline_width),
+    }
+    infos: list[dict[str, Any]] = []
+    for rng in renderer.ranges:
+        sym: dict[str, Any] = {
+            "type": "esriSLS" if is_line else "esriSFS",
+            "style": "esriSLSSolid" if is_line else "esriSFSSolid",
+            "color": _color(rng.color),
         }
-        infos = []
-        for rng in renderer.ranges:
-            sym: dict[str, Any] = {
-                "type": "esriSLS" if is_line else "esriSFS",
-                "style": "esriSLSSolid" if is_line else "esriSFSSolid",
-                "color": _color_to_arcgis(rng.color),
+        if not is_line:
+            sym["outline"] = outline
+        infos.append(
+            {
+                "classMinValue": rng.lower,
+                "classMaxValue": rng.upper,
+                "label": rng.label,
+                "symbol": sym,
             }
-            if not is_line:
-                sym["outline"] = outline
-            infos.append(
-                {
-                    "classMinValue": rng.lower,
-                    "classMaxValue": rng.upper,
-                    "label": rng.label,
-                    "symbol": sym,
-                }
-            )
-        return {
-            "type": "classBreaks",
-            "field": renderer.attr,
-            "classificationMethod": "esriClassifyManual",
-            "classBreakInfos": infos,
-        }
+        )
+    return {
+        "type": "classBreaks",
+        "field": renderer.attr,
+        "classificationMethod": "esriClassifyManual",
+        "classBreakInfos": infos,
+    }
 
-    if isinstance(renderer, RuleRenderer):
-        field1: str | None = None
-        uv_infos: list[dict[str, Any]] = []
-        default_symbol: dict[str, Any] | None = None
-        default_label = ""
 
-        for rule in renderer.rules:
-            if not rule.active:
-                continue
-            sym = _symbol_to_arcgis(renderer.symbols[rule.symbol_index])
-            kind, pairs = _classify_filter(rule.filter)
+def _rule_renderer(renderer: RuleRenderer, geometry_type: str | None) -> dict[str, Any]:
+    field1: str | None = None
+    uv_infos: list[dict[str, Any]] = []
+    default_symbol: dict[str, Any] | None = None
+    default_label = ""
 
-            if kind in ("equality", "or"):
-                if field1 is None and pairs:
-                    field1 = pairs[0][0]
-                for _, value in pairs:
-                    uv_infos.append(
-                        {"value": value, "label": rule.label, "symbol": sym}
-                    )
-            elif kind == "catchall":
-                if default_symbol is not None:
-                    print(
-                        f"  Warning: multiple catch-all rules in "
-                        f"{renderer.rules_key!r}; using last"
-                    )
-                default_symbol = sym
-                default_label = rule.label
-            else:
+    for rule in renderer.rules:
+        if not rule.active:
+            continue
+        sym = _symbol(renderer.symbols[rule.symbol_index])
+        kind, pairs = _classify_filter(rule.filter)
+
+        if kind in ("equality", "or"):
+            if field1 is None and pairs:
+                field1 = pairs[0][0]
+            for _, value in pairs:
+                uv_infos.append({"value": value, "label": rule.label, "symbol": sym})
+        elif kind == "catchall":
+            if default_symbol is not None:
                 print(
-                    f"  Warning: skipping rule with unparseable filter: "
-                    f"{rule.filter!r}"
+                    f"  Warning: multiple catch-all rules in "
+                    f"{renderer.rules_key!r}; using last"
                 )
-
-        result: dict[str, Any] = {
-            "type": "uniqueValue",
-            "field1": field1 or renderer.rules_key,
-            "uniqueValueInfos": uv_infos,
-        }
-        if default_symbol is not None:
-            result["defaultSymbol"] = default_symbol
-            result["defaultLabel"] = default_label
-        return result
-
-    if isinstance(renderer, PalettedRenderer):
-        uv_infos = []
-        for entry in renderer.entries:
-            entry_sym: dict[str, Any] = {
-                "type": "esriSFS",
-                "style": "esriSFSSolid",
-                "color": _color_to_arcgis(entry.color),
-                "outline": {
-                    "type": "esriSLS",
-                    "style": "esriSLSNull",
-                    "color": [0, 0, 0, 0],
-                    "width": 0,
-                },
-            }
-            uv_infos.append(
-                {
-                    "value": str(entry.value),
-                    "label": entry.label,
-                    "symbol": entry_sym,
-                }
+            default_symbol = sym
+            default_label = rule.label
+        else:
+            print(
+                f"  Warning: skipping rule with unparseable filter: " f"{rule.filter!r}"
             )
-        return {
-            "type": "uniqueValue",
-            "field1": "value",
-            "uniqueValueInfos": uv_infos,
-        }
 
-    return None
+    result: dict[str, Any] = {
+        "type": "uniqueValue",
+        "field1": field1 or renderer.rules_key,
+        "uniqueValueInfos": uv_infos,
+    }
+    if default_symbol is not None:
+        result["defaultSymbol"] = default_symbol
+        result["defaultLabel"] = default_label
+    return result
+
+
+def _paletted_renderer(
+    renderer: PalettedRenderer, geometry_type: str | None
+) -> dict[str, Any]:
+    uv_infos: list[dict[str, Any]] = []
+    for entry in renderer.entries:
+        entry_sym: dict[str, Any] = {
+            "type": "esriSFS",
+            "style": "esriSFSSolid",
+            "color": _color(entry.color),
+            "outline": {
+                "type": "esriSLS",
+                "style": "esriSLSNull",
+                "color": [0, 0, 0, 0],
+                "width": 0,
+            },
+        }
+        uv_infos.append(
+            {
+                "value": str(entry.value),
+                "label": entry.label,
+                "symbol": entry_sym,
+            }
+        )
+    return {
+        "type": "uniqueValue",
+        "field1": "value",
+        "uniqueValueInfos": uv_infos,
+    }
+
+
+RENDERERS: dict[type, Callable[..., dict[str, Any]]] = {
+    SingleSymbol: _single_symbol,
+    GraduatedRenderer: _graduated_renderer,
+    RuleRenderer: _rule_renderer,
+    PalettedRenderer: _paletted_renderer,
+}
+
+
+def _renderer(renderer: Any, geometry_type: str | None) -> dict[str, Any] | None:
+    """Translate an alidade renderer to an ArcGIS REST drawingInfo renderer."""
+    handler = RENDERERS.get(type(renderer))
+    if handler is None:
+        return None
+    return handler(renderer, geometry_type)
 
 
 # ── Data preparation ──────────────────────────────────────────────────────────
@@ -375,7 +409,7 @@ def _zip_shp(shp_path: Path) -> Path:
 
 
 # Polygon/MultiPolygon etc. are the same "family" for type filtering.
-_GEOM_FAMILIES: dict[str, set[str]] = {
+GEOM_FAMILIES: dict[str, set[str]] = {
     "Polygon": {"Polygon", "MultiPolygon"},
     "MultiPolygon": {"Polygon", "MultiPolygon"},
     "LineString": {"LineString", "MultiLineString"},
@@ -389,7 +423,7 @@ def _filter_geometry_type(
     gdf: gpd.GeoDataFrame, geometry_type: str, layer_id: str
 ) -> gpd.GeoDataFrame:
     """Drop features whose geometry type doesn't belong to the expected family."""
-    allowed = _GEOM_FAMILIES.get(geometry_type, {geometry_type})
+    allowed = GEOM_FAMILIES.get(geometry_type, {geometry_type})
     before = len(gdf)
     gdf = gdf[gdf.geom_type.isin(allowed)].copy()
     dropped = before - len(gdf)
@@ -407,7 +441,7 @@ def _prepare_vector(layer: BoundLayer, publish_dir: Path) -> Path:
     read_kwargs: dict[str, Any] = {}
     if "|layername=" in layer.datasource:
         read_kwargs["layer"] = layer.datasource.split("|layername=", 1)[1]
-    gdf = gpd.read_file(layer.path, **read_kwargs).to_crs(4326)
+    gdf = gpd.read_file(layer.path, **read_kwargs).to_crs(CRS_WGS84)
 
     if layer.geometry_type:
         gdf = _filter_geometry_type(gdf, layer.geometry_type, layer.id)
@@ -444,7 +478,7 @@ def _vectorize_raster(layer: BoundLayer, publish_dir: Path) -> Path:
         if int(val) != nodata
     ]
     gdf = gpd.GeoDataFrame.from_features(features, crs=crs)
-    gdf = gdf.dissolve(by="value", as_index=False).to_crs(4326)
+    gdf = gdf.dissolve(by="value", as_index=False).to_crs(CRS_WGS84)
     dst = publish_dir / f"{layer.id}.geojson"
     gdf.to_file(dst, driver="GeoJSON")
     return dst
@@ -455,7 +489,14 @@ def _prepare_raster(layer: BoundLayer, publish_dir: Path) -> Path:
     publish_dir.mkdir(parents=True, exist_ok=True)
     dst = publish_dir / f"{layer.id}_3857.tif"
     subprocess.run(
-        ["gdalwarp", "-overwrite", "-t_srs", "EPSG:3857", str(layer.path), str(dst)],
+        [
+            "gdalwarp",
+            "-overwrite",
+            "-t_srs",
+            CRS_WEBMERCATOR,
+            str(layer.path),
+            str(dst),
+        ],
         check=True,
     )
     subprocess.run(
@@ -472,7 +513,7 @@ def _delete_service(item: Any) -> None:
     """Rename a feature service to a hex-suffixed title before deleting it.
 
     ArcGIS Online does not immediately release a service name on delete; the
-    name stays reserved until the item is renamed away from it first.  Using
+    name stays reserved until it expires from the recycle bin.  Using
     the original title plus a unique suffix (rather than a fixed prefix) keeps
     the reserved name distinct from new publishes, which also use
     {layer_id}_{hex} naming.
@@ -482,9 +523,9 @@ def _delete_service(item: Any) -> None:
 
 
 def _publish_src_item(src_item: Any, layer_id: str, layer_name: str) -> Any:
-    """Publish a source item using a UUID-suffixed service name, then rename the
-    item title to the human-readable layer name.
+    """Publish a source item using a UUID-suffixed service name.
 
+    Then rename the item title to the human-readable layer name.
     A unique service name avoids conflicts with stale names reserved by
     ArcGIS Online's soft-delete behaviour (delete does not immediately release
     the service name).
@@ -510,7 +551,7 @@ def _upload_item(
     was never deleted (e.g. a crashed run).  Extract the conflicting item ID
     from the error message, delete it, and retry.
     """
-    props = ItemProperties(title=title, item_type=item_type, tags=_ARCGIS_TAG)
+    props = ItemProperties(title=title, item_type=item_type, tags=ARCGIS_TAG)
     try:
         return root_folder.add(item_properties=props, file=str(upload_path)).result()
     except Exception as exc:
@@ -523,6 +564,159 @@ def _upload_item(
             orphan.delete()
             print(f"    Deleted orphaned upload item {m.group(1)}")
         return root_folder.add(item_properties=props, file=str(upload_path)).result()
+
+
+# ── Publish helpers ──────────────────────────────────────────────────────────
+
+
+def _publish_raster_layer(
+    layer: BoundLayer,
+    upload_path: Path,
+    stat: Any,
+    ids: dict,
+    gis: GIS,
+    item_registry: dict[str, dict],
+) -> None:
+    """Publish a raster layer via copy_raster, replacing any existing service.
+
+    Tiled imagery layers cannot be updated in-place, so any existing item is
+    always deleted before re-publishing.  A title search is also run to catch
+    stale items the registry no longer tracks.
+    """
+    known_id = ids.get("feature_item_id")
+    if known_id:
+        old = gis.content.get(known_id)
+        if old:
+            _delete_service(old)
+            print(f"    Deleted existing item {known_id}")
+    else:
+        hits = gis.content.search(
+            f'title:"{layer.name}" type:"Image Service"',
+            max_items=10,
+        )
+        for hit in hits:
+            if hit.title == layer.name:
+                _delete_service(hit)
+                print(f"    Deleted stale image service {hit.id}")
+    raster_context: dict[str, Any] | None = None
+    if isinstance(layer.renderer, PalettedRenderer):
+        raster_context = {"noData": "0"}  # value 0 is nodata (transparent)
+    service_name = f"{layer.id}_{uuid.uuid4().hex[:8]}"
+    pub_result = copy_raster(
+        input_raster=str(upload_path),
+        output_name=service_name,
+        context=raster_context,
+        gis=gis,
+    )
+    # copy_raster returns an Item (arcgis >= 2.x) or ImageryLayer; try both.
+    feature_item_id = getattr(pub_result, "id", None) or getattr(
+        pub_result, "itemid", None
+    )
+    if not feature_item_id:
+        raise RuntimeError(
+            f"copy_raster did not return an identifiable item "
+            f"for {layer.name!r}: {pub_result!r}"
+        )
+    # copy_raster uses output_name as item title; rename to the layer name.
+    raster_item = gis.content.get(feature_item_id)
+    if raster_item and raster_item.title != layer.name:
+        raster_item.update(item_properties={"title": layer.name})
+    item_registry[layer.id] = {
+        "feature_item_id": feature_item_id,
+        "src_mtime": stat.st_mtime,
+        "src_size": stat.st_size,
+    }
+    _save_registry(ARCGIS_JSON, item_registry)
+    print(f"    Imagery layer published (feature_item_id={feature_item_id})")
+
+
+def _overwrite_existing_vector(
+    layer: BoundLayer,
+    upload_path: Path,
+    stat: Any,
+    ids: dict,
+    gis: GIS,
+    item_registry: dict[str, dict],
+) -> dict:
+    """Try to overwrite the registered feature layer item in-place.
+
+    Returns the ids dict unchanged on success (feature_item_id preserved).
+    Returns {} when the item is missing, wrong type, or the file format
+    changed — any of which require a fresh publish.
+    """
+    if not ids.get("feature_item_id"):
+        return ids
+    item = gis.content.get(ids["feature_item_id"])
+    if item and "Feature" not in item.type:
+        # Registered item is an image service (e.g. a previous raster
+        # publish); delete it so we can replace with a feature layer.
+        _delete_service(item)
+        print(f"    Deleted old {item.type} (replacing with feature layer)")
+        return {}
+    if item is None:
+        print(
+            f"  Warning: feature_item_id={ids['feature_item_id']!r} "
+            "not found in ArcGIS; re-publishing"
+        )
+        return {}
+    try:
+        FeatureLayerCollection.fromitem(item).manager.overwrite(str(upload_path))
+        item_registry[layer.id] = {
+            **ids,
+            "src_mtime": stat.st_mtime,
+            "src_size": stat.st_size,
+        }
+        _save_registry(ARCGIS_JSON, item_registry)
+        print(f"    Overwrote {ids['feature_item_id']}")
+        return ids
+    except Exception as exc:
+        if "name and extension" not in str(exc):
+            raise
+        # File format changed (e.g. shapefile → GeoJSON); delete the existing
+        # item and signal the caller to re-publish from scratch.
+        print(
+            f"    Format mismatch; deleting "
+            f"{ids['feature_item_id']} and re-publishing"
+        )
+        src_id = ids.get("source_item_id")
+        if src_id:
+            old_src = gis.content.get(src_id)
+            if old_src:
+                old_src.delete()
+        _delete_service(item)
+        return {}
+
+
+def _publish_new_vector(
+    layer: BoundLayer,
+    upload_path: Path,
+    stat: Any,
+    gis: GIS,
+    root_folder: Any,
+    item_registry: dict[str, dict],
+) -> None:
+    """Upload a new source file and publish it as a hosted feature layer."""
+    item_type = (
+        ItemTypeEnum.SHAPEFILE
+        if str(upload_path).endswith(".zip")
+        else ItemTypeEnum.GEOJSON
+    )
+    src_item = _upload_item(
+        root_folder,
+        gis,
+        title=layer.name,
+        item_type=item_type,
+        upload_path=upload_path,
+    )
+    pub_item = _publish_src_item(src_item, layer.id, layer.name)
+    item_registry[layer.id] = {
+        "source_item_id": src_item.id,
+        "feature_item_id": pub_item.id,
+        "src_mtime": stat.st_mtime,
+        "src_size": stat.st_size,
+    }
+    _save_registry(ARCGIS_JSON, item_registry)
+    print(f"    Published (feature_item_id={pub_item.id})")
 
 
 # ── Publish one layer ─────────────────────────────────────────────────────────
@@ -584,127 +778,16 @@ def _publish_layer(
 
     if not renderer_only and upload_path is not None:
         if is_raster:
-            # Delete existing imagery layer before replacing — tiled imagery
-            # layers cannot be updated in-place, only replaced.  Also search by
-            # title to catch items the registry no longer tracks (e.g. manually
-            # deleted and re-attempted, or registry entry cleared).
-            known_id = ids.get("feature_item_id")
-            if known_id:
-                old = gis.content.get(known_id)
-                if old:
-                    _delete_service(old)
-                    print(f"    Deleted existing item {known_id}")
-            else:
-                hits = gis.content.search(
-                    f'title:"{layer.name}" type:"Image Service"',
-                    max_items=10,
-                )
-                for hit in hits:
-                    if hit.title == layer.name:
-                        _delete_service(hit)
-                        print(f"    Deleted stale image service {hit.id}")
-            raster_context: dict[str, Any] | None = None
-            if isinstance(layer.renderer, PalettedRenderer):
-                # Single-band: value 0 is nodata (transparent).
-                raster_context = {"noData": "0"}
-            service_name = f"{layer.id}_{uuid.uuid4().hex[:8]}"
-            pub_result = copy_raster(
-                input_raster=str(upload_path),
-                output_name=service_name,
-                context=raster_context,
-                gis=gis,
-            )
-            # copy_raster returns an Item (arcgis >= 2.x) or ImageryLayer;
-            # try both attribute names.
-            feature_item_id = getattr(pub_result, "id", None) or getattr(
-                pub_result, "itemid", None
-            )
-            if not feature_item_id:
-                raise RuntimeError(
-                    f"copy_raster did not return an identifiable item "
-                    f"for {layer.name!r}: {pub_result!r}"
-                )
-            # copy_raster uses output_name as the service name and item title;
-            # rename the item to the human-readable layer name.
-            raster_item = gis.content.get(feature_item_id)
-            if raster_item and raster_item.title != layer.name:
-                raster_item.update(item_properties={"title": layer.name})
-            item_registry[layer.id] = {
-                "feature_item_id": feature_item_id,
-                "src_mtime": stat.st_mtime,
-                "src_size": stat.st_size,
-            }
-            _save_registry(_ARCGIS_JSON, item_registry)
-            print(f"    Imagery layer published (feature_item_id={feature_item_id})")
+            _publish_raster_layer(layer, upload_path, stat, ids, gis, item_registry)
             return size_mb
-
-        # Vector: overwrite existing or publish new
-        if ids.get("feature_item_id"):
-            item = gis.content.get(ids["feature_item_id"])
-            if item and "Feature" not in item.type:
-                # Registered item is an image service (e.g. previous raster
-                # publish); delete it so we can replace with a feature layer.
-                _delete_service(item)
-                print(f"    Deleted old {item.type} (replacing with feature layer)")
-                ids = {}
-                item = None
-            if item:
-                try:
-                    FeatureLayerCollection.fromitem(item).manager.overwrite(
-                        str(upload_path)
-                    )
-                    item_registry[layer.id] = {
-                        **ids,
-                        "src_mtime": stat.st_mtime,
-                        "src_size": stat.st_size,
-                    }
-                    _save_registry(_ARCGIS_JSON, item_registry)
-                    print(f"    Overwrote {ids['feature_item_id']}")
-                except Exception as exc:
-                    if "name and extension" not in str(exc):
-                        raise
-                    # File format changed (e.g. shapefile → GeoJSON); delete
-                    # the existing item and fall through to re-publish below.
-                    print(
-                        f"    Format mismatch; deleting "
-                        f"{ids['feature_item_id']} and re-publishing"
-                    )
-                    src_id = ids.get("source_item_id")
-                    if src_id:
-                        old_src = gis.content.get(src_id)
-                        if old_src:
-                            old_src.delete()
-                    _delete_service(item)
-                    ids = {}
-            elif ids.get("feature_item_id"):
-                print(
-                    f"  Warning: feature_item_id={ids['feature_item_id']!r} "
-                    "not found in ArcGIS; re-publishing"
-                )
-                ids = {}
-
+        # Vector: try to overwrite the existing item, then publish new if needed.
+        ids = _overwrite_existing_vector(
+            layer, upload_path, stat, ids, gis, item_registry
+        )
         if not ids.get("feature_item_id"):
-            item_type = (
-                ItemTypeEnum.SHAPEFILE
-                if str(upload_path).endswith(".zip")
-                else ItemTypeEnum.GEOJSON
+            _publish_new_vector(
+                layer, upload_path, stat, gis, root_folder, item_registry
             )
-            src_item = _upload_item(
-                root_folder,
-                gis,
-                title=layer.name,
-                item_type=item_type,
-                upload_path=upload_path,
-            )
-            pub_item = _publish_src_item(src_item, layer.id, layer.name)
-            item_registry[layer.id] = {
-                "source_item_id": src_item.id,
-                "feature_item_id": pub_item.id,
-                "src_mtime": stat.st_mtime,
-                "src_size": stat.st_size,
-            }
-            _save_registry(_ARCGIS_JSON, item_registry)
-            print(f"    Published (feature_item_id={pub_item.id})")
 
     # ── Apply renderer ─────────────────────────────────────────────────────
     if is_raster or layer.renderer is None:
@@ -714,7 +797,7 @@ def _publish_layer(
     if not fid:
         return size_mb
 
-    arcgis_renderer = _renderer_to_arcgis(layer.renderer, layer.geometry_type)
+    arcgis_renderer = _renderer(layer.renderer, layer.geometry_type)
     if arcgis_renderer is None:
         return size_mb
 
@@ -752,21 +835,9 @@ def _layer_item_ids_for_map(
     return ids
 
 
-def _reproject_extent(
-    extent: Extent,
-    src_crs: str,
-    dst_crs: str = "EPSG:4326",
-) -> tuple[float, float, float, float]:
-    """Reproject an Extent from src_crs to dst_crs."""
-    tf = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
-    xmin, ymin = tf.transform(extent.xmin, extent.ymin)
-    xmax, ymax = tf.transform(extent.xmax, extent.ymax)
-    return (xmin, ymin, xmax, ymax)
-
-
 def _build_webmap_json(
     layer_items: list[Any],
-    extent_3857: tuple[float, float, float, float] | None = None,
+    extent: Extent | None = None,
 ) -> dict[str, Any]:
     """Build minimal ArcGIS web map JSON from a list of hosted layer items."""
     operational_layers = []
@@ -831,20 +902,23 @@ def _build_webmap_json(
             ],
             "title": "Light Gray Canvas",
         },
-        "spatialReference": {"wkid": 102100, "latestWkid": 3857},
+        "spatialReference": WEBMERCATOR_SR,
         "version": "2.28",
     }
-    if extent_3857:
-        xmin, ymin, xmax, ymax = extent_3857
-        extent_obj = {
-            "xmin": round(xmin, 2),
-            "ymin": round(ymin, 2),
-            "xmax": round(xmax, 2),
-            "ymax": round(ymax, 2),
-            "spatialReference": {"wkid": 102100, "latestWkid": 3857},
-        }
-        result["extent"] = extent_obj
-        result["initialState"] = {"viewpoint": {"targetGeometry": extent_obj}}
+    if extent:
+        try:
+            xmin, ymin, xmax, ymax = extent.to_web_mercator().as_tuple()
+            extent_dict = {
+                "xmin": round(xmin, 2),
+                "ymin": round(ymin, 2),
+                "xmax": round(xmax, 2),
+                "ymax": round(ymax, 2),
+                "spatialReference": WEBMERCATOR_SR,
+            }
+            result["extent"] = extent_dict
+            result["initialState"] = {"viewpoint": {"targetGeometry": extent_dict}}
+        except Exception as exc:
+            print(f"    Warning: could not reproject extent: {exc}")
     return result
 
 
@@ -878,16 +952,7 @@ def _create_web_map(
     layer_items = [gis.content.get(fid) for fid in layer_ids]
     layer_items = [it for it in layer_items if it is not None]
 
-    extent_3857 = None
-    if map_spec.extent and map_spec.crs:
-        try:
-            extent_3857 = _reproject_extent(
-                map_spec.extent, map_spec.crs, dst_crs="EPSG:3857"
-            )
-        except Exception as exc:
-            print(f"    Warning: could not reproject extent: {exc}")
-
-    webmap_text = json.dumps(_build_webmap_json(layer_items, extent_3857=extent_3857))
+    webmap_text = json.dumps(_build_webmap_json(layer_items, extent=map_spec.extent))
 
     existing = item_registry.get(map_key, {})
     existing_item = (
@@ -897,7 +962,7 @@ def _create_web_map(
     )
     if existing_item:
         existing_item.update(item_properties={"text": webmap_text})
-        _save_registry(_ARCGIS_JSON, item_registry)
+        _save_registry(ARCGIS_JSON, item_registry)
         print(f"    Updated {map_spec.id} (webmap_item_id={existing_item.id})")
         return False  # not new — existing story map link still valid
 
@@ -905,7 +970,7 @@ def _create_web_map(
     props = ItemProperties(
         title=map_spec.title,
         item_type=ItemTypeEnum.WEB_MAP,
-        tags=_ARCGIS_TAG,
+        tags=ARCGIS_TAG,
         snippet=f"Web map: {map_spec.title}",
     )
     wm_item = root_folder.add(item_properties=props, text=webmap_text).result()
@@ -913,7 +978,7 @@ def _create_web_map(
         "webmap_item_id": wm_item.id,
         "added_to_story_maps": [],
     }
-    _save_registry(_ARCGIS_JSON, item_registry)
+    _save_registry(ARCGIS_JSON, item_registry)
     print(f"    Created web map (webmap_item_id={wm_item.id})")
     return True
 
@@ -932,12 +997,10 @@ def _story_map_resource(
     center_dict: dict[str, Any] | None = None
     viewpoint: dict[str, Any] = {"rotation": 0, "scale": -1, "targetGeometry": {}}
 
-    if map_spec.extent and map_spec.crs:
+    if map_spec.extent:
         try:
-            xmin, ymin, xmax, ymax = _reproject_extent(
-                map_spec.extent, map_spec.crs, dst_crs="EPSG:3857"
-            )
-            sr = {"wkid": 102100, "latestWkid": 3857}
+            xmin, ymin, xmax, ymax = map_spec.extent.to_web_mercator().as_tuple()
+            sr = WEBMERCATOR_SR
             extent_dict = {
                 "xmin": xmin,
                 "ymin": ymin,
@@ -1050,7 +1113,7 @@ def _add_maps_to_story(
             added = item_registry[map_key].setdefault("added_to_story_maps", [])
             if story_map_id not in added:
                 added.append(story_map_id)
-            _save_registry(_ARCGIS_JSON, item_registry)
+            _save_registry(ARCGIS_JSON, item_registry)
             print(f"  {map_spec.id}: added")
 
     sm.save(title=story_item.title)
@@ -1111,12 +1174,12 @@ def main() -> None:
     # Load map — same resolution as bind_map / alidade-build
     map_path = (Path.cwd() / args.map_dir).resolve()
     try:
-        rel_parts = map_path.relative_to(_REPO_ROOT).parts
+        rel_parts = map_path.relative_to(REPO_ROOT).parts
     except ValueError:
         # map_path resolved through a symlink; find matching entry in projects/
-        for _c in (_REPO_ROOT / "projects").glob("*"):
+        for _c in (REPO_ROOT / "projects").glob("*"):
             if _c.is_symlink() and _c.resolve() == map_path:
-                rel_parts = _c.relative_to(_REPO_ROOT).parts
+                rel_parts = _c.relative_to(REPO_ROOT).parts
                 break
         else:
             raise
@@ -1143,14 +1206,14 @@ def main() -> None:
         print("Dry run — preparing files only, no ArcGIS API calls")
 
     # Item registry
-    item_registry = _load_item_registry(_ARCGIS_JSON)
+    item_registry = _load_item_registry(ARCGIS_JSON)
     print(
-        f"Item registry ({_ARCGIS_JSON.name}): "
+        f"Item registry ({ARCGIS_JSON.name}): "
         f"{len(item_registry)} layer(s) registered"
     )
 
     # Authenticate (skipped in dry_run)
-    env = _read_local_env(_LOCAL_ENV)
+    env = _read_local_env(LOCAL_ENV)
     story_map_id: str | None = args.story_map_id or env.get("ARCGIS_STORY_MAP_ID")
 
     gis: GIS | None = None

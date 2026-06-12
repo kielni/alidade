@@ -7,6 +7,7 @@ import re
 import warnings
 import zipfile
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -30,18 +31,6 @@ from alidade.models import (
 )
 
 HERE = Path(__file__).parent  # alidade/
-
-_MODEL_IMPORT_ORDER = [
-    "Layer",
-    "Rule",
-    "RuleRenderer",
-    "SimpleFill",
-    "SimpleLine",
-    "SimpleMarker",
-    "SingleSymbol",
-    "SvgMarker",
-    "Symbol",
-]
 
 # ── XML helpers ───────────────────────────────────────────────────────────────
 
@@ -104,7 +93,7 @@ def _existing_layer_info(layers_dir: Path) -> dict[str, tuple[str, str]]:
 
 # ── Human ID generation ───────────────────────────────────────────────────────
 
-_GEOM_SUFFIXES = {
+GEOM_SUFFIXES = {
     "Point": "_points",
     "MultiPoint": "_points",
     "LineString": "_lines",
@@ -121,7 +110,7 @@ def _human_id(layer_name: str, source: str, used: set[str]) -> str:
     if "|" in source:
         path_part, geom_part = source.split("|", 1)
         params = dict(p.split("=", 1) for p in geom_part.split("&") if "=" in p)
-        geom_suffix = _GEOM_SUFFIXES.get(params.get("geometrytype", ""), "")
+        geom_suffix = GEOM_SUFFIXES.get(params.get("geometrytype", ""), "")
 
     if path_part.startswith("../") or path_part.startswith("./"):
         stem = Path(path_part).stem
@@ -152,63 +141,80 @@ def _opts(el: ET.Element) -> dict[str, str]:
     return result
 
 
+def _parse_simple_fill(o: dict[str, str]) -> SimpleFill:
+    return SimpleFill(
+        color=Color.from_qgis(o.get("color", BLACK.qgis)),
+        style=o.get("style", "solid"),
+        outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
+        outline_style=o.get("outline_style", "solid"),
+        outline_width=float(o.get("outline_width", "0.5")),
+        outline_width_unit=o.get("outline_width_unit", "MM"),
+        joinstyle=o.get("joinstyle", "bevel"),
+        offset=o.get("offset", "0,0"),
+    )
+
+
+def _parse_simple_line(o: dict[str, str]) -> SimpleLine:
+    return SimpleLine(
+        line_color=Color.from_qgis(o.get("line_color", BLACK.qgis)),
+        line_style=o.get("line_style", "solid"),
+        line_width=float(o.get("line_width", "0.5")),
+        line_width_unit=o.get("line_width_unit", "MM"),
+        capstyle=o.get("capstyle", "square"),
+        joinstyle=o.get("joinstyle", "bevel"),
+        offset=o.get("offset", "0"),
+    )
+
+
+def _parse_svg_marker(o: dict[str, str]) -> SvgMarker:
+    return SvgMarker(
+        name=o.get("name", ""),
+        size=float(o.get("size", "6")),
+        size_unit=o.get("size_unit", "MM"),
+        color=Color.from_qgis(o.get("color", BLACK.qgis)),
+        outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
+        outline_width=float(o.get("outline_width", "0")),
+        outline_width_unit=o.get("outline_width_unit", "MM"),
+        angle=float(o.get("angle", "0")),
+        offset=o.get("offset", "0,0"),
+        offset_unit=o.get("offset_unit", "MM"),
+    )
+
+
+def _parse_simple_marker(o: dict[str, str]) -> SimpleMarker:
+    return SimpleMarker(
+        name=o.get("name", "circle"),
+        size=float(o.get("size", "2")),
+        size_unit=o.get("size_unit", "MM"),
+        color=Color.from_qgis(o.get("color", BLACK.qgis)),
+        outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
+        outline_width=float(o.get("outline_width", "0")),
+        outline_width_unit=o.get("outline_width_unit", "MM"),
+        angle=float(o.get("angle", "0")),
+        offset=o.get("offset", "0,0"),
+        offset_unit=o.get("offset_unit", "MM"),
+        joinstyle=o.get("joinstyle", "bevel"),
+    )
+
+
+SYMBOL_LAYER_PARSERS: dict[str, Callable[[dict[str, str]], SymbolLayer]] = {
+    "SimpleFill": _parse_simple_fill,
+    "SimpleLine": _parse_simple_line,
+    "SvgMarker": _parse_svg_marker,
+    "SimpleMarker": _parse_simple_marker,
+}
+
+
 def _parse_symbol_layer(layer_el: ET.Element) -> SymbolLayer | None:
     """Parse a <layer> element into a SymbolLayer model, or None if unrecognized."""
     kind = layer_el.get("class")
     opts_el = layer_el.find("Option[@type='Map']")
     if opts_el is None:
         return None
-    o = _opts(opts_el)
-
-    if kind == "SimpleFill":
-        return SimpleFill(
-            color=Color.from_qgis(o.get("color", BLACK.qgis)),
-            style=o.get("style", "solid"),
-            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
-            outline_style=o.get("outline_style", "solid"),
-            outline_width=float(o.get("outline_width", "0.5")),
-            outline_width_unit=o.get("outline_width_unit", "MM"),
-            joinstyle=o.get("joinstyle", "bevel"),
-            offset=o.get("offset", "0,0"),
-        )
-    if kind == "SimpleLine":
-        return SimpleLine(
-            line_color=Color.from_qgis(o.get("line_color", BLACK.qgis)),
-            line_style=o.get("line_style", "solid"),
-            line_width=float(o.get("line_width", "0.5")),
-            line_width_unit=o.get("line_width_unit", "MM"),
-            capstyle=o.get("capstyle", "square"),
-            joinstyle=o.get("joinstyle", "bevel"),
-            offset=o.get("offset", "0"),
-        )
-    if kind == "SvgMarker":
-        return SvgMarker(
-            name=o.get("name", ""),
-            size=float(o.get("size", "6")),
-            size_unit=o.get("size_unit", "MM"),
-            color=Color.from_qgis(o.get("color", BLACK.qgis)),
-            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
-            outline_width=float(o.get("outline_width", "0")),
-            outline_width_unit=o.get("outline_width_unit", "MM"),
-            angle=float(o.get("angle", "0")),
-            offset=o.get("offset", "0,0"),
-            offset_unit=o.get("offset_unit", "MM"),
-        )
-    if kind == "SimpleMarker":
-        return SimpleMarker(
-            name=o.get("name", "circle"),
-            size=float(o.get("size", "2")),
-            size_unit=o.get("size_unit", "MM"),
-            color=Color.from_qgis(o.get("color", BLACK.qgis)),
-            outline_color=Color.from_qgis(o.get("outline_color", DARK_GRAY.qgis)),
-            outline_width=float(o.get("outline_width", "0")),
-            outline_width_unit=o.get("outline_width_unit", "MM"),
-            angle=float(o.get("angle", "0")),
-            offset=o.get("offset", "0,0"),
-            offset_unit=o.get("offset_unit", "MM"),
-            joinstyle=o.get("joinstyle", "bevel"),
-        )
-    return None
+    parser = SYMBOL_LAYER_PARSERS.get(kind or "")
+    if parser is None:
+        return None
+    return parser(_opts(opts_el))
 
 
 def _parse_symbol(symbol_el: ET.Element) -> Symbol | None:
@@ -231,56 +237,79 @@ def _parse_symbol(symbol_el: ET.Element) -> Symbol | None:
     )
 
 
+def _parse_single_symbol_renderer(renderer_el: ET.Element) -> SingleSymbol | None:
+    symbols_el = renderer_el.find("symbols")
+    if symbols_el is None:
+        return None
+    symbol_el = symbols_el.find("symbol")
+    if symbol_el is None:
+        return None
+    symbol = _parse_symbol(symbol_el)
+    return SingleSymbol(symbol=symbol) if symbol else None
+
+
+def _parse_rule_renderer(renderer_el: ET.Element) -> RuleRenderer | None:
+    rules_el = renderer_el.find("rules")
+    if rules_el is None:
+        return None
+    rules = [
+        Rule(
+            key=r.get("key", ""),
+            label=r.get("label", ""),
+            filter=r.get("filter", ""),
+            symbol_index=int(r.get("symbol", "0")),
+            active=r.get("checkstate", "1") != "0",
+        )
+        for r in rules_el.findall("rule")
+        if r.get("symbol") is not None
+    ]
+    symbols_el = renderer_el.find("symbols")
+    symbols: list[Symbol] = []
+    if symbols_el is not None:
+        for symbol_el in sorted(
+            symbols_el.findall("symbol"),
+            key=lambda e: int(e.get("name", "0")),
+        ):
+            symbol = _parse_symbol(symbol_el)
+            if symbol:
+                symbols.append(symbol)
+    return RuleRenderer(
+        rules_key=rules_el.get("key", ""),
+        rules=rules,
+        symbols=symbols,
+    )
+
+
+# ── Dispatch tables (importable by test_completeness) ─────────────────────────
+# Only singleSymbol and RuleRenderer are round-trippable; the other types are
+# intentionally absent from dump output (no write-back for raster renderers or
+# graduated symbolisation read from .qgs).
+
+RENDERER_GENERATORS: dict[type, Callable[[ET.Element], Renderer | None]] = {
+    SingleSymbol: _parse_single_symbol_renderer,
+    RuleRenderer: _parse_rule_renderer,
+    # GraduatedRenderer: intentionally excluded — dump_qgis does not emit it
+    # PalettedRenderer: intentionally excluded — raster-only, no dump support
+}
+
+# String-keyed routing for _parse_renderer (QGIS XML uses string type tags).
+RENDERER_PARSERS: dict[str, Callable[[ET.Element], Renderer | None]] = {
+    "singleSymbol": _parse_single_symbol_renderer,
+    "RuleRenderer": _parse_rule_renderer,
+}
+
+
 def _parse_renderer(maplayer_el: ET.Element) -> Renderer | None:
     """Parse a <renderer-v2> element into a Renderer model, or None if unsupported."""
     renderer_el = maplayer_el.find("renderer-v2")
     if renderer_el is None:
         return None
-    renderer_type = renderer_el.get("type")
-
-    if renderer_type == "singleSymbol":
-        symbols_el = renderer_el.find("symbols")
-        if symbols_el is None:
-            return None
-        symbol_el = symbols_el.find("symbol")
-        if symbol_el is None:
-            return None
-        symbol = _parse_symbol(symbol_el)
-        return SingleSymbol(symbol=symbol) if symbol else None
-
-    if renderer_type == "RuleRenderer":
-        rules_el = renderer_el.find("rules")
-        if rules_el is None:
-            return None
-        rules = [
-            Rule(
-                key=r.get("key", ""),
-                label=r.get("label", ""),
-                filter=r.get("filter", ""),
-                symbol_index=int(r.get("symbol", "0")),
-                active=r.get("checkstate", "1") != "0",
-            )
-            for r in rules_el.findall("rule")
-            if r.get("symbol") is not None
-        ]
-        symbols_el = renderer_el.find("symbols")
-        symbols: list[Symbol] = []
-        if symbols_el is not None:
-            for symbol_el in sorted(
-                symbols_el.findall("symbol"),
-                key=lambda e: int(e.get("name", "0")),
-            ):
-                symbol = _parse_symbol(symbol_el)
-                if symbol:
-                    symbols.append(symbol)
-        return RuleRenderer(
-            rules_key=rules_el.get("key", ""),
-            rules=rules,
-            symbols=symbols,
-        )
-
-    warnings.warn(f"Skipping unknown renderer type {renderer_type!r}")
-    return None
+    renderer_type = renderer_el.get("type", "")
+    parser = RENDERER_PARSERS.get(renderer_type)
+    if parser is None:
+        warnings.warn(f"Skipping unknown renderer type {renderer_type!r}")
+        return None
+    return parser(renderer_el)
 
 
 # ── Code generation ───────────────────────────────────────────────────────────
@@ -371,7 +400,7 @@ def _write_layer_py(
     model_names: set[str] = {"Layer"}
     if layer.renderer is not None:
         model_names |= _collect_classes(layer.renderer)
-    imports = ", ".join(n for n in _MODEL_IMPORT_ORDER if n in model_names)
+    imports = ", ".join(sorted(model_names - {"Color"}))
     source_stem = Path(layer.datasource.split("|")[0]).name if layer.datasource else ""
     docstring = f'"""{layer.name} — {layer.type} layer'
     if source_stem:

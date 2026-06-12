@@ -1,7 +1,10 @@
-# Generate or update a map's README.md from the current map spec.
-# Called by build.py after render(). Replaces the section between the
-# <!-- auto:begin --> / <!-- auto:end --> markers; everything outside is preserved.
+"""Generate or update a map's README.md from the current map spec.
 
+Called by build.py after render(). Replaces the section between the
+<!-- auto:begin --> / <!-- auto:end --> markers; everything outside is preserved.
+"""
+
+from graphlib import TopologicalSorter
 from pathlib import Path
 
 from alidade.models import (
@@ -10,12 +13,12 @@ from alidade.models import (
     PythonAction,
 )
 
-_BEGIN = "<!-- auto:begin -->"
-_END = "<!-- auto:end -->"
+BEGIN = "<!-- auto:begin -->"
+END = "<!-- auto:end -->"
 
 # Ordered list of (substring, label) pairs for _source_label. Checked in order;
 # first match wins. "wms" is matched case-insensitively via .lower().
-_SOURCE_LABELS: list[tuple[str, str]] = [
+SOURCE_LABELS: list[tuple[str, str]] = [
     ("dark_all", "CartoDB Dark Matter XYZ tile service"),
     ("cartocdn", "CartoDB Positron XYZ tile service"),
     ("openstreetmap.org", "OpenStreetMap tile service"),
@@ -28,7 +31,7 @@ _SOURCE_LABELS: list[tuple[str, str]] = [
 def _source_label(source: str) -> str:
     """Return a short human-readable label for a layer source path or URI."""
     source_lower = source.lower()
-    for substring, label in _SOURCE_LABELS:
+    for substring, label in SOURCE_LABELS:
         if substring in source or substring in source_lower:
             return label
     path_part = source.split("|")[0]
@@ -46,9 +49,7 @@ def _source_label(source: str) -> str:
 def _data_source_rows(
     layer: Layer,
 ) -> list[tuple[str, str, str, str]]:
-    """
-    Return (dedup_key, file_label, description, origin) rows for a layer's raw inputs.
-    """
+    """Return (dedup_key, file_label, description, origin) for a layer's raw inputs."""
     rows = []
     if layer.provider == "wms":
         label = _source_label(layer.datasource)
@@ -78,25 +79,10 @@ def _step_description(layer: Layer) -> str:
 
 
 def _topo_sort(derived: list[Layer]) -> list[Layer]:
-    """
-    Return derived layers in topological order (all inputs before the layer itself).
-    """
+    """Return derived layers in topological order (inputs before their dependents)."""
     id_to_layer = {la.id: la for la in derived}
-    order: list[Layer] = []
-    visited: set[str] = set()
-
-    def visit(layer: Layer) -> None:
-        if layer.id in visited:
-            return
-        visited.add(layer.id)
-        for inp in layer.inputs:
-            if inp.id in id_to_layer:
-                visit(id_to_layer[inp.id])
-        order.append(layer)
-
-    for layer in derived:
-        visit(layer)
-    return order
+    ts = TopologicalSorter({la.id: [inp.id for inp in la.inputs] for la in derived})
+    return [id_to_layer[i] for i in ts.static_order() if i in id_to_layer]
 
 
 def _auto_section(spec: BoundMap) -> str:
@@ -149,7 +135,7 @@ def update_readme(spec: BoundMap) -> None:
     """Write or update the auto-generated section of README.md."""
     assert spec.map_path is not None
     readme_path = spec.map_path / "README.md"
-    section = f"{_BEGIN}\n{_auto_section(spec)}{_END}\n"
+    section = f"{BEGIN}\n{_auto_section(spec)}{END}\n"
 
     if not readme_path.exists():
         readme_path.write_text(f"# {spec.title}\n\n{section}")
@@ -158,9 +144,9 @@ def update_readme(spec: BoundMap) -> None:
 
     existing = readme_path.read_text()
 
-    if _BEGIN in existing and _END in existing:
-        before = existing[: existing.index(_BEGIN)]
-        after = existing[existing.index(_END) + len(_END) :].lstrip("\n")
+    if BEGIN in existing and END in existing:
+        before = existing[: existing.index(BEGIN)]
+        after = existing[existing.index(END) + len(END) :].lstrip("\n")
         updated = before + section + ("\n" + after if after else "")
     else:
         updated = existing.rstrip("\n") + "\n\n" + section

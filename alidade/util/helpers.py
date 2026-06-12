@@ -7,7 +7,7 @@ from pathlib import Path
 from alidade.models import BoundMap, Map
 
 # helpers.py lives at alidade/util/helpers.py; repo root is three .parent() calls up
-_REPO_ROOT = Path(__file__).parent.parent.parent
+REPO_ROOT = Path(__file__).parent.parent.parent
 
 
 def _package_parts(map_path: Path) -> tuple[str, ...]:
@@ -18,14 +18,14 @@ def _package_parts(map_path: Path) -> tuple[str, ...]:
     symlink whose resolved target matches map_path.
     """
     try:
-        return map_path.relative_to(_REPO_ROOT).parts
+        return map_path.relative_to(REPO_ROOT).parts
     except ValueError:
         pass
-    for candidate in (_REPO_ROOT / "projects").glob("*"):
+    for candidate in (REPO_ROOT / "projects").glob("*"):
         if candidate.is_symlink() and candidate.resolve() == map_path:
-            return candidate.relative_to(_REPO_ROOT).parts
+            return candidate.relative_to(REPO_ROOT).parts
     raise ValueError(
-        f"{str(map_path)!r} is not under {str(_REPO_ROOT)!r} "
+        f"{str(map_path)!r} is not under {str(REPO_ROOT)!r} "
         "and no symlink in projects/ resolves to it"
     )
 
