@@ -194,8 +194,10 @@ Blue fill at 50% opacity.
 ## Step 12 — Suitability raster
 
 Weighted overlay: rasterized vegetation, priority_developed, and
-priority_roads_trails to the slope.tif grid (~10 m, EPSG:26910). Weights:
-slope 25% + vegetation 25% + developed priority 25% + roads/trails priority 25%.
+priority_roads_trails to the slope.tif grid (~10 m, EPSG:26910). The two
+priority datasets are merged before scoring (`np.maximum`), so a pixel inside
+either buffer scores 4 and a pixel outside both scores 1. Weights:
+slope 33% + vegetation 33% + priority (combined) 33%.
 
 Slope is scored *inversely* (steeper = higher suitability) because goats prefer
 sloped terrain: slope class 1 → suit 2, class 2 → 3, class 3 → 4, class 4 → 0.

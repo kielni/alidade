@@ -36,19 +36,20 @@ Vegetation reclassification (rasterize ENHANCED_LIFEFORM field)
 
 Priority reclassification (rasterize each buffer polygon; binary → 1-4 scale)
   inside buffer → 4,  outside → 1
-  Applies to both priority_developed and priority_roads_trails independently.
+  The two priority rasters are merged into a single priority layer before
+  scoring: priority = max(priority_developed, priority_roads_trails), so a
+  pixel inside either buffer gets 4 and a pixel outside both gets 1.
 
 Weights (sum = 1.0)
-  slope:               0.25
-  vegetation:          0.25
-  priority_developed:  0.25
-  priority_roads_trails: 0.25
+  slope:    1/3
+  vegetation: 1/3
+  priority: 1/3   (combined from priority_developed and priority_roads_trails)
 
+  priority_suit = np.maximum(priority_dev, priority_trails)
   suitability_raw = (
-      slope_suit      * 0.25
-    + veg_suit        * 0.25
-    + priority_dev    * 0.25
-    + priority_trails * 0.25
+      slope_suit    * (1/3)
+    + veg_suit      * (1/3)
+    + priority_suit * (1/3)
   )
 
 Exclusion masking (applied after weighted sum)
@@ -105,10 +106,9 @@ from projects.goats.util import CRS
 M2_PER_ACRE = 4046.856
 
 # Overlay weights: must sum to 1.0
-WEIGHT_SLOPE = 0.25
-WEIGHT_VEGETATION = 0.25
-WEIGHT_PRIORITY_DEVELOPED = 0.25
-WEIGHT_PRIORITY_TRAILS = 0.25
+WEIGHT_SLOPE = 1 / 3
+WEIGHT_VEGETATION = 1 / 3
+WEIGHT_PRIORITY = 1 / 3
 
 # index = slope class (0=nodata, 1=flat, 2=moderate, 3=steep, 4=too-steep)
 SLOPE_TO_SUITABILITY = np.array([0, 2, 3, 4, 0], dtype="uint8")
@@ -206,12 +206,14 @@ def build_suitability(layer: BoundLayer) -> None:
         outside_val=0,
     )
 
+    # merge priority datasets: a pixel in either buffer scores 4, outside both scores 1
+    priority_raster = np.maximum(priority_developed_raster, priority_trails_raster)
+
     # calculate per-pixel suitability
     suitability_raw = (
         slope_suit.astype(float) * WEIGHT_SLOPE
         + veg_raster.astype(float) * WEIGHT_VEGETATION
-        + priority_developed_raster.astype(float) * WEIGHT_PRIORITY_DEVELOPED
-        + priority_trails_raster.astype(float) * WEIGHT_PRIORITY_TRAILS
+        + priority_raster.astype(float) * WEIGHT_PRIORITY
     )
 
     # adjust for excluded areas
