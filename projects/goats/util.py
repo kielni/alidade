@@ -64,7 +64,7 @@ class VegetationZone:
 
     @property
     def filter(self) -> str:
-        return " OR ".join(f"\"ENHANCED_LIFEFORM\" = '{v}'" for v in self.values)
+        return f"\"veg_class\" = '{self.label}'"
 
 
 VEGETATION_ZONES = [
@@ -86,6 +86,11 @@ VEGETATION_ZONES = [
     VegetationZone("Riparian forest", ["Riparian Forest"], VEG_RIPARIAN),
     VegetationZone("Developed", ["Developed"], VEG_DEVELOPED),
 ]
+
+# Collapses raw ENHANCED_LIFEFORM values into one row per legend class.
+VEGETATION_VALUE_TO_LABEL = {
+    value: zone.label for zone in VEGETATION_ZONES for value in zone.values
+}
 
 vegetation_rules = [
     Rule(

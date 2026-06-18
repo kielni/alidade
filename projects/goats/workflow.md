@@ -194,8 +194,10 @@ Blue fill at 50% opacity.
 ## Step 12 — Suitability raster
 
 Weighted overlay: rasterized vegetation, priority_developed, and
-priority_roads_trails to the slope.tif grid (~10 m, EPSG:26910). Weights:
-slope 25% + vegetation 25% + developed priority 25% + roads/trails priority 25%.
+priority_roads_trails to the slope.tif grid (~10 m, EPSG:26910). The two
+priority datasets are merged before scoring (`np.maximum`), so a pixel inside
+either buffer scores 4 and a pixel outside both scores 1. Weights:
+slope 33% + vegetation 33% + priority (combined) 33%.
 
 Slope is scored *inversely* (steeper = higher suitability) because goats prefer
 sloped terrain: slope class 1 → suit 2, class 2 → 3, class 3 → 4, class 4 → 0.
@@ -358,6 +360,35 @@ literals, matplotlib float tuples) with a single canonical `Color` type.
 - `util.py` — `VegetationZone.color: str` → `Color`; `VEGETATION_ZONES` uses
   palette constants
 - All 17 `layers/*.py` files
+
+---
+
+## Step 21 — Vegetation legend deduplication for ArcGIS Online
+
+Each `VegetationZone` groups several raw `ENHANCED_LIFEFORM` values under one
+legend label (e.g. "Native woodland" = Forest, Deciduous Hardwood, Evergreen
+Hardwood, Pine/Cypress). QGIS's rule renderer handles an OR'd filter as a
+single legend entry, but `publish_arcgis._rule_renderer` emits one
+`uniqueValueInfo` per raw value in the OR — so ArcGIS Online showed "Non-native
+woodland" x2 and "Native woodland" x4.
+
+Fixed at the data layer instead of the renderer: `clip_vegetation` now adds a
+`veg_class` column (mapped from `ENHANCED_LIFEFORM` via
+`VEGETATION_VALUE_TO_LABEL`) and dissolves by that column, so the output has
+exactly one row per displayed class (343 source polygons → 7 rows, not 11).
+`VegetationZone.filter` now matches `"veg_class" = '<label>'` instead of an OR
+over raw values. `suitability.py`, which read `ENHANCED_LIFEFORM` directly for
+rasterization, was updated to read `veg_class`; `VEGETATION_SUITABILITY` is
+now keyed by the 7 group labels instead of the 11 raw values (every raw value
+in a group already carried the same suitability score, so this is a pure
+rename, not a scoring change).
+
+**Files changed:**
+- `util.py` — `VegetationZone.filter` matches `veg_class`; added
+  `VEGETATION_VALUE_TO_LABEL`
+- `layers/vegetation.py` — `clip_vegetation` adds `veg_class`, dissolves by it
+- `layers/suitability.py` — `VEGETATION_SUITABILITY` keyed by group label;
+  rasterization reads `veg_class`
 
 ---
 

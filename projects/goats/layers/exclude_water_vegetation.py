@@ -43,7 +43,7 @@ exclude_water_vegetation = Layer(
                     color=WATER_FILL_SEMI,
                     style="solid",
                     outline_color=WATER_EDGE,
-                    outline_width=0.5,
+                    outline_width=0.0,
                 )
             ],
         )
