@@ -810,7 +810,7 @@ def _publish_layer(
             drawing_info["labelingInfo"] = [_build_labeling_info(layer.label)]
             layer_def["showLabels"] = True
         flc.layers[0].manager.update_definition(layer_def)
-        print(f"    Applied {layer.renderer.kind} renderer")
+        print(f"    {layer.id}: applied {layer.renderer.kind} renderer")
 
     return size_mb
 
