@@ -28,8 +28,8 @@ WATER_EDGE = Color.from_hex("#285078", alpha=200)
 
 # ── Developed / built environment ──────────────────────────────────────────────
 
-DEVELOPED_FILL = Color.from_hex("#c8c8c8", alpha=128)
-DEVELOPED_EDGE = Color.from_hex("#808080")
+DEVELOPED_FILL = Color.from_hex("#e34a33", alpha=160)
+DEVELOPED_EDGE = Color.from_hex("#9e3322")
 
 # ── Roads and trails ───────────────────────────────────────────────────────────
 
@@ -41,10 +41,10 @@ ROADS_LINE = Color.from_hex("#784828")
 VEG_SHRUB = Color.from_hex("#1a9850")
 VEG_NON_NATIVE_HERB = Color.from_hex("#a6d96a")
 VEG_HERBACEOUS = Color.from_hex("#fee08b")
-VEG_NON_NATIVE_WOOD = Color.from_hex("#cccccc")
-VEG_NATIVE_WOOD = Color.from_hex("#969696")
+VEG_NON_NATIVE_WOOD = Color.from_hex("#6b4f3a")
+VEG_NATIVE_WOOD = Color.from_hex("#a8927a")
+VEG_DEVELOPED = Color.from_hex("#595959")
 VEG_RIPARIAN = Color.from_hex("#bdd7e7")
-VEG_DEVELOPED = Color.from_hex("#636363")
 VEG_EDGE = Color(80, 80, 80, 120)
 
 # ── Slope ──────────────────────────────────────────────────────────────────────
@@ -69,10 +69,8 @@ STAGING_EDGE = Color.from_hex("#6e00a0")
 
 # ── Priority areas ─────────────────────────────────────────────────────────────
 
-PRIORITY_DEVELOPED_FILL = Color.from_hex("#ff8c00", alpha=128)
-PRIORITY_DEVELOPED_EDGE = Color.from_hex("#c86400", alpha=200)
+PRIORITY_DEVELOPED_FILL = Color.from_hex("#f2a900", alpha=128)
 PRIORITY_ROADS_FILL = Color.from_hex("#ffc800", alpha=128)
-PRIORITY_ROADS_EDGE = Color.from_hex("#b48c00", alpha=200)
 
 # ── Rank tiers ─────────────────────────────────────────────────────────────────
 

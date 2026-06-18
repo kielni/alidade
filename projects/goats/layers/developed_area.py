@@ -64,7 +64,7 @@ developed_area = Layer(
                 SimpleFill(
                     color=DEVELOPED_FILL,
                     outline_color=DEVELOPED_EDGE,
-                    outline_width=1.0,
+                    outline_width=0.5,
                 )
             ],
         )

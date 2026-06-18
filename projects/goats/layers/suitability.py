@@ -23,15 +23,14 @@ Slope reclassification (inverted — steeper is more effective for goat grazing)
   slope=4  too steep  (58%+)      → 0  (hard exclude)
   gdal_calc: (A==1)*2 + (A==2)*3 + (A==3)*4
 
-Vegetation reclassification (rasterize ENHANCED_LIFEFORM field)
-  Shrub                                      → 4  (primary target)
-  Non-native Herbaceous                      → 3  (invasive, accessible)
-  Herbaceous                                 → 3  (native grassland)
-  Eucalyptus / Non-native Forest             → 1  (neutral)
-  Forest / Deciduous/Evergreen Hardwood
-    / Pine/Cypress                           → 1  (neutral)
-  Riparian Forest                            → 0  (hard exclude via vegetation)
-  Developed                                  → 0  (hard exclude)
+Vegetation reclassification (rasterize veg_class field)
+  Shrub                  → 4  (primary target)
+  Non-native herbaceous  → 3  (invasive, accessible)
+  Herbaceous             → 3  (native grassland)
+  Non-native woodland    → 1  (neutral)
+  Native woodland        → 1  (neutral)
+  Riparian forest        → 0  (hard exclude via vegetation)
+  Developed              → 0  (hard exclude)
   Use rasterio.features.rasterize with a per-feature burn-value lookup.
 
 Priority reclassification (rasterize each buffer polygon; binary → 1-4 scale)
@@ -106,24 +105,26 @@ from projects.goats.util import CRS
 M2_PER_ACRE = 4046.856
 
 # Overlay weights: must sum to 1.0
-WEIGHT_SLOPE = 1 / 3
-WEIGHT_VEGETATION = 1 / 3
-WEIGHT_PRIORITY = 1 / 3
+# priority,slope,vegetation
+# 33,33,33 equal
+# 25,25,50 vegetation
+# 25,50,25 slope
+# 40,30,30 priority
+# 10,40,40 minor priority
+WEIGHT_PRIORITY = 0.1
+WEIGHT_SLOPE = 0.4
+WEIGHT_VEGETATION = 0.4
 
 # index = slope class (0=nodata, 1=flat, 2=moderate, 3=steep, 4=too-steep)
 SLOPE_TO_SUITABILITY = np.array([0, 2, 3, 4, 0], dtype="uint8")
 
 VEGETATION_SUITABILITY: dict[str, int] = {
     "Shrub": 4,
-    "Non-native Herbaceous": 3,
+    "Non-native herbaceous": 3,
     "Herbaceous": 3,
-    "Eucalyptus": 1,
-    "Non-native Forest": 1,
-    "Forest": 1,
-    "Deciduous Hardwood": 1,
-    "Evergreen Hardwood": 1,
-    "Pine/Cypress": 1,
-    "Riparian Forest": 0,
+    "Non-native woodland": 1,
+    "Native woodland": 1,
+    "Riparian forest": 0,
     "Developed": 0,
 }
 
@@ -170,8 +171,8 @@ def build_suitability(layer: BoundLayer) -> None:
     # convert vector vegetation to raster to line up with slope
     veg_gdf = gpd.read_file(vegetation_layer.path).to_crs(CRS)
     veg_shapes = [
-        (geom, VEGETATION_SUITABILITY.get(str(lf), 0))
-        for geom, lf in zip(veg_gdf.geometry, veg_gdf["ENHANCED_LIFEFORM"])
+        (geom, VEGETATION_SUITABILITY.get(str(cls), 0))
+        for geom, cls in zip(veg_gdf.geometry, veg_gdf["veg_class"])
         if geom is not None and not geom.is_empty
     ]
     veg_raster = rasterio.features.rasterize(

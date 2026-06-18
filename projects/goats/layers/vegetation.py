@@ -3,6 +3,7 @@ Fine scale vegetation map
 """
 
 import os
+from pathlib import Path
 
 import geopandas as gpd
 
@@ -19,6 +20,7 @@ from projects.goats.palette import VEG_EDGE
 from projects.goats.util import (
     BBOX_GENERAL,
     CRS,
+    VEGETATION_VALUE_TO_LABEL,
     VEGETATION_ZONES,
     clip_border,
     vegetation_rules,
@@ -33,8 +35,6 @@ def crop_vegetation_to_bbox() -> None:
     Run once before the pipeline to reduce the 400 MB+ GDB to a small park-only
     file.  Prints size before and after.
     """
-    from pathlib import Path
-
     src_path = "projects/goats/data/fine_scale_vegetation.gdb"
     dst_path = "projects/goats/data/fine_scale_vegetation_bbox.gpkg"
 
@@ -59,10 +59,9 @@ def clip_vegetation(layer: BoundLayer) -> None:
     (border,) = layer.inputs
     gdf = gpd.read_file(layer.raw_path).to_crs(CRS)
     clipped = clip_border(gdf, border.path)
+    clipped["veg_class"] = clipped["ENHANCED_LIFEFORM"].map(VEGETATION_VALUE_TO_LABEL)
     dissolved = (
-        clipped[["ENHANCED_LIFEFORM", "geometry"]]
-        .dissolve(by="ENHANCED_LIFEFORM")
-        .reset_index()
+        clipped[["veg_class", "geometry"]].dissolve(by="veg_class").reset_index()
     )
     dissolved.to_file(layer.path, driver="GPKG")
 
