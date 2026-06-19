@@ -392,6 +392,25 @@ rename, not a scoring change).
 
 ---
 
+## Step 22 — Acreage labels on High/Very high patches
+
+Added an `acres_label` column to `grazeable_patches`: `"<rounded acres> acres"` for
+patches with `patch_class >= 3` (High/Very high), blank for Low/Moderate. Blank
+strings suppress QGIS simple labeling per-feature, so only the two top classes
+get a label without needing a rule-based labeling setup. Wired up via
+`Label(field="acres_label", halo_color=WHITE)`, matching the pattern already used
+for staging area names.
+
+Patch outlines restyled from black (0.2 mm) to white (0.5 mm) so the new
+acreage labels stand out against the darker purple patch classes.
+
+**Files changed:**
+- `layers/target_zones.py` — `build_patches` adds `acres_label`;
+  `target_zones` layer gets `label=Label(field="acres_label", halo_color=WHITE)`;
+  `_symbols` outline changed from `BLACK`/0.2 to `WHITE`/0.5
+
+---
+
 ## Step 20 — Project → Map rename
 
 Renamed `Project` → `Map` and `BoundProject` → `BoundMap` throughout the

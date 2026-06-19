@@ -94,12 +94,26 @@ riparian vegetation. Goats browse everything within reach; without this setback,
 Each location in the park was scored by combining four factors into a single suitability
 score. Each factor carries equal weight:
 
-- **Slope (25%)** — steeper terrain scores higher, since those slopes can't be mowed
-- **Vegetation type (25%)** — shrubland and chaparral score highest
-- **Distance to roads and trails (25%)** — within 30 feet of an access route scores higher
-- **Distance to developed zone (25%)** — within 100 feet of a high-use area scores higher
+- **Slope (33%)** — steeper terrain scores higher, since those slopes can't be mowed
+- **Vegetation type (33%)** — shrubland and chaparral score highest
+- **Distance to developed zone, roads and trails (33%)** — within 30 feet of an access route or 100 feet of a high-use area scores higher
 
 Any location in an exclusion zone (riparian buffer, very steep slopes, or developed land) is zeroed out regardless of other scores. The result is a continuous surface where darker purple indicates the highest-priority locations for fuel reduction. High-value areas concentrate in the central and western portions of the park, where shrubland vegetation meets the main trail network on accessible slopes.
+
+The relative weight given to each factor can be adjusted to match different program priorities, and the analysis is straightforward to re-run with different weights. Five weighting schemes were tested, varying the balance between priority access, slope, and vegetation:
+
+- **33% priority area, 33% slope, 33% vegetation** — equal weighting
+- **25% priority area, 25% slope, 50% vegetation** — vegetation emphasized
+- **25% priority area, 50% slope, 25% vegetation** — slope emphasized
+- **40% priority area, 30% slope, 30% vegetation** — priority access emphasized
+- **10% priority area, 40% slope, 40% vegetation** — minor priority weighting
+
+All five weightings identified the same high-priority grazing zones, confirming that the results are robust and not sensitive to the specific weighting chosen.
+
+| | |
+|---|---|
+| ![25% priority area, 25% slope, 50% vegetation](map_suitability_25_25_50.png)<br>25% priority area, 25% slope, 50% vegetation — vegetation emphasized | ![25% priority area, 50% slope, 25% vegetation](map_suitability_25_50_25.png)<br>25% priority area, 50% slope, 25% vegetation — slope emphasized |
+| ![40% priority area, 30% slope, 30% vegetation](map_suitability_40_30_30.png)<br>40% priority area, 30% slope, 30% vegetation — priority access emphasized | ![10% priority area, 40% slope, 40% vegetation](map_suitability_10_40_40.png)<br>10% priority area, 40% slope, 40% vegetation — minor priority weighting |
 
 ### Recommended Grazing Zones Overview
 

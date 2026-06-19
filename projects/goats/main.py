@@ -78,7 +78,7 @@ map_park = Map(
 """
 map_slope = Map(
     id="slope",
-    title="Alum Rock Park: Slopes",
+    title="Slopes",
     crs=CRS,
     extent=EXTENT,
     layers=[
@@ -94,7 +94,7 @@ map_slope = Map(
 3: Vegetation classification; lifeform classes grouped into 6 classes, plus developed
 """
 map_veg = Map(
-    title="Alum Rock: Vegetation",
+    title="Vegetation",
     id="vegetation",
     crs=CRS,
     extent=EXTENT,
@@ -111,7 +111,7 @@ map_veg = Map(
 4: Priority (road and trail edges, developed area) and exclusion (riparian buffer) zones
 """
 map_zones = Map(
-    title="Alum Rock Goat Priority and Exclusion Zones",
+    title="Priority and Exclusion Zones",
     id="zones",
     crs=CRS,
     extent=EXTENT,
@@ -131,7 +131,7 @@ map_zones = Map(
 5: Weighted overlay for suitability from priority/exclusion zones, slope, and vegetation
 """
 map_suitability = Map(
-    title="Alum Rock Goat Grazing Suitability",
+    title="Goat Grazing Suitability",
     id="suitability",
     crs=CRS,
     extent=EXTENT,
@@ -150,7 +150,7 @@ map_suitability = Map(
 6: Group and smooth suitability outputs into target zones
 """
 map_target_zones = Map(
-    title="Alum Rock Goat Grazing Target Zones",
+    title="Goat Grazing Target Zones",
     id="patches",
     crs=CRS,
     extent=EXTENT,
@@ -169,7 +169,7 @@ map_target_zones = Map(
 7: Prioritized staging areas based on access to target zones
 """
 map_ranked_staging = Map(
-    title="Alum Rock Target Staging",
+    title="Target Staging Areas",
     id="targets_cluster",
     crs=CRS,
     extent=EXTENT,
@@ -197,7 +197,7 @@ EXTENT_DETAIL = Extent(
 ).to_crs(CRS)
 
 map_detail = Map(
-    title="Alum Rock Rustic Lands area",
+    title="Rustic Lands Staging area",
     id="detail",
     crs=CRS,
     extent=EXTENT_DETAIL,

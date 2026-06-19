@@ -31,6 +31,7 @@ from shapely.ops import voronoi_diagram
 
 from alidade.models import (
     BoundLayer,
+    Label,
     Layer,
     PythonAction,
     Rule,
@@ -41,7 +42,7 @@ from alidade.models import (
 from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
 from projects.goats.layers.park_boundary import park_boundary
 from projects.goats.layers.suitability import suitability
-from projects.goats.palette import BLACK, SUITABILITY
+from projects.goats.palette import SUITABILITY, WHITE
 from projects.goats.util import CRS, clip_park
 
 # about 1/8 acre
@@ -210,6 +211,12 @@ def build_patches(layer: BoundLayer) -> None:
         label = "Very high" if int(row["patch_class"]) == 4 else "High     "
         print(f"    P{int(row['patch_id']):03d}  {label}  {row['size_acres']:.2f} ac")
 
+    # blank label on Low/Moderate patches suppresses rendering
+    gdf["acres_label"] = ""
+    gdf.loc[high.index, "acres_label"] = (
+        high["size_acres"].round().astype(int).astype(str) + " acres"
+    )
+
     gdf.to_file(layer.path, driver="GPKG")
 
 
@@ -225,8 +232,8 @@ _symbols = [
             SimpleFill(
                 color=color,
                 style="solid",
-                outline_color=BLACK,
-                outline_width=0.2,
+                outline_color=WHITE,
+                outline_width=0.5,
             )
         ],
     )
@@ -247,4 +254,5 @@ target_zones = Layer(
         symbols=_symbols,
     ),
     action=PythonAction(fn=build_patches),
+    label=Label(field="acres_label", halo_color=WHITE),
 )
