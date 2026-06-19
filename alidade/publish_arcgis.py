@@ -835,9 +835,66 @@ def _layer_item_ids_for_map(
     return ids
 
 
+LIGHT_GRAY_BASEMAP: dict[str, Any] = {
+    "baseMapLayers": [
+        {
+            "id": "World_Light_Gray_Base",
+            "layerType": "ArcGISTiledMapServiceLayer",
+            "url": (
+                "https://services.arcgisonline.com/ArcGIS/rest/"
+                "services/Canvas/World_Light_Gray_Base/MapServer"
+            ),
+            "visibility": True,
+            "opacity": 1,
+            "title": "Light Gray Canvas Base",
+        },
+        {
+            "id": "World_Light_Gray_Reference",
+            "layerType": "ArcGISTiledMapServiceLayer",
+            "url": (
+                "https://services.arcgisonline.com/ArcGIS/rest/"
+                "services/Canvas/World_Light_Gray_Reference/MapServer"
+            ),
+            "visibility": True,
+            "opacity": 1,
+            "title": "Light Gray Canvas Reference",
+            "isReference": True,
+        },
+    ],
+    "title": "Light Gray Canvas",
+}
+
+IMAGERY_BASEMAP: dict[str, Any] = {
+    "baseMapLayers": [
+        {
+            "id": "World_Imagery",
+            "layerType": "ArcGISTiledMapServiceLayer",
+            "url": (
+                "https://server.arcgisonline.com/ArcGIS/rest/"
+                "services/World_Imagery/MapServer"
+            ),
+            "visibility": True,
+            "opacity": 1,
+            "title": "World Imagery",
+        },
+    ],
+    "title": "Imagery",
+}
+
+
+def _uses_satellite_basemap(bound: "BoundMap") -> bool:
+    """True if the map's WMS basemap layer points at Esri World Imagery."""
+    return any(
+        layer.provider == "wms" and "World_Imagery" in layer.datasource
+        for layer in bound.bound_layers
+    )
+
+
 def _build_webmap_json(
     layer_items: list[Any],
     extent: Extent | None = None,
+    *,
+    satellite: bool = False,
 ) -> dict[str, Any]:
     """Build minimal ArcGIS web map JSON from a list of hosted layer items."""
     operational_layers = []
@@ -874,34 +931,7 @@ def _build_webmap_json(
             )
     result: dict[str, Any] = {
         "operationalLayers": operational_layers,
-        "baseMap": {
-            "baseMapLayers": [
-                {
-                    "id": "World_Light_Gray_Base",
-                    "layerType": "ArcGISTiledMapServiceLayer",
-                    "url": (
-                        "https://services.arcgisonline.com/ArcGIS/rest/"
-                        "services/Canvas/World_Light_Gray_Base/MapServer"
-                    ),
-                    "visibility": True,
-                    "opacity": 1,
-                    "title": "Light Gray Canvas Base",
-                },
-                {
-                    "id": "World_Light_Gray_Reference",
-                    "layerType": "ArcGISTiledMapServiceLayer",
-                    "url": (
-                        "https://services.arcgisonline.com/ArcGIS/rest/"
-                        "services/Canvas/World_Light_Gray_Reference/MapServer"
-                    ),
-                    "visibility": True,
-                    "opacity": 1,
-                    "title": "Light Gray Canvas Reference",
-                    "isReference": True,
-                },
-            ],
-            "title": "Light Gray Canvas",
-        },
+        "baseMap": IMAGERY_BASEMAP if satellite else LIGHT_GRAY_BASEMAP,
         "spatialReference": WEBMERCATOR_SR,
         "version": "2.28",
     }
@@ -952,7 +982,13 @@ def _create_web_map(
     layer_items = [gis.content.get(fid) for fid in layer_ids]
     layer_items = [it for it in layer_items if it is not None]
 
-    webmap_text = json.dumps(_build_webmap_json(layer_items, extent=map_spec.extent))
+    webmap_text = json.dumps(
+        _build_webmap_json(
+            layer_items,
+            extent=map_spec.extent,
+            satellite=_uses_satellite_basemap(bound),
+        )
+    )
 
     existing = item_registry.get(map_key, {})
     existing_item = (

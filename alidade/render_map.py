@@ -309,8 +309,9 @@ def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
     """Construct and return a (Figure, Axes) for spec without saving or closing.
 
     Layers are drawn bottom-to-top (spec.layers reversed). WMS/raster layers
-    and PrintLayout are ignored. Extent and figsize are derived from the data
-    bounds so all visible features fit without clipping.
+    and PrintLayout are ignored. spec.extent wins when set; otherwise extent
+    and figsize are derived from the data bounds so all visible features fit
+    without clipping.
     """
     layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
@@ -345,7 +346,9 @@ def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
             ymaxs.append(b[3])
             layers_data.append((layer, gdf))
 
-    if xmins:
+    if spec.extent:
+        xmin, ymin, xmax, ymax = spec.extent.as_tuple()
+    elif xmins:
         xmin, ymin = min(xmins), min(ymins)
         xmax, ymax = max(xmaxs), max(ymaxs)
         pad_x = (xmax - xmin) * 0.05
@@ -354,8 +357,6 @@ def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
         xmax += pad_x
         ymin -= pad_y
         ymax += pad_y
-    elif spec.extent:
-        xmin, ymin, xmax, ymax = spec.extent.as_tuple()
     else:
         xmin, ymin, xmax, ymax = 0.0, 0.0, 1.0, 1.0
 

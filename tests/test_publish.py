@@ -1,9 +1,13 @@
 """Tests for publish_arcgis.py: renderer translation to ArcGIS REST API format."""
 
+from pathlib import Path
+
 from alidade.color import Color
 from alidade.models import (
+    BoundMap,
     GraduatedRange,
     GraduatedRenderer,
+    Layer,
     PaletteEntry,
     PalettedRenderer,
     Rule,
@@ -15,7 +19,11 @@ from alidade.models import (
     SvgMarker,
     Symbol,
 )
-from alidade.publish_arcgis import _renderer
+from alidade.publish_arcgis import (
+    _build_webmap_json,
+    _renderer,
+    _uses_satellite_basemap,
+)
 
 
 def _make_single_symbol(sym_layer):
@@ -136,3 +144,41 @@ def test_paletted_renderer():
 
 def test_none_renderer_returns_none():
     assert _renderer(None, "Polygon") is None
+
+
+def test_satellite_basemap():
+    satellite_layer = Layer(
+        id="esri_satellite",
+        name="esri_satellite",
+        type="raster",
+        datasource=(
+            "http-header:referer=&type=xyz&url=https://server.arcgisonline.com/"
+            "ArcGIS/rest/services/World_Imagery/MapServer/tile/%7Bz%7D/%7By%7D/%7Bx%7D"
+        ),
+        provider="wms",
+    )
+    bound = BoundMap(
+        title="Detail", crs="EPSG:3857", layers=[satellite_layer], map_path=Path(".")
+    )
+    assert _uses_satellite_basemap(bound) is True
+    result = _build_webmap_json([], satellite=True)
+    assert result["baseMap"]["baseMapLayers"][0]["id"] == "World_Imagery"
+
+
+def test_defaut_basemap():
+    light_layer = Layer(
+        id="cartodb_positron",
+        name="cartodb_positron",
+        type="raster",
+        datasource=(
+            "http-header:referer=&type=xyz&url=https://basemaps.cartocdn.com/"
+            "light_all/%7Bz%7D/%7Bx%7D/%7By%7D.png"
+        ),
+        provider="wms",
+    )
+    bound = BoundMap(
+        title="Park", crs="EPSG:3857", layers=[light_layer], map_path=Path(".")
+    )
+    assert _uses_satellite_basemap(bound) is False
+    result = _build_webmap_json([])
+    assert result["baseMap"]["baseMapLayers"][0]["id"] == "World_Light_Gray_Base"
