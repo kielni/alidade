@@ -4,6 +4,13 @@ Habitat suitability analysis for goat grazing at Alum Rock Park. Identifies graz
 
 [Illustrated analysis](https://github.com/kielni/alidade/blob/main/projects/goats/story/README.md)
 
+PDF
+
+```
+pandoc README.md -o goat_grazping.pdf --pdf-engine=pdflatex -V geometry:margin=1in \
+  -V colorlinks=true -V linkcolor=blue -V urlcolor=blue
+```
+
 CRS: EPSG:26910 (NAD83 / UTM Zone 10N)
 
 

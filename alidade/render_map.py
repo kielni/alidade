@@ -173,7 +173,11 @@ def _plot_simple_line(
         linewidth=_mm_to_linewidth(sym.line_width),
         zorder=zorder,
     )
-    return []
+    return (
+        [mpatches.Patch(facecolor=sym.line_color.matplotlib_rgba, label=label)]
+        if label
+        else []
+    )
 
 
 def _plot_marker(
@@ -205,13 +209,17 @@ SYMBOL_LAYER_RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
 
 
 def _plot_single_symbol_renderer(
-    ax: Axes, gdf: gpd.GeoDataFrame, renderer: SingleSymbol, zorder: int
+    ax: Axes,
+    gdf: gpd.GeoDataFrame,
+    renderer: SingleSymbol,
+    zorder: int,
+    label: str = "",
 ) -> list[mpatches.Patch]:
     sym = renderer.symbol.layers[0]
     handler = SYMBOL_LAYER_RENDERERS.get(type(sym))
     if handler is None:
         return []
-    return handler(ax, gdf, sym, zorder)
+    return handler(ax, gdf, sym, zorder, label=label)
 
 
 def _plot_graduated_renderer(
@@ -294,6 +302,10 @@ def _plot_layer(
 
     if renderer is None:
         gdf.plot(ax=ax, color=Color(128, 128, 128, 128).matplotlib_rgba, zorder=zorder)
+    elif isinstance(renderer, SingleSymbol):
+        handles = _plot_single_symbol_renderer(
+            ax, gdf, renderer, zorder, label=layer.name
+        )
     else:
         handler = RENDERERS.get(type(renderer))
         if handler is not None:
