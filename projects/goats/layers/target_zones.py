@@ -39,11 +39,11 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.suitability import suitability
-from projects.goats.palette import SUITABILITY, WHITE
-from projects.goats.util import CRS, clip_park
+from .exclude_water_vegetation import exclude_water_vegetation
+from .park_boundary import park_boundary
+from .suitability import suitability
+from ..palette import SUITABILITY, WHITE
+from ..util import CRS, clip_park
 
 # about 1/8 acre
 MIN_AREA_M2 = 500.0

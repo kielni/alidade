@@ -15,9 +15,9 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.goats.layers.border import border
-from projects.goats.palette import VEG_EDGE
-from projects.goats.util import (
+from .border import border
+from ..palette import VEG_EDGE
+from ..util import (
     BBOX_GENERAL,
     CRS,
     VEGETATION_VALUE_TO_LABEL,
@@ -105,5 +105,5 @@ vegetation = Layer(
 
 
 if __name__ == "__main__":
-    # run via `uv run projects/goats/layers/vegetation.py`
+    # run via `uv run python -m projects.goats.layers.vegetation`
     crop_vegetation_to_bbox()

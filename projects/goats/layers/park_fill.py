@@ -1,6 +1,6 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
-from projects.goats.palette import TRANSPARENT, WHITE
-from projects.goats.util import CRS_WGS84
+from ..palette import TRANSPARENT, WHITE
+from ..util import CRS_WGS84
 
 """
 Solid white polygon clipped to park. Use between basemap and layers that only cover

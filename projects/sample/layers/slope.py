@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from alidade.models import Layer, ShellAction
-from projects.sample.layers.elevation_10n import elevation_10n
+from .elevation_10n import elevation_10n
 
 slope = Layer(
     id="slope",

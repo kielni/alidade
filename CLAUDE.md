@@ -71,9 +71,13 @@ Structure a layer file in this order:
    data downloaded from an external service (Overpass Turbo, USGS, etc.), include
    the query or download URL in the docstring. The docstring goes at the very top
    of the file, before imports.
-2. **Imports** — from `alidade.models`, `projects.<name>.palette`, and
-   `projects.<name>.util`. Never construct a `Color` directly in a layer file;
-   always import named constants from `palette.py`.
+2. **Imports** — from `alidade.models`, `..palette`, and `..util`. Import
+   other modules in the same project with relative imports only
+   (`from ..util import CRS`, `from .border import border` in a layer;
+   `from .layers.border import border` in `main.py`), never
+   `from projects.<name>...`, so the project works from any directory.
+   Never construct a `Color` directly in a layer file; always import named
+   constants from `palette.py`.
 3. **Constants** — layer-specific constants (classification thresholds, GDAL
    expressions) before the build function.
 4. **Build function** (derived layers only) — `def build_<name>(layer: BoundLayer)`.

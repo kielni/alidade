@@ -22,10 +22,10 @@ from alidade.models import (
     SimpleMarker,
     Symbol,
 )
-from projects.goats.layers.target_zones import target_zones as patches
-from projects.goats.layers.staging import staging
-from projects.goats.palette import STAGING_RANK_TIERS
-from projects.goats.util import CRS
+from .target_zones import target_zones as patches
+from .staging import staging
+from ..palette import STAGING_RANK_TIERS
+from ..util import CRS
 
 # YlGn 3-class, saturated — darker green = better
 RANK_TIERS = [

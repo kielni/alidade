@@ -3,8 +3,8 @@ Display high-priority vegetation as partially transparent polygons.
 """
 
 from alidade.models import Layer, Rule, RuleRenderer, SimpleFill, Symbol
-from projects.goats.layers.vegetation import vegetation
-from projects.goats.util import CRS, VEGETATION_ZONES
+from .vegetation import vegetation
+from ..util import CRS, VEGETATION_ZONES
 
 HIGHLIGHT_ZONES = VEGETATION_ZONES[:3]
 

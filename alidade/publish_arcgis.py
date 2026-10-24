@@ -1,7 +1,6 @@
 """Publish alidade map layers to ArcGIS Online."""
 
 import argparse
-import importlib
 import json
 import re
 import subprocess
@@ -42,6 +41,7 @@ from alidade.models import (
     CRS_WGS84,
     CRS_WEBMERCATOR,
 )
+from alidade.util.helpers import load_map_module
 
 REPO_ROOT = Path(__file__).parent.parent
 LOCAL_ENV = REPO_ROOT / "local.env"
@@ -1237,20 +1237,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Load map — same resolution as bind_map / alidade-build
     map_path = (Path.cwd() / args.map_dir).resolve()
-    try:
-        rel_parts = map_path.relative_to(REPO_ROOT).parts
-    except ValueError:
-        # map_path resolved through a symlink; find matching entry in projects/
-        for _c in (REPO_ROOT / "projects").glob("*"):
-            if _c.is_symlink() and _c.resolve() == map_path:
-                rel_parts = _c.relative_to(REPO_ROOT).parts
-                break
-        else:
-            raise
-    package = ".".join(rel_parts)
-    module = importlib.import_module(f"{package}.main")
+    # main is loaded as a side effect of the package's `from .main import ...`
+    module = load_map_module(map_path).main
 
     if args.map_name:
         maps = {m.id: m for m in module.maps}

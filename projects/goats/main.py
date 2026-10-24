@@ -1,24 +1,24 @@
 from alidade.models import Extent, Map
-from projects.goats.layers.basemap import basemap
-from projects.goats.layers.basemap_satellite import basemap_satellite
-from projects.goats.layers.border import border
-from projects.goats.layers.developed_area import developed_area
-from projects.goats.layers.elevation import elevation
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.slope import slope
-from projects.goats.layers.roads_trails import roads_trails
-from projects.goats.layers.staging import staging
-from projects.goats.layers.vegetation import vegetation
-from projects.goats.layers.park_fill import park_fill
-from projects.goats.layers.vegetation_highlight import vegetation_highlight
-from projects.goats.layers.water import water
-from projects.goats.layers.priority_developed import priority_developed
-from projects.goats.layers.priority_roads_trails import priority_roads_trails
-from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
-from projects.goats.layers.target_zones import target_zones
-from projects.goats.layers.staging_ranked import staging_ranked
-from projects.goats.layers.suitability import suitability
-from projects.goats.util import CRS
+from .layers.basemap import basemap
+from .layers.basemap_satellite import basemap_satellite
+from .layers.border import border
+from .layers.developed_area import developed_area
+from .layers.elevation import elevation
+from .layers.park_boundary import park_boundary
+from .layers.slope import slope
+from .layers.roads_trails import roads_trails
+from .layers.staging import staging
+from .layers.vegetation import vegetation
+from .layers.park_fill import park_fill
+from .layers.vegetation_highlight import vegetation_highlight
+from .layers.water import water
+from .layers.priority_developed import priority_developed
+from .layers.priority_roads_trails import priority_roads_trails
+from .layers.exclude_water_vegetation import exclude_water_vegetation
+from .layers.target_zones import target_zones
+from .layers.staging_ranked import staging_ranked
+from .layers.suitability import suitability
+from .util import CRS
 
 EXTENT = Extent(
     xmin=-121.82933556539967,
