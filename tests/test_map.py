@@ -57,6 +57,15 @@ def test_build_figure_graduated_renderer(make_map, graduated_layer):
     assert "High" in labels
 
 
+def test_build_figure_multiband_raster(multiband_map):
+    _, ax = _build_figure(multiband_map)
+    assert len(ax.images) == 1
+    rgba = ax.images[0].get_array()
+    assert rgba.shape == (4, 4, 4)
+    assert rgba[0, 0, 3] == 0.0  # nodata pixel is transparent
+    assert rgba[3, 3].tolist() == [1.0, 1.0, 1.0, 1.0]  # band maxima → white
+
+
 def test_build_figure_paletted_raster(make_map, paletted_layer):
     spec = make_map([paletted_layer])
     _, ax = _build_figure(spec)

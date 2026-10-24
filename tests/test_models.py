@@ -2,7 +2,27 @@
 
 import warnings
 
-from alidade.models import Extent, Layer
+import pytest
+from pydantic import ValidationError
+
+from alidade.models import Extent, Layer, MultibandColorRenderer
+
+
+def test_multiband_band_numbers_are_one_based():
+    with pytest.raises(ValidationError):
+        MultibandColorRenderer(red_band=0)
+
+
+def test_multiband_layer_round_trip():
+    layer = Layer(
+        id="multiband_layer",
+        name="RGB",
+        type="raster",
+        datasource="rgb.tif",
+        renderer=MultibandColorRenderer(blue_band=4, stretch="cumulative_cut"),
+    )
+    again = Layer.model_validate(layer.model_dump())
+    assert again.renderer == layer.renderer
 
 
 def test_id_padding():

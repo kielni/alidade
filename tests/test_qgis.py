@@ -53,6 +53,26 @@ def test_qgis_raster_paletted_renderer(make_map, paletted_layer):
     assert raster_renderer is not None, "no rasterrenderer type='paletted' found"
 
 
+def test_qgis_raster_multibandcolor_renderer(multiband_map):
+    render_qgis.render(multiband_map)
+
+    qgs_path = multiband_map.map_path / "output" / "project.qgs"
+    root = ET.parse(str(qgs_path)).getroot()
+
+    renderer = root.find(".//rasterrenderer[@type='multibandcolor']")
+    assert renderer is not None, "no rasterrenderer type='multibandcolor' found"
+    bands = [renderer.get(f"{c}Band") for c in ("red", "green", "blue")]
+    assert bands == ["1", "2", "3"]
+    limits = [
+        (
+            float(renderer.findtext(f"{c}ContrastEnhancement/minValue", "")),
+            float(renderer.findtext(f"{c}ContrastEnhancement/maxValue", "")),
+        )
+        for c in ("red", "green", "blue")
+    ]
+    assert limits == [(2.0, 16.0), (18.0, 32.0), (34.0, 48.0)]
+
+
 def test_qgis_simple_fill_color(make_map, simple_fill_layer):
     expected = Color.from_hex("#ffffff")
     spec = make_map([simple_fill_layer])

@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import uuid
+import warnings
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -28,7 +29,9 @@ from alidade.models import (
     Extent,
     GraduatedRenderer,
     Label,
+    MultibandColorRenderer,
     PalettedRenderer,
+    PieChartRenderer,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -245,7 +248,11 @@ def _build_labeling_info(label: Label) -> dict[str, Any]:
         "maxScale": 0,
         "minScale": 0,
         "where": None,
-        "labelPlacement": "esriServerPointLabelPlacementAboveRight",
+        "labelPlacement": (
+            "esriServerPointLabelPlacementCenterCenter"
+            if label.placement == "center"
+            else "esriServerPointLabelPlacementAboveRight"
+        ),
         "symbol": {
             "type": "esriTS",
             "color": _color(label.color),
@@ -377,11 +384,34 @@ def _paletted_renderer(
     }
 
 
-RENDERERS: dict[type, Callable[..., dict[str, Any]]] = {
+def _multiband_renderer(
+    renderer: MultibandColorRenderer, geometry_type: str | None
+) -> dict[str, Any]:
+    # Multiband rasters publish as image services, which never get a
+    # drawingInfo renderer, so this is unreachable for well-formed layers.
+    raise ValueError("MultibandColorRenderer is raster-only; no feature renderer")
+
+
+def _pie_chart_renderer(
+    renderer: PieChartRenderer, geometry_type: str | None
+) -> dict[str, Any] | None:
+    # Feature service drawingInfo has no pie chart renderer type; pie charts
+    # exist only as a web map / Map Viewer style.
+    warnings.warn(
+        "PieChartRenderer is not supported for ArcGIS feature services; "
+        "the layer will use ArcGIS's default symbol.",
+        stacklevel=3,
+    )
+    return None
+
+
+RENDERERS: dict[type, Callable[..., dict[str, Any] | None]] = {
     SingleSymbol: _single_symbol,
     GraduatedRenderer: _graduated_renderer,
     RuleRenderer: _rule_renderer,
     PalettedRenderer: _paletted_renderer,
+    MultibandColorRenderer: _multiband_renderer,
+    PieChartRenderer: _pie_chart_renderer,
 }
 
 

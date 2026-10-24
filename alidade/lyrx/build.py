@@ -15,7 +15,9 @@ from alidade.models import (
     GraduatedRenderer,
     Label,
     Layer,
+    MultibandColorRenderer,
     PalettedRenderer,
+    PieChartRenderer,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -41,7 +43,8 @@ def _svg_data_uri(svg_path: Path, fill_color: Color) -> str:
 def _build_label_class(label: Label) -> dict[str, Any]:
     """Return a CIMLabelClass dict for the given Label spec."""
     font_style = "Bold" if label.bold else "Regular"
-    offset_pt = label.y_offset * MM_TO_PT
+    centered = label.placement == "center"
+    offset_pt = 0.0 if centered else label.y_offset * MM_TO_PT
     return {
         "type": "CIMLabelClass",
         "expression": f"[{label.field}]",
@@ -52,7 +55,7 @@ def _build_label_class(label: Label) -> dict[str, Any]:
             "featureType": "Point",
             "primaryOffset": offset_pt,
             "primaryOffsetUnit": "Point",
-            "pointPlacementMethod": "AroundPoint",
+            "pointPlacementMethod": "CenteredOnPoint" if centered else "AroundPoint",
         },
         "standardLabelPlacementProperties": {
             "type": "CIMStandardLabelPlacementProperties",
@@ -60,7 +63,7 @@ def _build_label_class(label: Label) -> dict[str, Any]:
             "featureWeight": "None",
             "labelWeight": "High",
             "numLabelsOption": "OneLabelPerName",
-            "pointPlacementMethod": "AroundPoint",
+            "pointPlacementMethod": "OnTopPoint" if centered else "AroundPoint",
         },
         "textSymbol": {
             "type": "CIMSymbolReference",
@@ -167,6 +170,9 @@ RENDERERS: dict[type, Callable[..., dict[str, Any] | None]] = {
     GraduatedRenderer: _build_graduated_cim_renderer,
     RuleRenderer: _build_unsupported_cim_renderer,  # deferred
     PalettedRenderer: _build_unsupported_cim_renderer,  # deferred
+    # deferred; CIM band indices are 0-based, so write redBandIndex = red_band - 1
+    MultibandColorRenderer: _build_unsupported_cim_renderer,
+    PieChartRenderer: _build_unsupported_cim_renderer,  # deferred
 }
 
 

@@ -1,16 +1,18 @@
 # Goat Grazing Site Selection in Alum Rock Park
 ### A Geospatial Analysis for Fire Hazard Reduction
+#### by Kimberly Nicholls
+#### June 22, 2026
 
 ## The Problem
 
 Alum Rock Park is a 720-acre open space in the Diablo Range foothills of east San José. The State Fire Marshal has designated the park and the adjacent Cherry Flat Reservoir as a **high fire hazard zone**, meaning the city bears primary responsibility for fire protection. The park's rugged terrain, dense shrublands, and proximity to residential neighborhoods make uncontrolled wildfire a serious public safety risk.
 
-<img src="alum_rock_park.jpg" alt="Alum Rock Park" style="max-width:600px">
+![Alum Rock Park](alum_rock_park.jpg){width=600px}
 
 The City's [Vegetation Management Plan](https://www.sanjoseca.gov/home/ showpublisheddocument/122618/639118513447970000)
 recommends targeted fuel reduction along roads, trails, and high-use areas. Mowing works on flat ground, but much of the park is too steep for mechanical equipment. Cattle graze at the neighboring Sierra Vista Open Space Reserve, but are not effective at browsing shrubby chaparral common in the park, and cannot access steeper slopes.
 
-<img src="goat-portrait.jpg" style="max-width:300px">
+![Goats are excellent grazers](goat-portrait.jpg){width=300px}
 
 Goats are a proven alternative. They go where equipment can't reach, they prefer the shrubby vegetation that poses the greatest fire risk, and they can be deployed in short seasonal engagements using a trailer and portable electric fencing. A herd of a hundred goats can graze an acre a day. This project identifies where in Alum Rock Park goat grazing would be most effective, accounting for terrain, vegetation type, access, and ecological constraints.
 

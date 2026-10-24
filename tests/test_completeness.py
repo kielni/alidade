@@ -34,5 +34,5 @@ def test_dispatch_coverage():
     assert set(render_map.RENDERERS.keys()) == RENDERER_TYPES
 
     # dump_qgis round-trips only singleSymbol and RuleRenderer;
-    # GraduatedRenderer and PalettedRenderer are intentionally excluded.
+    # GraduatedRenderer and the raster renderers are intentionally excluded.
     assert set(dump_qgis.RENDERER_GENERATORS.keys()) == {SingleSymbol, RuleRenderer}

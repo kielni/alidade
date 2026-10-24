@@ -6,9 +6,11 @@ import sys
 import warnings
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import rasterio
 
+import contextily
 import geopandas as gpd
 import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
@@ -17,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
+from matplotlib.offsetbox import AnnotationBbox, DrawingArea
 from PIL import Image
 
 from alidade.color import Color
@@ -26,7 +29,9 @@ from alidade.models import (
     GraduatedRenderer,
     Label,
     Layer,
+    MultibandColorRenderer,
     PalettedRenderer,
+    PieChartRenderer,
     RuleRenderer,
     SimpleFill,
     SimpleLine,
@@ -34,6 +39,7 @@ from alidade.models import (
     SingleSymbol,
     SvgMarker,
 )
+from alidade.raster import band_stretch
 from alidade.util.helpers import bind_map, load_map_module
 
 
@@ -73,6 +79,34 @@ def _plot_paletted_raster(
     return handles
 
 
+def _plot_multiband_raster(
+    ax: Axes, source: Path, renderer: MultibandColorRenderer, zorder: int = 1
+) -> None:
+    """Render a MultibandColorRenderer raster onto ax as a stretched RGB image."""
+    bounds = _raster_bounds(source)
+    if bounds is None:
+        return
+    xmin, ymin, xmax, ymax = bounds
+    limits = band_stretch(source, renderer)
+    with rasterio.open(source) as ds:
+        # Band numbers are 1-based, as rasterio expects; no conversion needed.
+        bands = [ds.read(band, masked=True) for band in renderer.bands]
+    rgba = np.zeros((*bands[0].shape, 4), dtype=np.float32)
+    for i, (band, (low, high)) in enumerate(zip(bands, limits)):
+        span = high - low or 1.0
+        rgba[..., i] = np.clip((band.filled(low) - low) / span, 0.0, 1.0)
+    # Transparent where every band is nodata.
+    nodata = np.logical_and.reduce([np.ma.getmaskarray(band) for band in bands])
+    rgba[..., 3] = np.where(nodata, 0.0, renderer.opacity)
+    ax.imshow(
+        rgba,
+        extent=(xmin, xmax, ymin, ymax),
+        aspect="auto",
+        origin="upper",
+        zorder=zorder,
+    )
+
+
 def _qgis_to_pandas_expr(expr: str) -> str:
     """Translate a rule filter expression (Rule.filter) to a pandas eval() expression.
 
@@ -105,7 +139,8 @@ def _font_available(family: str) -> bool:
 def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> None:
     """Annotate point features with text labels from a Layer's Label spec."""
     weight = "bold" if label.bold else "normal"
-    offset_pt = label.y_offset * 2.8
+    centered = label.placement == "center"
+    offset_pt = 0.0 if centered else label.y_offset * 2.8
     for _, row in gdf.iterrows():
         geom = row.geometry
         if geom is None:
@@ -123,7 +158,7 @@ def _plot_labels(ax: Axes, gdf: gpd.GeoDataFrame, label: Label, zorder: int) -> 
             xytext=(0, offset_pt),
             textcoords="offset points",
             ha="center",
-            va="bottom",
+            va="center" if centered else "bottom",
             fontsize=label.font_size * LABEL_SCALE,
             fontweight=weight,
             color=label.color.matplotlib_rgba,
@@ -173,7 +208,11 @@ def _plot_simple_line(
         linewidth=_mm_to_linewidth(sym.line_width),
         zorder=zorder,
     )
-    return []
+    return (
+        [mpatches.Patch(facecolor=sym.line_color.matplotlib_rgba, label=label)]
+        if label
+        else []
+    )
 
 
 def _plot_marker(
@@ -205,13 +244,17 @@ SYMBOL_LAYER_RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
 
 
 def _plot_single_symbol_renderer(
-    ax: Axes, gdf: gpd.GeoDataFrame, renderer: SingleSymbol, zorder: int
+    ax: Axes,
+    gdf: gpd.GeoDataFrame,
+    renderer: SingleSymbol,
+    zorder: int,
+    label: str = "",
 ) -> list[mpatches.Patch]:
     sym = renderer.symbol.layers[0]
     handler = SYMBOL_LAYER_RENDERERS.get(type(sym))
     if handler is None:
         return []
-    return handler(ax, gdf, sym, zorder)
+    return handler(ax, gdf, sym, zorder, label=label)
 
 
 def _plot_graduated_renderer(
@@ -275,6 +318,67 @@ def _plot_paletted_renderer(
     return []
 
 
+def _plot_multiband_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: MultibandColorRenderer, zorder: int
+) -> list[mpatches.Patch]:
+    warnings.warn(
+        "MultibandColorRenderer is raster-only; vector layer will be skipped.",
+        stacklevel=3,
+    )
+    return []
+
+
+def _plot_pie_chart_renderer(
+    ax: Axes, gdf: gpd.GeoDataFrame, renderer: PieChartRenderer, zorder: int
+) -> list[mpatches.Patch]:
+    """Draw one fixed-size pie per point; return a legend patch per used slice."""
+    # same MM → pt factor as _mm_to_scatter_size, so pies match marker sizes
+    radius_pt = renderer.size * 2.8 / 2
+    edge_color = renderer.outline_color.matplotlib_rgba
+    edge_width = _mm_to_linewidth(renderer.outline_width)
+    used_fields: set[str] = set()
+    for _, row in gdf.iterrows():
+        values = [float(row[pie_slice.field]) for pie_slice in renderer.slices]
+        total = sum(values)
+        if row.geometry is None or total <= 0:
+            continue
+        area = DrawingArea(2 * radius_pt, 2 * radius_pt)
+        # first slice starts at 12 o'clock and slices run clockwise
+        start = 90.0
+        for pie_slice, value in zip(renderer.slices, values):
+            if value <= 0:
+                continue
+            used_fields.add(pie_slice.field)
+            sweep = 360.0 * value / total
+            area.add_artist(
+                mpatches.Wedge(
+                    (radius_pt, radius_pt),
+                    radius_pt,
+                    start - sweep,
+                    start,
+                    facecolor=pie_slice.color.matplotlib_rgba,
+                    edgecolor=edge_color,
+                    linewidth=edge_width,
+                )
+            )
+            start -= sweep
+        point = row.geometry.centroid
+        ax.add_artist(
+            AnnotationBbox(
+                area, (point.x, point.y), frameon=False, pad=0, zorder=zorder
+            )
+        )
+    return [
+        mpatches.Patch(
+            facecolor=pie_slice.color.matplotlib_rgba,
+            edgecolor=edge_color,
+            label=pie_slice.label or pie_slice.field,
+        )
+        for pie_slice in renderer.slices
+        if pie_slice.field in used_fields
+    ]
+
+
 # ── Dispatch tables (importable by test_completeness) ─────────────────────────
 
 RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
@@ -282,6 +386,8 @@ RENDERERS: dict[type, Callable[..., list[mpatches.Patch]]] = {
     GraduatedRenderer: _plot_graduated_renderer,
     RuleRenderer: _plot_rule_renderer,
     PalettedRenderer: _plot_paletted_renderer,
+    MultibandColorRenderer: _plot_multiband_renderer,
+    PieChartRenderer: _plot_pie_chart_renderer,
 }
 
 
@@ -294,6 +400,10 @@ def _plot_layer(
 
     if renderer is None:
         gdf.plot(ax=ax, color=Color(128, 128, 128, 128).matplotlib_rgba, zorder=zorder)
+    elif isinstance(renderer, SingleSymbol):
+        handles = _plot_single_symbol_renderer(
+            ax, gdf, renderer, zorder, label=layer.name
+        )
     else:
         handler = RENDERERS.get(type(renderer))
         if handler is not None:
@@ -308,17 +418,20 @@ def _plot_layer(
 def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
     """Construct and return a (Figure, Axes) for spec without saving or closing.
 
-    Layers are drawn bottom-to-top (spec.layers reversed). WMS/raster layers
-    and PrintLayout are ignored. spec.extent wins when set; otherwise extent
-    and figsize are derived from the data bounds so all visible features fit
-    without clipping.
+    Layers are drawn bottom-to-top (spec.layers reversed). XYZ tile layers
+    (provider "wms") are drawn with contextily. PrintLayout is ignored.
+    spec.extent wins when set; otherwise extent and figsize are derived from
+    the data bounds so all visible features fit without clipping.
     """
-    layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path]] = []
+    # data is a GeoDataFrame (vector), Path (raster), or str (XYZ tile URL)
+    layers_data: list[tuple[BoundLayer, gpd.GeoDataFrame | Path | str]] = []
     xmins, ymins, xmaxs, ymaxs = [], [], [], []
     for layer in reversed(spec.bound_layers):
         if not layer.visible:
             continue
         if layer.provider == "wms":
+            # datasource is a QGIS query string; url= holds the escaped tile URL
+            layers_data.append((layer, parse_qs(layer.datasource)["url"][0]))
             continue
         source = layer.path
         if layer.type == "raster":
@@ -370,14 +483,32 @@ def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
     ax.axis("off")
     ax.patch.set_visible(True)
     legend_handles: list[mpatches.Patch] = []
+    # contextily fetches tiles for the current axes limits, so set them first
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
 
     for i, (layer, data) in enumerate(layers_data):
         zorder = i + 1
-        if layer.type == "raster" and isinstance(layer.renderer, PalettedRenderer):
+        if isinstance(data, str):
+            contextily.add_basemap(
+                ax,
+                crs=spec.crs,
+                source=data,
+                zorder=zorder,
+                # tile providers require credit; source_origin names it
+                attribution=layer.source_origin or False,
+                attribution_size=6,
+            )
+        elif layer.type == "raster" and isinstance(layer.renderer, PalettedRenderer):
             assert isinstance(data, Path)
             legend_handles.extend(
                 _plot_paletted_raster(ax, data, layer.renderer, zorder=zorder)
             )
+        elif layer.type == "raster" and isinstance(
+            layer.renderer, MultibandColorRenderer
+        ):
+            assert isinstance(data, Path)
+            _plot_multiband_raster(ax, data, layer.renderer, zorder=zorder)
         elif isinstance(data, gpd.GeoDataFrame):
             legend_handles.extend(_plot_layer(ax, data, layer, zorder=zorder))
 

@@ -126,6 +126,27 @@ class PalettedRenderer(BaseModel):
     entries: list[PaletteEntry]
 
 
+class MultibandColorRenderer(BaseModel):
+    """RGB composite of three raster bands, each stretched to its own range.
+
+    Band numbers are 1-based, as in QGIS and GDAL. ArcGIS CIM band indices are
+    0-based, so convert with ``band - 1`` when writing CIM.
+    """
+
+    kind: Literal["multibandcolor"] = "multibandcolor"
+    red_band: int = Field(default=1, ge=1)
+    green_band: int = Field(default=2, ge=1)
+    blue_band: int = Field(default=3, ge=1)
+    # "minmax" stretches each band between its min and max; "cumulative_cut"
+    # between its 2nd and 98th percentiles.
+    stretch: Literal["minmax", "cumulative_cut"] = "minmax"
+    opacity: float = 1.0
+
+    @property
+    def bands(self) -> tuple[int, int, int]:
+        return (self.red_band, self.green_band, self.blue_band)
+
+
 class GraduatedRange(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     lower: float
@@ -144,8 +165,35 @@ class GraduatedRenderer(BaseModel):
     outline_style: str = "solid"
 
 
+class PieSlice(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    field: str  # numeric field holding this slice's value
+    label: str = ""
+    color: Color
+
+
+class PieChartRenderer(BaseModel):
+    """Point layer drawn as one pie chart per feature, one slice per field.
+
+    Slices with a zero value are omitted. No point symbol is drawn under the
+    pie.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    kind: Literal["pie"] = "pie"
+    slices: list[PieSlice]
+    size: float = 8.0  # pie diameter in MM
+    outline_color: Color = DARK_GRAY
+    outline_width: float = 0.3  # MM
+
+
 Renderer = Annotated[
-    SingleSymbol | RuleRenderer | PalettedRenderer | GraduatedRenderer,
+    SingleSymbol
+    | RuleRenderer
+    | PalettedRenderer
+    | MultibandColorRenderer
+    | GraduatedRenderer
+    | PieChartRenderer,
     Field(discriminator="kind"),
 ]
 
@@ -162,6 +210,9 @@ class Label(BaseModel):
     halo_color: Color | None = None
     halo_size: float = 1.5
     y_offset: float = 2.0  # MM offset above the point symbol
+    # "above": label sits y_offset above the point; "center": label is drawn
+    # on top of the point symbol and y_offset is ignored
+    placement: Literal["above", "center"] = "above"
 
 
 # ── Print layout ──────────────────────────────────────────────────────────────

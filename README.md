@@ -15,7 +15,7 @@ for desktop review, ArcGIS Pro layer files (`.lyrx`) for handoff, static PNG
 maps for documentation and story maps, or published directly to ArcGIS Online
 as hosted feature and imagery layers.
 
-Data processing steps — reprojection, slope calculation, reclassification — are
+Data processing steps (reprojection, slope calculation, reclassification) are
 written as Python functions or shell commands and stored alongside the layers
 they produce. The full pipeline is reproducible from a fresh checkout; the build
 system tracks which downstream steps need re-running when an input changes.
@@ -27,31 +27,32 @@ made accessible through menus and dialogs. Over the decades, trying to serve eve
 use case has resulted in hundreds of buttons, deep menu trees, and a steep learning
 curve.
 
-This project goes back to roots in code and shell commands, treating a map
-project the way DevOps treats infrastructure: defined in code, committed to git,
-and reproducible from a clean checkout. The configuration is visible, diffable,
-and batch-editable. Write in English, Python, or both.
+This project uses English and contextual information (patterns, data structures,
+comments) to wrap code and shell commands.
+It treats a map project the way DevOps treats infrastructure: defined in code,
+committed to git, and reproducible from a clean checkout. The configuration is visible,
+diffable, and batch-editable. Write in English, Python, or both.
 
-Using an LLM lowers the remaining barrier. Geoffrey Litt's
+Using an LLM lowers remaining barriers. Geoffrey Litt's
 [malleable software](https://www.geoffreylitt.com/2023/03/25/llm-end-user-programming)
 argues that LLMs can make any software customizable by its users - not just
 programmers, but anyone willing to describe what they want. Tell an LLM to
 "add a slope layer colored by steepness" or "make the park boundary dashed" and
 it finds the right GDAL flag, the right XML attribute, writes clean Python, and
-logs what it did to `workflow.md`. The result is committed, readable, and
+logs changes `workflow.md`. The result is committed, readable, and
 reusable, not a sequence of menu clicks that vanishes the moment you close the
 dialog.
 
 Robin Sloan's [home-cooked app](https://www.robinsloan.com/notes/home-cooked-app/)
 draws a distinction between software built for a mass audience and software you
 cook for yourself: personal, imperfect, and fitted exactly to how you work.
-This is not a finished product or an installable package. It is a starting
+This is not a finished product. It is a starting
 point to fork and shape. The `projects/sample/` and `DESIGN.md` are a starting
 point.
 
 QGIS bundles its own Python interpreter, version-locked to each release and
 confined to a stripped-down console. This runs in your own environment:
-any Python version, any library, full IDE support, key bindings, syntax
+your Python environment, full IDE support, key bindings, syntax
 highlighting, completion, and navigation.
 
 ## Advantages
@@ -61,16 +62,16 @@ highlighting, completion, and navigation.
 - **Diffable** - styles committed as XML; no compressed binaries; meaningful
   git history
 - **Batch edits** - change all symbol sizes, swap a color palette, add a
-  standard base layer: edit code, not menus
+  standard base layer: edit code instead of navigating menus
 - **LLM-friendly** - each layer is a self-contained Python file; describe a
   change in English and let the LLM implement it; a `workflow.md` log captures
   the prompts and decisions so a new session can continue without reconstructing
   context
 - **IDE-native** - browse, search, and edit layer configuration in your editor,
-  not GIS dialogs
+  not dialogs
 - **Multi output** - the same `main.py` spec renders to QGIS project files,
   ArcGIS Pro `.lyrx` layer files, ArcGIS Online hosted layers, or static PNG
-  maps — without duplicating layer definitions
+  maps, without duplicating layer definitions
 
 ## Use cases
 
@@ -150,7 +151,7 @@ cp alidade/util/qgis_startup.py \
 ```
 
 Optionally install the **Reloader** plugin (*Plugins → Manage and Install
-Plugins*) — it watches data files and auto-reloads affected layers on change.
+Plugins*) to watch data files and auto-reloads affected layers on change.
 
 **Print template:** open *Project → Layout Manager → From template* and select
 `output/print.qpt`. Adjust items interactively and export via the normal print
@@ -271,7 +272,7 @@ Options:
 
 Tile services (XYZ/WMS basemaps) and layers whose output files do not yet
 exist are skipped with a warning. Raster renderers (PalettedRenderer) cannot
-be applied via the REST API — configure color classification in Map Viewer after
+be applied via the REST API. Configure color classification in Map Viewer after
 upload.
 
 ### Static PNG
@@ -357,8 +358,8 @@ timestamps.
 This project does not try to cover every use case. The models, renderers, and
 utilities here are a starting point, not a complete framework.
 
-1. **Craft the artifact the tedious way.** Do it manually in the GIS app —
-   click through the dialogs, get the thing working before thinking about
+1. **Craft the artifact the tedious way.** Do it manually in the GIS app:
+   click through the dialogs, get it working before thinking about
    abstraction.
 2. **Study it.** Read the file it produced. Understand which parts are fixed
    structure and which are project-specific variables.
