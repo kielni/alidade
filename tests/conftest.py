@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
+import rasterio
+from rasterio.transform import from_origin
 
 from alidade.color import Color
 from alidade.models import (
@@ -11,6 +14,7 @@ from alidade.models import (
     GraduatedRange,
     GraduatedRenderer,
     Layer,
+    MultibandColorRenderer,
     PaletteEntry,
     PalettedRenderer,
     Rule,
@@ -214,6 +218,48 @@ def paletted_layer() -> Layer:
                 ),
             ]
         ),
+    )
+
+
+@pytest.fixture
+def multiband_layer() -> Layer:
+    return Layer(
+        id="multiband_layer",
+        name="RGB",
+        type="raster",
+        datasource="rgb.tif",
+        crs="EPSG:26910",
+        renderer=MultibandColorRenderer(),
+    )
+
+
+@pytest.fixture
+def multiband_map(tmp_path, multiband_layer) -> BoundMap:
+    """BoundMap in tmp_path whose rgb.tif is a 4×4, 3-band UInt16 raster.
+
+    Band n holds 16(n-1)+1 .. 16n in row order; pixel (0, 0) is nodata (0)
+    in every band, so the stretch limits are (2, 16), (18, 32), (34, 48).
+    """
+    data = np.arange(1, 49, dtype=np.uint16).reshape(3, 4, 4)
+    data[:, 0, 0] = 0
+    with rasterio.open(
+        tmp_path / "rgb.tif",
+        "w",
+        driver="GTiff",
+        width=4,
+        height=4,
+        count=3,
+        dtype="uint16",
+        crs="EPSG:26910",
+        transform=from_origin(600000, 4140000, 10, 10),
+        nodata=0,
+    ) as ds:
+        ds.write(data)
+    return BoundMap(
+        title="Test Map",
+        crs="EPSG:26910",
+        layers=[multiband_layer],
+        map_path=tmp_path,
     )
 
 

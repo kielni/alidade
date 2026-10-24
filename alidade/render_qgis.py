@@ -20,7 +20,9 @@ from alidade.models import (
     GraduatedRenderer,
     Label,
     Layer,
+    MultibandColorRenderer,
     PalettedRenderer,
+    PieChartRenderer,
     PrintLegend,
     PrintMapFrame,
     PrintNorthArrow,
@@ -36,6 +38,7 @@ from alidade.models import (
     Symbol,
     SymbolLayer,
 )
+from alidade.raster import band_stretch
 
 HERE = Path(__file__).parent  # alidade/
 
@@ -612,6 +615,91 @@ def _render_paletted_renderer_vector(
     raise ValueError("PalettedRenderer is raster-only; cannot render as vector layer")
 
 
+def _render_multibandcolor_renderer_vector(
+    renderer: MultibandColorRenderer, map_path: Path | None
+) -> ET.Element:
+    raise ValueError(
+        "MultibandColorRenderer is raster-only; cannot render as vector layer"
+    )
+
+
+def _render_pie_chart_renderer(
+    renderer: PieChartRenderer, map_path: Path | None
+) -> ET.Element:
+    # The pies are diagrams (see _build_pie_diagram); draw no point symbol.
+    return ET.Element(
+        "renderer-v2", type="nullSymbol", **RENDERER_BASE  # type: ignore[arg-type]
+    )
+
+
+def _build_pie_diagram(renderer: PieChartRenderer) -> list[ET.Element]:
+    """Build <SingleCategoryDiagramRenderer> and <DiagramLayerSettings> for pies."""
+    size = str(renderer.size)
+    no_scale = "3x:0,0,0,0,0,0"
+    diagram = ET.Element(
+        "SingleCategoryDiagramRenderer", diagramType="Pie", attributeLegend="1"
+    )
+    category = ET.SubElement(
+        diagram,
+        "DiagramCategory",
+        enabled="1",
+        width=size,
+        height=size,
+        sizeType="MM",
+        sizeScale=no_scale,
+        penColor=renderer.outline_color.hex,
+        penAlpha=str(renderer.outline_color.a),
+        penWidth=str(renderer.outline_width),
+        lineSizeType="MM",
+        lineSizeScale=no_scale,
+        backgroundColor="#ffffff",
+        backgroundAlpha="255",
+        opacity="1",
+        # first slice starts at 12 o'clock and slices run clockwise
+        rotationOffset="270",
+        direction="1",
+        scaleDependency="Area",
+        scaleBasedVisibility="0",
+        minScaleDenominator="0",
+        maxScaleDenominator="1e+08",
+        minimumSize="0",
+        labelPlacementMethod="XHeight",
+        diagramOrientation="Up",
+        showAxis="0",
+        barWidth="5",
+        spacing="0",
+        spacingUnit="MM",
+        spacingUnitScale=no_scale,
+    )
+    ET.SubElement(category, "fontProperties", description="", style="")
+    for pie_slice in renderer.slices:
+        ET.SubElement(
+            category,
+            "attribute",
+            field=f'"{pie_slice.field}"',
+            color=pie_slice.color.hex,
+            colorOpacity=str(pie_slice.color.a / 255),
+            label=pie_slice.label,
+        )
+    # placement 1 = over point; obstacle keeps labels from covering the pie
+    settings = ET.Element(
+        "DiagramLayerSettings",
+        placement="1",
+        showAll="1",
+        obstacle="1",
+        dist="0",
+        priority="0",
+        zIndex="0",
+        linePlacementFlags="18",
+    )
+    properties = ET.SubElement(settings, "properties")
+    option = ET.SubElement(properties, "Option", type="Map")
+    ET.SubElement(option, "Option", type="QString", name="name", value="")
+    ET.SubElement(option, "Option", name="properties")
+    ET.SubElement(option, "Option", type="QString", name="type", value="collection")
+    return [diagram, settings]
+
+
 # ── Dispatch tables (importable by test_completeness) ─────────────────────────
 
 RENDERERS: dict[type, Callable[..., ET.Element]] = {
@@ -619,6 +707,8 @@ RENDERERS: dict[type, Callable[..., ET.Element]] = {
     RuleRenderer: _render_rule_based_renderer,
     GraduatedRenderer: _render_graduated_renderer,
     PalettedRenderer: _render_paletted_renderer_vector,
+    MultibandColorRenderer: _render_multibandcolor_renderer_vector,
+    PieChartRenderer: _render_pie_chart_renderer,
 }
 
 
@@ -660,6 +750,7 @@ def _build_labeling(label: Label) -> ET.Element:
     """Build a <labeling type='simple'> element from a Label spec."""
     named_style = "Bold" if label.bold else "Regular"
     font_weight = "75" if label.bold else "50"
+    centered = label.placement == "center"
     labeling = ET.Element("labeling", type="simple")
     settings = ET.SubElement(labeling, "settings", calloutType="simple")
     ET.SubElement(
@@ -715,11 +806,12 @@ def _build_labeling(label: Label) -> ET.Element:
     ET.SubElement(
         settings,
         "placement",
-        placement="6",
+        # 1 = over point, quadrant 4 = centred; 6 = cartographic around point
+        placement="1" if centered else "6",
         offsetType="1",
-        quadOffset="7",
+        quadOffset="4" if centered else "7",
         xOffset="0",
-        yOffset=str(label.y_offset),
+        yOffset="0" if centered else str(label.y_offset),
         offsetUnits="MM",
         labelOffsetMapUnitScale="3x:0,0,0,0,0,0",
         dist="0",
@@ -951,8 +1043,8 @@ def _build_vector_maplayer(layer: BoundLayer) -> ET.Element:
     return ml
 
 
-def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
-    """Build the <pipe> element for a paletted raster renderer."""
+def _new_raster_pipe() -> ET.Element:
+    """Return a <pipe> element holding the provider resampling settings."""
     pipe = ET.Element("pipe")
     provider_el = ET.SubElement(pipe, "provider")
     ET.SubElement(
@@ -963,36 +1055,11 @@ def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
         zoomedInResamplingMethod="nearestNeighbour",
         zoomedOutResamplingMethod="nearestNeighbour",
     )
-    r = ET.SubElement(
-        pipe,
-        "rasterrenderer",
-        type="paletted",
-        band=str(renderer.band),
-        alphaBand="-1",
-        opacity=str(renderer.opacity),
-        nodataColor="",
-    )
-    ET.SubElement(r, "rasterTransparency")
-    mmo = ET.SubElement(r, "minMaxOrigin")
-    for tag, val in [
-        ("limits", "None"),
-        ("extent", "WholeRaster"),
-        ("statAccuracy", "Estimated"),
-        ("cumulativeCutLower", "0.02"),
-        ("cumulativeCutUpper", "0.98"),
-        ("stdDevFactor", "2"),
-    ]:
-        ET.SubElement(mmo, tag).text = val
-    palette = ET.SubElement(r, "colorPalette")
-    for entry in renderer.entries:
-        ET.SubElement(
-            palette,
-            "paletteEntry",
-            value=str(entry.value),
-            color=entry.color.hex,
-            alpha=str(entry.color.a),
-            label=entry.label,
-        )
+    return pipe
+
+
+def _append_pipe_filters(pipe: ET.Element) -> None:
+    """Append the default filters that follow <rasterrenderer> in a <pipe>."""
     ET.SubElement(pipe, "brightnesscontrast", gamma="1", contrast="0", brightness="0")
     ET.SubElement(
         pipe,
@@ -1008,21 +1075,53 @@ def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
     )
     ET.SubElement(pipe, "rasterresampler", maxOversampling="2")
     ET.SubElement(pipe, "resamplingStage").text = "resamplingFilter"
+
+
+def _append_min_max_origin(renderer_el: ET.Element, limits: str) -> None:
+    """Append <minMaxOrigin> describing how the stretch limits were chosen."""
+    mmo = ET.SubElement(renderer_el, "minMaxOrigin")
+    for tag, val in [
+        ("limits", limits),
+        ("extent", "WholeRaster"),
+        ("statAccuracy", "Estimated"),
+        ("cumulativeCutLower", "0.02"),
+        ("cumulativeCutUpper", "0.98"),
+        ("stdDevFactor", "2"),
+    ]:
+        ET.SubElement(mmo, tag).text = val
+
+
+def _build_paletted_pipe(renderer: PalettedRenderer) -> ET.Element:
+    """Build the <pipe> element for a paletted raster renderer."""
+    pipe = _new_raster_pipe()
+    r = ET.SubElement(
+        pipe,
+        "rasterrenderer",
+        type="paletted",
+        band=str(renderer.band),
+        alphaBand="-1",
+        opacity=str(renderer.opacity),
+        nodataColor="",
+    )
+    ET.SubElement(r, "rasterTransparency")
+    _append_min_max_origin(r, "None")
+    palette = ET.SubElement(r, "colorPalette")
+    for entry in renderer.entries:
+        ET.SubElement(
+            palette,
+            "paletteEntry",
+            value=str(entry.value),
+            color=entry.color.hex,
+            alpha=str(entry.color.a),
+            label=entry.label,
+        )
+    _append_pipe_filters(pipe)
     return pipe
 
 
 def _build_singlebandgray_pipe(layer: Layer) -> ET.Element:
     """Build the <pipe> element for a singlebandgray raster renderer."""
-    pipe = ET.Element("pipe")
-    provider_el = ET.SubElement(pipe, "provider")
-    ET.SubElement(
-        provider_el,
-        "resampling",
-        maxOversampling="2",
-        enabled="false",
-        zoomedInResamplingMethod="nearestNeighbour",
-        zoomedOutResamplingMethod="nearestNeighbour",
-    )
+    pipe = _new_raster_pipe()
     r = ET.SubElement(
         pipe,
         "rasterrenderer",
@@ -1034,39 +1133,55 @@ def _build_singlebandgray_pipe(layer: Layer) -> ET.Element:
         nodataColor="",
     )
     ET.SubElement(r, "rasterTransparency")
-    mmo = ET.SubElement(r, "minMaxOrigin")
-    for tag, val in [
-        ("limits", "MinMax"),
-        ("extent", "WholeRaster"),
-        ("statAccuracy", "Estimated"),
-        ("cumulativeCutLower", "0.02"),
-        ("cumulativeCutUpper", "0.98"),
-        ("stdDevFactor", "2"),
-    ]:
-        ET.SubElement(mmo, tag).text = val
+    _append_min_max_origin(r, "MinMax")
     ce = ET.SubElement(r, "contrastEnhancement")
     ET.SubElement(ce, "minValue").text = "0"
     ET.SubElement(ce, "maxValue").text = "1"
     ET.SubElement(ce, "algorithm").text = "StretchToMinimumMaximum"
-    ET.SubElement(pipe, "brightnesscontrast", gamma="1", contrast="0", brightness="0")
-    ET.SubElement(
-        pipe,
-        "huesaturation",
-        colorizeRed="255",
-        colorizeGreen="128",
-        invertColors="0",
-        colorizeOn="0",
-        grayscaleMode="0",
-        saturation="0",
-        colorizeStrength="100",
-        colorizeBlue="128",
-    )
-    ET.SubElement(pipe, "rasterresampler", maxOversampling="2")
-    ET.SubElement(pipe, "resamplingStage").text = "resamplingFilter"
+    _append_pipe_filters(pipe)
     return pipe
 
 
-def _build_raster_maplayer(layer: Layer) -> ET.Element:
+def _build_multibandcolor_pipe(layer: BoundLayer) -> ET.Element:
+    """Build the <pipe> element for a multibandcolor (RGB) raster renderer.
+
+    QGIS draws with the min/max stored here and does not recompute them on
+    load, so the limits are read from the raster now. `make build` builds
+    every layer before writing project.qgs, so generated rasters exist.
+    """
+    renderer = layer.renderer
+    assert isinstance(renderer, MultibandColorRenderer)
+    if layer.path.exists():
+        limits = band_stretch(layer.path, renderer)
+    else:
+        print(f"  warning: {layer.path} not found; {layer.name!r} stretch set to 0-1")
+        limits = [(0.0, 1.0)] * 3
+    pipe = _new_raster_pipe()
+    red, green, blue = renderer.bands
+    r = ET.SubElement(
+        pipe,
+        "rasterrenderer",
+        type="multibandcolor",
+        redBand=str(red),
+        greenBand=str(green),
+        blueBand=str(blue),
+        alphaBand=str(layer.alpha_band) if layer.alpha_band is not None else "-1",
+        opacity=str(renderer.opacity),
+        nodataColor="",
+    )
+    ET.SubElement(r, "rasterTransparency")
+    origin = "CumulativeCut" if renderer.stretch == "cumulative_cut" else "MinMax"
+    _append_min_max_origin(r, origin)
+    for color, (low, high) in zip(("red", "green", "blue"), limits):
+        ce = ET.SubElement(r, f"{color}ContrastEnhancement")
+        ET.SubElement(ce, "minValue").text = str(low)
+        ET.SubElement(ce, "maxValue").text = str(high)
+        ET.SubElement(ce, "algorithm").text = "StretchToMinimumMaximum"
+    _append_pipe_filters(pipe)
+    return pipe
+
+
+def _build_raster_maplayer(layer: BoundLayer) -> ET.Element:
     """Build a minimal <maplayer type='raster'> element for layer."""
     ml = ET.Element(
         "maplayer",
@@ -1098,9 +1213,17 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
     ]:
         ET.SubElement(flags, flag).text = val
     nodata = ET.SubElement(ml, "noData")
-    ET.SubElement(nodata, "noDataList", useSrcNoData="1", bandNo="1")
+    nodata_bands = (
+        layer.renderer.bands
+        if isinstance(layer.renderer, MultibandColorRenderer)
+        else (1,)
+    )
+    for band in nodata_bands:
+        ET.SubElement(nodata, "noDataList", useSrcNoData="1", bandNo=str(band))
     if isinstance(layer.renderer, PalettedRenderer):
         ml.append(_build_paletted_pipe(layer.renderer))
+    elif isinstance(layer.renderer, MultibandColorRenderer):
+        ml.append(_build_multibandcolor_pipe(layer))
     else:
         ml.append(_build_singlebandgray_pipe(layer))
     ET.SubElement(ml, "blendMode").text = "0"
@@ -1109,9 +1232,11 @@ def _build_raster_maplayer(layer: Layer) -> ET.Element:
 
 RASTER_RENDERERS: dict[type, Callable] = {
     PalettedRenderer: _build_paletted_pipe,
+    MultibandColorRenderer: _build_multibandcolor_pipe,
     SingleSymbol: _build_singlebandgray_pipe,
     RuleRenderer: _build_singlebandgray_pipe,
     GraduatedRenderer: _build_singlebandgray_pipe,
+    PieChartRenderer: _build_singlebandgray_pipe,
 }
 
 
@@ -1153,6 +1278,11 @@ def _inject_layers(root: ET.Element, layers: list[BoundLayer]) -> None:
                 ml.insert(children.index(old), new)
             else:
                 ml.append(new)
+        if isinstance(bound.renderer, PieChartRenderer):
+            for tag in ("SingleCategoryDiagramRenderer", "DiagramLayerSettings"):
+                for old_diagram in ml.findall(tag):
+                    ml.remove(old_diagram)
+            ml.extend(_build_pie_diagram(bound.renderer))
         pl.append(ml)
 
 

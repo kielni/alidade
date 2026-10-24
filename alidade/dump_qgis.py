@@ -290,6 +290,7 @@ RENDERER_GENERATORS: dict[type, Callable[[ET.Element], Renderer | None]] = {
     RuleRenderer: _parse_rule_renderer,
     # GraduatedRenderer: intentionally excluded — dump_qgis does not emit it
     # PalettedRenderer: intentionally excluded — raster-only, no dump support
+    # MultibandColorRenderer: intentionally excluded — raster-only, no dump support
 }
 
 # String-keyed routing for _parse_renderer (QGIS XML uses string type tags).

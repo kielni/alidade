@@ -32,6 +32,8 @@ dependencies = [
     "arcgis>=2.4.3",
     "azure-storage-blob>=12.1,<=12.8",
     "pytest>=9.0.3",
+    "openpyxl>=3.1.5",
+    "contextily>=1.7.1",
 ]
 
 [project.scripts]
@@ -69,7 +71,7 @@ module = ["pyogrio"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*", "pysheds", "pysheds.*"]
+module = ["contextily", "contextily.*", "rasterio", "rasterio.*", "mapclassify", "mapclassify.*", "rasterstats", "rasterstats.*", "pysheds", "pysheds.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
