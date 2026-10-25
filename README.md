@@ -387,9 +387,7 @@ are in `alidade.color` for use in model defaults and shared rendering code.
 `make build DIR=<dir>` generates `output/GEN.mk` from the layer graph,
 invokes make against it to run any stale processing steps in dependency order,
 then renders the spec. Each layer output is a make target; make skips it when
-the output file is newer than its source files and inputs. Formatting (`black`)
-is tracked by an `output/.formatted` stamp and runs only when a source file
-changes.
+the output file is newer than its source files and inputs.
 
 `make build-all DIR=<dir>` forces all processing steps to re-run regardless of
 timestamps.
