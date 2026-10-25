@@ -1,8 +1,6 @@
 # Makefile for qgis-project (macOS only)
 # Copy local.env.example to local.env before use (see README "Configuration").
-
--include local.env
-export ARCGIS_WORKSPACE_ROOT
+# alidade reads local.env itself; the Makefile does not include it.
 
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c

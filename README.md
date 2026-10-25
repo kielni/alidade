@@ -117,9 +117,11 @@ cp local.env.example local.env   # add ArcGIS credentials and workspace settings
 
 Settings such as `ARCGIS_CLIENT_ID` and `ARCGIS_WORKSPACE_ROOT` are read from
 `local.env` in the project root: the nearest directory at or above the map
-directory that contains `alidade.toml` or `pyproject.toml`. Environment
-variables override it. `local.env` uses Makefile syntax (`KEY := value`) and
-is gitignored; copy `local.env.example` to start one.
+directory that contains `alidade.toml` or `pyproject.toml`. This is the only
+place settings are read from: environment variables are ignored, so a build
+depends on the project's files and not on the shell it runs in. `local.env`
+uses Makefile syntax (`KEY := value`) and is gitignored; copy
+`local.env.example` to start one.
 
 All operations are available as `make` targets:
 

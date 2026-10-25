@@ -1,11 +1,11 @@
 """Locate a project's root directory and read alidade settings.
 
-Settings come from ``local.env`` in the project root; environment variables
-override it. ``local.env`` uses Makefile syntax (``KEY := VALUE`` or
-``KEY = VALUE``) so the Makefile can include it.
+Settings come only from ``local.env`` in the project root. Environment
+variables are deliberately ignored so a build depends on files in the
+project, not on the shell it runs in. ``local.env`` uses Makefile syntax
+(``KEY := VALUE`` or ``KEY = VALUE``).
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -42,14 +42,9 @@ def read_env_file(path: Path) -> dict[str, str]:
 
 
 def load_settings(project_root: Path) -> dict[str, str]:
-    """Merge settings from the project root local.env and the environment.
-
-    Environment variables override local.env. Empty values are treated as
-    unset so an empty exported variable does not hide a value from the file.
-    """
+    """Return settings from the project root local.env; empty values are unset."""
     settings = read_env_file(project_root / LOCAL_ENV)
-    settings.update({key: value for key, value in os.environ.items() if value})
-    return settings
+    return {key: value for key, value in settings.items() if value}
 
 
 def get_setting(key: str, project_root: Path) -> str | None:

@@ -1219,7 +1219,7 @@ def main() -> None:
             "ArcGIS Online item ID of the Story Map to update. Implies "
             "--create-maps. New web maps (those not yet recorded as added) "
             "are appended to the story. Can also be set as "
-            "ARCGIS_STORY_MAP_ID in the environment or a local.env file "
+            "ARCGIS_STORY_MAP_ID in the project's local.env "
             "(see alidade.config)."
         ),
     )
