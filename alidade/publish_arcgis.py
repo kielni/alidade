@@ -1264,7 +1264,7 @@ def main() -> None:
     gis: GIS | None = None
     if not args.dry_run:
         client_id = env.get("ARCGIS_CLIENT_ID")
-        url = env.get("ARGIS_URL", "https://www.arcgis.com")
+        url = env.get("ARCGIS_URL", "https://www.arcgis.com")
         if not client_id:
             print(
                 "Error: ARCGIS_CLIENT_ID is not set. Add "
