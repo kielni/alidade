@@ -111,8 +111,17 @@ uv sync                          # installs alidade as an editable package
 cp local.env.example local.env   # add ArcGIS credentials and workspace settings
 ```
 
-`uv sync` installs `alidade` into the project virtualenv in editable mode. All
-operations are available as `make` targets:
+`uv sync` installs `alidade` into the project virtualenv in editable mode.
+
+### Configuration
+
+Settings such as `ARCGIS_CLIENT_ID` and `ARCGIS_WORKSPACE_ROOT` are read from
+`local.env` in the project root: the nearest directory at or above the map
+directory that contains `alidade.toml` or `pyproject.toml`. Environment
+variables override it. `local.env` uses Makefile syntax (`KEY := value`) and
+is gitignored; copy `local.env.example` to start one.
+
+All operations are available as `make` targets:
 
 | Target | Purpose |
 |---|---|
@@ -125,6 +134,36 @@ operations are available as `make` targets:
 | `make validate DIR=<dir>` | Check that all source and style paths exist |
 | `make lint` | Run black + flake8 + mypy on all source |
 | `make clean DIR=<dir>` | Remove `output/` |
+
+### Using alidade from another project
+
+A project can live in any directory. In the other repository, add alidade as
+an editable path dependency in its `pyproject.toml`:
+
+```toml
+[project]
+dependencies = ["alidade"]
+
+[tool.uv.sources]
+alidade = { path = "../path/to/alidade", editable = true }
+```
+
+Create a project directory (its name becomes its Python package name):
+
+```bash
+uv run alidade-init carto --crs EPSG:26910
+```
+
+Then either call the commands directly (`uv run alidade-build carto`) or
+include the shared make targets in the repository's `Makefile`:
+
+```makefile
+include $(shell uv run alidade-mkinclude)
+```
+
+This provides `dump`, `build`, `build-all`, `map`, `extent`, `validate`, and
+`publish`, each taking `DIR=<dir>`. Set `ALIDADE` to change how commands are
+run (default `uv run`).
 
 ## Output formats
 
@@ -228,7 +267,7 @@ updates web maps. Layers are published as hosted Feature Layers (vector) or
 Imagery Layers (raster); renderers from the alidade spec are translated to the
 ArcGIS REST API format. It can also create or update Story Maps.
 
-**Setup (once):** add to `local.env`:
+**Setup (once):** add to `local.env` (see [Configuration](#configuration)):
 
 ```makefile
 ARCGIS_CLIENT_ID := <your OAuth client ID>
@@ -239,8 +278,8 @@ register a new application, and copy the Client ID from its item page. The
 publish script uses this ID to trigger a browser-based OAuth login; credentials
 are cached locally by the arcgis SDK after the first sign-in.
 
-`local.arcgis.json` (created automatically on first publish, gitignored) stores
-the ArcGIS item IDs for each published layer. Subsequent runs overwrite rather
+`local.arcgis.json` in the project root (created automatically on first
+publish, gitignored) stores the ArcGIS item IDs for each published layer. Subsequent runs overwrite rather
 than create duplicate items.
 
 ```bash
@@ -251,7 +290,7 @@ make publish DIR=projects/goats MAP=slope    # publish one named map
 To pass additional options, call the module directly:
 
 ```bash
-uv run python -m alidade.publish_arcgis <dir> [options]
+uv run alidade-publish <dir> [options]
 ```
 
 Options:

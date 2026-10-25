@@ -1,5 +1,5 @@
 # Makefile for qgis-project (macOS only)
-# Copy local.env.example to local.env and set QGIS before use.
+# Copy local.env.example to local.env before use (see README "Configuration").
 
 -include local.env
 export ARCGIS_WORKSPACE_ROOT
@@ -9,7 +9,7 @@ SHELL := /bin/bash
 
 LOG ?= lint.log
 
-.PHONY: help dump build build-all map extent validate lint test publish clean
+.PHONY: help lint test clean
 
 help:
 	@echo "Targets:"
@@ -25,29 +25,9 @@ help:
 	@echo "  make publish DIR=project_dir MAP=id  # publish one named map"
 	@echo "  make clean DIR=project_dir"
 
-dump:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make dump DIR=project_dir"; exit 1; fi
-	uv run alidade-dump $(DIR)
-
-build:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make build DIR=project_dir"; exit 1; fi
-	uv run alidade-build $(DIR)
-
-build-all:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make build-all DIR=project_dir"; exit 1; fi
-	uv run alidade-build $(DIR) --force
-
-map:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make map DIR=project_dir [MAP=map_id]"; exit 1; fi
-	uv run alidade-map $(DIR) $(if $(MAP),--map $(MAP),)
-
-extent:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make extent DIR=project_dir"; exit 1; fi
-	uv run alidade-extent $(DIR)
-
-validate:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make validate DIR=project_dir"; exit 1; fi
-	uv run alidade-validate $(DIR)
+# Project targets (dump, build, map, publish, ...) shared with consuming
+# projects; included after `help` so `help` stays the default target.
+include alidade/alidade.mk
 
 lint:
 	> $(LOG)
@@ -58,10 +38,6 @@ lint:
 test:
 	uv run pytest tests/ -x --tb=short
 
-publish:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make publish DIR=project_dir [MAP=map_id]"; exit 1; fi
-	uv run python -m alidade.publish_arcgis $(DIR) $(if $(MAP),--map $(MAP),) --create-maps
-
 clean:
-	@if [ -z "$(DIR)" ]; then echo "Usage: make clean DIR=project_dir"; exit 1; fi
+	@$(alidade_require_dir)
 	rm -rf $(DIR)/output/

@@ -41,11 +41,9 @@ from alidade.models import (
     CRS_WGS84,
     CRS_WEBMERCATOR,
 )
+from alidade.config import LOCAL_ENV, find_project_root, load_settings
 from alidade.util.helpers import load_map_module
 
-REPO_ROOT = Path(__file__).parent.parent
-LOCAL_ENV = REPO_ROOT / "local.env"
-ARCGIS_JSON = REPO_ROOT / "local.arcgis.json"
 ARCGIS_TAG = "alidade"
 MM_TO_PT = 2.835
 WEBMERCATOR_ESRI_WKID = 102100  # ESRI legacy WKID for Web Mercator
@@ -55,33 +53,22 @@ WEBMERCATOR_SR = {"wkid": WEBMERCATOR_ESRI_WKID, "latestWkid": WEBMERCATOR_WKID}
 # ── Config ────────────────────────────────────────────────────────────────────
 
 
-def _read_local_env(path: Path) -> dict[str, str]:
-    """Parse Makefile-style env file (KEY := VALUE or KEY = VALUE)."""
-    result: dict[str, str] = {}
-    if not path.exists():
-        return result
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*(.*)", line)
-        if m:
-            result[m.group(1)] = m.group(2).strip()
-    return result
+class ItemRegistry(dict[str, dict]):
+    """Layer-to-item-ID mapping persisted to local.arcgis.json.
 
+    The file lives in the project root (see alidade.config), so each project
+    tracks its own published ArcGIS Online items.
+    """
 
-def _load_item_registry(path: Path) -> dict[str, dict]:
-    """Load layer-to-item-ID mapping from local.arcgis.json."""
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+    def __init__(self, path: Path) -> None:
+        super().__init__(json.loads(path.read_text()) if path.exists() else {})
+        self.path = path
 
-
-def _save_registry(path: Path, registry: dict[str, dict]) -> None:
-    """Write registry atomically via a temp file."""
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(registry, indent=2))
-    tmp.rename(path)
+    def save(self) -> None:
+        """Write the registry atomically via a temp file."""
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self, indent=2))
+        tmp.rename(self.path)
 
 
 # ── Color / size ──────────────────────────────────────────────────────────────
@@ -605,7 +592,7 @@ def _publish_raster_layer(
     stat: Any,
     ids: dict,
     gis: GIS,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
 ) -> None:
     """Publish a raster layer via copy_raster, replacing any existing service.
 
@@ -656,7 +643,7 @@ def _publish_raster_layer(
         "src_mtime": stat.st_mtime,
         "src_size": stat.st_size,
     }
-    _save_registry(ARCGIS_JSON, item_registry)
+    item_registry.save()
     print(f"    Imagery layer published (feature_item_id={feature_item_id})")
 
 
@@ -666,7 +653,7 @@ def _overwrite_existing_vector(
     stat: Any,
     ids: dict,
     gis: GIS,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
 ) -> dict:
     """Try to overwrite the registered feature layer item in-place.
 
@@ -696,7 +683,7 @@ def _overwrite_existing_vector(
             "src_mtime": stat.st_mtime,
             "src_size": stat.st_size,
         }
-        _save_registry(ARCGIS_JSON, item_registry)
+        item_registry.save()
         print(f"    Overwrote {ids['feature_item_id']}")
         return ids
     except Exception as exc:
@@ -723,7 +710,7 @@ def _publish_new_vector(
     stat: Any,
     gis: GIS,
     root_folder: Any,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
 ) -> None:
     """Upload a new source file and publish it as a hosted feature layer."""
     item_type = (
@@ -745,7 +732,7 @@ def _publish_new_vector(
         "src_mtime": stat.st_mtime,
         "src_size": stat.st_size,
     }
-    _save_registry(ARCGIS_JSON, item_registry)
+    item_registry.save()
     print(f"    Published (feature_item_id={pub_item.id})")
 
 
@@ -755,7 +742,7 @@ def _publish_new_vector(
 def _publish_layer(
     layer: BoundLayer,
     gis: GIS | None,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
     publish_dir: Path,
     *,
     renderer_only: bool,
@@ -850,7 +837,7 @@ def _publish_layer(
 
 def _layer_item_ids_for_map(
     bound: "BoundMap",
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
 ) -> list[str]:
     """Return feature_item_ids for all publishable, registered layers in a map."""
     ids = []
@@ -985,7 +972,7 @@ def _build_webmap_json(
 def _create_web_map(
     map_spec: Any,
     gis: GIS | None,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
     map_path: Path,
     *,
     dry_run: bool,
@@ -1028,7 +1015,7 @@ def _create_web_map(
     )
     if existing_item:
         existing_item.update(item_properties={"text": webmap_text})
-        _save_registry(ARCGIS_JSON, item_registry)
+        item_registry.save()
         print(f"    Updated {map_spec.id} (webmap_item_id={existing_item.id})")
         return False  # not new — existing story map link still valid
 
@@ -1044,7 +1031,7 @@ def _create_web_map(
         "webmap_item_id": wm_item.id,
         "added_to_story_maps": [],
     }
-    _save_registry(ARCGIS_JSON, item_registry)
+    item_registry.save()
     print(f"    Created web map (webmap_item_id={wm_item.id})")
     return True
 
@@ -1117,7 +1104,7 @@ def _add_maps_to_story(
     maps: list[Any],
     story_map_id: str,
     gis: GIS | None,
-    item_registry: dict[str, dict],
+    item_registry: ItemRegistry,
     *,
     dry_run: bool,
 ) -> None:
@@ -1179,7 +1166,7 @@ def _add_maps_to_story(
             added = item_registry[map_key].setdefault("added_to_story_maps", [])
             if story_map_id not in added:
                 added.append(story_map_id)
-            _save_registry(ARCGIS_JSON, item_registry)
+            item_registry.save()
             print(f"  {map_spec.id}: added")
 
     sm.save(title=story_item.title)
@@ -1232,7 +1219,8 @@ def main() -> None:
             "ArcGIS Online item ID of the Story Map to update. Implies "
             "--create-maps. New web maps (those not yet recorded as added) "
             "are appended to the story. Can also be set as "
-            "ARCGIS_STORY_MAP_ID in local.env."
+            "ARCGIS_STORY_MAP_ID in the environment or a local.env file "
+            "(see alidade.config)."
         ),
     )
     args = parser.parse_args()
@@ -1260,15 +1248,17 @@ def main() -> None:
     if args.dry_run:
         print("Dry run — preparing files only, no ArcGIS API calls")
 
+    project_root = find_project_root(map_path)
+
     # Item registry
-    item_registry = _load_item_registry(ARCGIS_JSON)
+    item_registry = ItemRegistry(project_root / "local.arcgis.json")
     print(
-        f"Item registry ({ARCGIS_JSON.name}): "
+        f"Item registry ({item_registry.path}): "
         f"{len(item_registry)} layer(s) registered"
     )
 
     # Authenticate (skipped in dry_run)
-    env = _read_local_env(LOCAL_ENV)
+    env = load_settings(project_root)
     story_map_id: str | None = args.story_map_id or env.get("ARCGIS_STORY_MAP_ID")
 
     gis: GIS | None = None
@@ -1277,8 +1267,9 @@ def main() -> None:
         url = env.get("ARGIS_URL", "https://www.arcgis.com")
         if not client_id:
             print(
-                "Error: ARCGIS_CLIENT_ID not set in local.env. "
-                "Add: ARCGIS_CLIENT_ID := <your-app-id>",
+                "Error: ARCGIS_CLIENT_ID is not set. Add "
+                "`ARCGIS_CLIENT_ID := <your-app-id>` to "
+                f"{project_root / LOCAL_ENV}",
                 file=sys.stderr,
             )
             sys.exit(1)

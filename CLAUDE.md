@@ -47,7 +47,9 @@ helpers:
 
 ## Project layout
 
-A project lives under `projects/<name>/` with this structure:
+A project lives under `projects/<name>/` (or any directory outside this repo)
+with this structure. Create a new one with `uv run alidade-init <dir>`
+rather than writing these files by hand:
 
 ```
 projects/<name>/

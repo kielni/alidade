@@ -44,6 +44,9 @@ alidade-map = "alidade.render_map:main"
 alidade-dump = "alidade.dump_qgis:main"
 alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"
+alidade-publish = "alidade.publish_arcgis:main"
+alidade-init = "alidade.scaffold:main"
+alidade-mkinclude = "alidade.mkinclude:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["alidade"]

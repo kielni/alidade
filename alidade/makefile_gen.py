@@ -2,6 +2,8 @@
 
 import argparse
 import re
+import shlex
+import sys
 from graphlib import TopologicalSorter
 from pathlib import Path
 
@@ -51,6 +53,9 @@ def generate(spec: BoundMap) -> str:
         "",
     ]
 
+    # Call the console script from the running environment so recipes work
+    # without uv and regardless of the directory make is invoked from.
+    build_layer = shlex.quote(str(Path(sys.executable).parent / "alidade-build-layer"))
     ordered = _topo_sort(spec)
     source_index = _build_source_index(layers_dir) if layers_dir.exists() else {}
     all_outputs: list[str] = []
@@ -73,7 +78,7 @@ def generate(spec: BoundMap) -> str:
 
         prereq_str = " \\\n        ".join(prereqs)
         lines.append(f"{output}: {prereq_str}")
-        lines.append(f"\tuv run alidade-build-layer {map_path} {layer.id}")
+        lines.append(f"\t{build_layer} {map_path} {layer.id}")
         lines.append("")
 
     lines.append(".PHONY: all")
