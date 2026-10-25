@@ -14,9 +14,9 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.palette import PARK_BORDER, TRANSPARENT
-from projects.goats.util import BUFFER_100FT_M, CRS
+from .park_boundary import park_boundary
+from ..palette import PARK_BORDER, TRANSPARENT
+from ..util import BUFFER_100FT_M, CRS
 
 
 def create_border(layer: BoundLayer) -> None:

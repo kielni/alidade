@@ -26,57 +26,65 @@ source = { editable = "." }
 dependencies = [
     { name = "arcgis" },
     { name = "azure-storage-blob" },
-    { name = "black" },
     { name = "contextily" },
     { name = "esda" },
-    { name = "flake8" },
     { name = "geopandas" },
     { name = "geopy" },
     { name = "libpysal" },
     { name = "lxml" },
     { name = "mapclassify" },
     { name = "matplotlib" },
-    { name = "mypy" },
     { name = "openpyxl" },
     { name = "palettable" },
     { name = "pydantic" },
     { name = "pyproj" },
     { name = "pysheds" },
-    { name = "pytest" },
-    { name = "qgis-stubs" },
     { name = "rasterio" },
     { name = "rasterstats" },
     { name = "scipy" },
     { name = "statsmodels" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+    { name = "flake8" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "qgis-stubs" },
     { name = "types-geopandas" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "arcgis", specifier = ">=2.4.3" },
-    { name = "azure-storage-blob", specifier = ">=12.1,<=12.8" },
-    { name = "black", specifier = ">=26.3.1" },
+    { name = "azure-storage-blob", specifier = ">=12.1,<=12.17" },
     { name = "contextily", specifier = ">=1.7.1" },
     { name = "esda", specifier = ">=2.9.0" },
-    { name = "flake8", specifier = ">=7.3.0" },
     { name = "geopandas", specifier = ">=1.1.3" },
     { name = "geopy", specifier = ">=2.4.1" },
     { name = "libpysal", specifier = ">=4.14.1" },
     { name = "lxml", specifier = ">=6.1.0" },
     { name = "mapclassify", specifier = ">=2.10.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
-    { name = "mypy", specifier = ">=2.1.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "palettable", specifier = ">=3.3.3" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyproj", specifier = ">=3.7.2" },
     { name = "pysheds", specifier = ">=0.5" },
-    { name = "pytest", specifier = ">=9.0.3" },
-    { name = "qgis-stubs", specifier = ">=0.2.0" },
     { name = "rasterio", specifier = ">=1.5.0" },
     { name = "rasterstats", specifier = ">=0.21.0" },
     { name = "scipy", specifier = ">=1.15.0" },
     { name = "statsmodels", specifier = ">=0.14.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=26.3.1" },
+    { name = "flake8", specifier = ">=7.3.0" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "qgis-stubs", specifier = ">=0.2.0" },
     { name = "types-geopandas", specifier = ">=1.1.3" },
 ]
 

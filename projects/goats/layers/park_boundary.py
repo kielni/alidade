@@ -1,6 +1,6 @@
 from alidade.models import Layer, SimpleFill, SingleSymbol, Symbol
-from projects.goats.palette import PARK_BOUNDARY_EDGE, TRANSPARENT
-from projects.goats.util import CRS_WGS84
+from ..palette import PARK_BOUNDARY_EDGE, TRANSPARENT
+from ..util import CRS_WGS84
 
 """
 Alum Rock Park boundary layer, from OpenStreetMap data

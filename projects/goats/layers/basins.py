@@ -33,12 +33,12 @@ from alidade.models import (
     SimpleFill,
     Symbol,
 )
-from projects.goats.layers.elevation import elevation
-from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.suitability import suitability
-from projects.goats.palette import FEATURE_EDGE, SUITABILITY
-from projects.goats.util import CRS, clip_park
+from .elevation import elevation
+from .exclude_water_vegetation import exclude_water_vegetation
+from .park_boundary import park_boundary
+from .suitability import suitability
+from ..palette import FEATURE_EDGE, SUITABILITY
+from ..util import CRS, clip_park
 
 # 1 acre minimum — filters slivers from riparian subtraction and park clipping
 MIN_AREA_M2 = 4_047.0

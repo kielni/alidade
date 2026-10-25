@@ -1,41 +1,46 @@
 """Shared utilities for loading map specs and resolving layer source paths."""
 
-import importlib
+import importlib.util
+import sys
 import types
 from pathlib import Path
 
 from alidade.models import BoundMap, Map
 
-# helpers.py lives at alidade/util/helpers.py; repo root is three .parent() calls up
-REPO_ROOT = Path(__file__).parent.parent.parent
-
-
-def _package_parts(map_path: Path) -> tuple[str, ...]:
-    """Return the repo-relative path parts for map_path.
-
-    Handles the case where map_path was resolved through a symlink
-    (e.g. projects/joins -> /some/other/dir): searches projects/* for a
-    symlink whose resolved target matches map_path.
-    """
-    try:
-        return map_path.relative_to(REPO_ROOT).parts
-    except ValueError:
-        pass
-    for candidate in (REPO_ROOT / "projects").glob("*"):
-        if candidate.is_symlink() and candidate.resolve() == map_path:
-            return candidate.relative_to(REPO_ROOT).parts
-    raise ValueError(
-        f"{str(map_path)!r} is not under {str(REPO_ROOT)!r} "
-        "and no symlink in projects/ resolves to it"
-    )
-
 
 def load_map_module(map_path: Path) -> types.ModuleType:
-    """Import the project package at map_path and return the module."""
-    if not (map_path / "__init__.py").exists():
+    """Import the project package at map_path and return the module.
+
+    The project is imported under its own directory name, so it can live
+    anywhere on disk. Only the project package is registered in
+    sys.modules; its parent directory is not added to sys.path, so sibling
+    directories cannot shadow installed packages. Modules inside the project
+    must import each other with relative imports (``from ..util import CRS``).
+    """
+    init = map_path / "__init__.py"
+    if not init.exists():
         raise SystemExit(f"__init__.py not found in {map_path}")
-    package = ".".join(_package_parts(map_path))
-    return importlib.import_module(package)
+    name = map_path.name
+    existing = sys.modules.get(name)
+    if existing is not None:
+        if Path(existing.__file__ or "").resolve() == init.resolve():
+            return existing
+        raise SystemExit(
+            f"cannot load project {str(map_path)!r}: module name {name!r} is "
+            f"already taken by {existing.__file__!r}; rename the project directory"
+        )
+    spec = importlib.util.spec_from_file_location(
+        name, init, submodule_search_locations=[str(map_path)]
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        del sys.modules[name]
+        raise
+    return module
 
 
 def bind_map(map_path: Path) -> BoundMap:

@@ -93,14 +93,14 @@ from alidade.models import (
     PalettedRenderer,
     PythonAction,
 )
-from projects.goats.layers.exclude_water_vegetation import exclude_water_vegetation
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.priority_developed import priority_developed
-from projects.goats.layers.priority_roads_trails import priority_roads_trails
-from projects.goats.layers.slope import slope
-from projects.goats.layers.vegetation import vegetation
-from projects.goats.palette import SUITABILITY
-from projects.goats.util import CRS
+from .exclude_water_vegetation import exclude_water_vegetation
+from .park_boundary import park_boundary
+from .priority_developed import priority_developed
+from .priority_roads_trails import priority_roads_trails
+from .slope import slope
+from .vegetation import vegetation
+from ..palette import SUITABILITY
+from ..util import CRS
 
 M2_PER_ACRE = 4046.856
 

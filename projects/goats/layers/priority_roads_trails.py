@@ -12,10 +12,10 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.roads_trails import roads_trails
-from projects.goats.palette import PRIORITY_ROADS_FILL
-from projects.goats.util import BUFFER_30FT_M, CRS, clip_park
+from .park_boundary import park_boundary
+from .roads_trails import roads_trails
+from ..palette import PRIORITY_ROADS_FILL
+from ..util import BUFFER_30FT_M, CRS, clip_park
 
 
 def create_priority_roads_trails(layer: BoundLayer) -> None:

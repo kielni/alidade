@@ -424,3 +424,18 @@ entry-point file `project.py` renamed to `main.py` (git mv).
   all `Project(...)` → `Map(...)`
 - `map.py` — `BoundProject` → `BoundMap`, `project_path` → `map_path`,
   import updated to `projects.goats.main`
+
+---
+
+## Step 21 — Relative imports
+
+Packaging phase 1 (see alidade `TODO.md`): alidade now loads a project
+under its own directory name from any location, so intra-project imports
+were rewritten from `from projects.goats.<module> import ...` to relative
+form (`from ..util import ...` in layers, `from .layers.<x> import ...` in
+`main.py`). No layer behavior or styling changed.
+
+**Files changed:**
+- `main.py`, `util.py`, and every `layers/*.py` that imported project modules
+- `layers/elevation.py`, `layers/vegetation.py` — standalone run instructions
+  now `uv run python -m projects.goats.layers.<name>`
