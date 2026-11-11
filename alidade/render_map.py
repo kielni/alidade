@@ -516,7 +516,7 @@ def _build_figure(spec: BoundMap) -> tuple[plt.Figure, Axes]:
     ax.set_ylim(ymin, ymax)
     ax.set_title(spec.title, fontsize=14, pad=10)
     if legend_handles:
-        ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
+        ax.legend(handles=legend_handles, loc=spec.legend_loc, fontsize=8)
 
     return fig, ax
 

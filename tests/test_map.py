@@ -57,6 +57,15 @@ def test_build_figure_graduated_renderer(make_map, graduated_layer):
     assert "High" in labels
 
 
+def test_build_figure_legend_loc(make_map, graduated_layer):
+    spec = make_map([graduated_layer])
+    _, ax = _build_figure(spec)
+    assert ax.get_legend()._loc == 2  # matplotlib code for "upper left"
+    spec.legend_loc = "lower right"
+    _, ax = _build_figure(spec)
+    assert ax.get_legend()._loc == 4  # matplotlib code for "lower right"
+
+
 def test_build_figure_multiband_raster(multiband_map):
     _, ax = _build_figure(multiband_map)
     assert len(ax.images) == 1

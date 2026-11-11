@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from alidade.config import find_project_root, get_setting
 from alidade.publish_arcgis import ItemRegistry
 

@@ -89,6 +89,11 @@ immediately above each `Map(...)` call to describe its purpose:
 map_veg = Map(id="vegetation", title="...", crs=CRS, extent=EXTENT, layers=[...])
 ```
 
+PNG renders (`make map`) place the legend in the upper left. Set
+`legend_loc` on a `Map` to any matplotlib legend `loc` value to move it,
+e.g. `Map(..., legend_loc="lower right")`. The QGIS print layout positions
+its legend separately, with `PrintLegend(x_mm=..., y_mm=...)`.
+
 At the bottom, collect named maps and assign the default build target:
 
 ```python
