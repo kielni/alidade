@@ -1,20 +1,21 @@
 """CIMStandardDataConnection builder for shapefile layers."""
 
-import os
 from pathlib import Path
 from typing import Any
 
+from alidade.config import find_project_root, get_setting
 from alidade.models import Layer
 
 
 def _resolve_arcgis_path(local_path: Path, project_dir: Path) -> Path:
     """Remap a local absolute path to the ArcGIS machine path.
 
-    If ARCGIS_WORKSPACE_ROOT is set in local.env, paths that are relative to
-    project_dir are remapped to ARCGIS_WORKSPACE_ROOT / project_dir.name / <rel>.
-    Otherwise the local absolute path is returned unchanged (same machine).
+    If the ARCGIS_WORKSPACE_ROOT setting is present (see alidade.config),
+    paths that are relative to project_dir are remapped to
+    ARCGIS_WORKSPACE_ROOT / project_dir.name / <rel>. Otherwise the local
+    absolute path is returned unchanged (same machine).
     """
-    base = os.environ.get("ARCGIS_WORKSPACE_ROOT")
+    base = get_setting("ARCGIS_WORKSPACE_ROOT", find_project_root(project_dir))
     if not base:
         return local_path
     try:

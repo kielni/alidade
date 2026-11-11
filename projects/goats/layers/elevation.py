@@ -5,15 +5,15 @@ https://www.sciencebase.gov/catalog/item/6a2776cf1ba49b927058c152
 https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38w122/USGS_13_n38w122_20250826.tif
 
 Checked in version is cropped to project area via
-`uv run projects/goats/layers/elevation.py`
+`uv run python -m projects.goats.layers.elevation`
 """
 
 import os
 import subprocess
 
 from alidade.models import BoundLayer, Layer, PythonAction
-from projects.goats.layers.border import border
-from projects.goats.util import BBOX_GENERAL, CRS
+from .border import border
+from ..util import BBOX_GENERAL, CRS
 
 SRC_CRS = "EPSG:4269"
 NODATA = "-999999"
@@ -98,5 +98,5 @@ elevation = Layer(
 
 
 if __name__ == "__main__":
-    # run via `uv run projects/goats/layers/elevation.py`
+    # run via `uv run python -m projects.goats.layers.elevation`
     crop_elevation_to_bbox()

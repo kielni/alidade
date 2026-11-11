@@ -5,7 +5,7 @@ import geopandas as gpd
 
 from alidade.color import Color
 from alidade.models import Rule
-from projects.goats.palette import (
+from .palette import (
     VEG_DEVELOPED,
     VEG_HERBACEOUS,
     VEG_NATIVE_WOOD,

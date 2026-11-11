@@ -5,17 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "alidade"
 version = "0.1.0"
-description = "Add your description here"
+description = "A toolkit for managing GIS projects as code, built for working with an LLM."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "black>=26.3.1",
-    "flake8>=7.3.0",
     "geopandas>=1.1.3",
     "lxml>=6.1.0",
-    "mypy>=2.1.0",
-    "qgis-stubs>=0.2.0",
-    "types-geopandas>=1.1.3",
     "pydantic>=2.13.4",
     "pyproj>=3.7.2",
     "mapclassify>=2.10.0",
@@ -30,10 +25,19 @@ dependencies = [
     "rasterstats>=0.21.0",
     "pysheds>=0.5",
     "arcgis>=2.4.3",
-    "azure-storage-blob>=12.1,<=12.8",
-    "pytest>=9.0.3",
+    "azure-storage-blob>=12.1,<=12.17",
     "openpyxl>=3.1.5",
     "contextily>=1.7.1",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "flake8>=7.3.0",
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "qgis-stubs>=0.2.0",
+    "types-geopandas>=1.1.3",
 ]
 
 [project.scripts]
@@ -44,6 +48,9 @@ alidade-map = "alidade.render_map:main"
 alidade-dump = "alidade.dump_qgis:main"
 alidade-extent = "alidade.extent:main"
 alidade-validate = "alidade.validate:main"
+alidade-publish = "alidade.publish_arcgis:main"
+alidade-init = "alidade.scaffold:main"
+alidade-mkinclude = "alidade.mkinclude:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["alidade"]

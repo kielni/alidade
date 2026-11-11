@@ -13,10 +13,10 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.developed_area import developed_area
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.palette import PRIORITY_DEVELOPED_FILL
-from projects.goats.util import BUFFER_100FT_M, CRS, clip_park
+from .developed_area import developed_area
+from .park_boundary import park_boundary
+from ..palette import PRIORITY_DEVELOPED_FILL
+from ..util import BUFFER_100FT_M, CRS, clip_park
 
 
 def create_priority_developed(layer: BoundLayer) -> None:

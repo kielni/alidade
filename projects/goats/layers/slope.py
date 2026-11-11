@@ -14,14 +14,14 @@ from alidade.models import (
     PalettedRenderer,
     PythonAction,
 )
-from projects.goats.layers.elevation import elevation
-from projects.goats.palette import (
+from .elevation import elevation
+from ..palette import (
     SLOPE_GENTLE,
     SLOPE_MODERATE,
     SLOPE_STEEP,
     SLOPE_TOO_STEEP,
 )
-from projects.goats.util import CRS
+from ..util import CRS
 
 # Slope categories: (value, lo_pct, hi_pct_exclusive, color, label)
 CLASSES = [

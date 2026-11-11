@@ -29,9 +29,9 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.border import border
-from projects.goats.palette import ROADS_LINE
-from projects.goats.util import CRS, clip_border
+from .border import border
+from ..palette import ROADS_LINE
+from ..util import CRS, clip_border
 
 
 def clip_roads_trails(layer: BoundLayer) -> None:

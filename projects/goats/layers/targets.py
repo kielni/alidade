@@ -42,10 +42,10 @@ from alidade.models import (
     SimpleMarker,
     Symbol,
 )
-from projects.goats.layers.staging import staging
-from projects.goats.layers.suitability import suitability
-from projects.goats.palette import TARGET_RANK_TIERS
-from projects.goats.util import CRS
+from .staging import staging
+from .suitability import suitability
+from ..palette import TARGET_RANK_TIERS
+from ..util import CRS
 
 BUFFER_M = 804.672  # 0.5 mile
 

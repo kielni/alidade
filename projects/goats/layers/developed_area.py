@@ -19,8 +19,8 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.palette import DEVELOPED_EDGE, DEVELOPED_FILL
-from projects.goats.util import CRS
+from ..palette import DEVELOPED_EDGE, DEVELOPED_FILL
+from ..util import CRS
 
 SIMPLIFY_TOLERANCE_M = 10
 

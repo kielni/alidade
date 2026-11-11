@@ -399,6 +399,8 @@ class Map(BaseModel):
     layers: list[Layer]
     extent: Extent | None = None
     print_layout: PrintLayout | None = None
+    # matplotlib legend `loc` for PNG renders, e.g. "lower right"
+    legend_loc: str = "upper left"
 
 
 class BoundMap(Map):

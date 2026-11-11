@@ -29,9 +29,9 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.border import border
-from projects.goats.palette import WATER_FILL
-from projects.goats.util import CRS, clip_border
+from .border import border
+from ..palette import WATER_FILL
+from ..util import CRS, clip_border
 
 
 def clip_water(layer: BoundLayer) -> None:

@@ -12,10 +12,10 @@ from alidade.models import (
     SingleSymbol,
     Symbol,
 )
-from projects.goats.layers.park_boundary import park_boundary
-from projects.goats.layers.water import water
-from projects.goats.palette import WATER_EDGE, WATER_FILL_SEMI
-from projects.goats.util import BUFFER_100FT_M, CRS, clip_park
+from .park_boundary import park_boundary
+from .water import water
+from ..palette import WATER_EDGE, WATER_FILL_SEMI
+from ..util import BUFFER_100FT_M, CRS, clip_park
 
 
 def create_exclude_water_vegetation(layer: BoundLayer) -> None:
